@@ -24,6 +24,9 @@ dependencies:
 
 library:
   source-dirs: src
+  dependencies:
+  - hashable
+  - intern
 
 executables:
   derive-cfg-exe:
