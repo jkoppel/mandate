@@ -26,8 +26,10 @@ library:
   source-dirs: src
   dependencies:
   - bytestring
+  - containers
   - hashable
   - intern
+  - mtl
 
 executables:
   derive-cfg:

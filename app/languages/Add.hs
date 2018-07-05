@@ -12,7 +12,7 @@ import Var
 
 data AddLang
 
-type instance RedState AddLang v = ()
+type instance RedState AddLang = EmptyState
 
 addLangSig :: Signature AddLang
 addLangSig = Signature [ NodeSig "+" ["Exp", "Exp"] "Exp"
@@ -32,7 +32,7 @@ mv :: MetaVar -> Term AddLang Open
 mv = MetaVar
 
 conf :: Term AddLang v -> Configuration AddLang v
-conf t = Conf t ()
+conf t = Conf t EmptyState
 
 addLangRules :: IO (Rules AddLang)
 addLangRules = sequence  [

@@ -9,6 +9,6 @@ import Matching
 import Semantics
 import Term
 
-class (Matchable (RedState l Closed)) => Lang l where
+class (Matchable (RedState l)) => Lang l where
   signature :: Signature l
   rules :: MRules l
