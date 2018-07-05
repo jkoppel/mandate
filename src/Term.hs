@@ -1,8 +1,17 @@
 {-# LANGUAGE FlexibleInstances, TypeSynonymInstances #-}
 {-# LANGUAGE DataKinds, DeriveGeneric, EmptyDataDecls, GADTs, StandaloneDeriving, TypeFamilies #-}
 
-module SOS (
-
+module Term (
+  Sort(..)
+, Symbol(..)
+, SigNode(..)
+, Signature(..)
+, Term(..)
+, node
+, metaVar
+, MetaVar
+,
+, Lang(..)
 ) where
 
 import Data.Function ( on )
@@ -45,6 +54,7 @@ data AnyLanguage
 
 data VarSet = Closed | Open
 
+-- TODO: Consider hiding ids/constructors, using pattern syns
 data Term v a where
     Node    :: !Id -> !Symbol  -> [Term v a] -> Term v a
     MetaVar :: !Id -> !MetaVar -> Term Open a
