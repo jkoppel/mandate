@@ -1,6 +1,8 @@
 module Main where
 
-import Lib
+import Data.List
+
+import Languages.Add
 
 main :: IO ()
-main = someFunc
+main = print =<< addLangRules
