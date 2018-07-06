@@ -5,6 +5,7 @@ module Languages.Add (
   , addLangRules
   ) where
 
+import Configuration
 import Matching
 import Semantics
 import Term
@@ -46,7 +47,7 @@ addLangRules = sequence  [
                              let (mv1, me2, me2') = (mv v1, mv e2, mv e2') in
                              StepTo (conf $ Plus (Val mv1) me2)
                                (LetStepTo (conf me2') (conf me2)
-                               (Build $ conf $ Plus mv1 me2'))
+                               (Build $ conf $ Plus (Val mv1) me2'))
 
                  , mkRule3 $ \v1 v2 v' ->
                              let (mv1, mv2, mv') = (mv v1, mv v2, mv v') in
@@ -54,3 +55,9 @@ addLangRules = sequence  [
                                (LetComputation v' ([v1, v2], \[Const n1, Const n2] -> Const (n1+n2))
                                (Build $ conf $ Val mv'))
                ]
+
+
+-----------
+
+term1 :: Term AddLang Closed
+term1 = Plus (Plus (Val $ Const 1) (Val $ Const 2)) (Plus (Val $ Const 3) (Val $ Const 4))

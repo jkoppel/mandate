@@ -1,7 +1,8 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 module Var (
-    MetaVar
+    OpenClosed(..)
+  , MetaVar
   , nextVar
   ) where
 
@@ -10,6 +11,10 @@ import Data.IORef
 import System.IO.Unsafe ( unsafePerformIO )
 
 import Data.Hashable ( Hashable )
+
+-------------------------------------------------------------------
+
+data OpenClosed = Closed | Open
 
 newtype MetaVar = MetaVar Int
   deriving ( Eq, Ord, Hashable )

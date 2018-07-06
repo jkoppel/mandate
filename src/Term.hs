@@ -27,7 +27,6 @@ import Data.Hashable ( Hashable(..) )
 import Data.Interned ( Interned(..), intern, unintern, Id, Cache, mkCache )
 import Data.Interned.ByteString ( InternedByteString(..) )
 
-import Matching
 import Var
 
 -----------------------------------------------------------------------------------------------------------

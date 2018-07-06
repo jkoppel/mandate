@@ -30,6 +30,7 @@ library:
   - hashable
   - intern
   - mtl
+  - transformers
 
 executables:
   derive-cfg:

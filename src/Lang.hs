@@ -5,6 +5,7 @@ module Lang (
   , Configuration(..)
   ) where
 
+import Configuration
 import Matching
 import Semantics
 import Term
