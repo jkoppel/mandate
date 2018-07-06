@@ -11,7 +11,12 @@ module Semantics (
 
   , mkRule0, mkRule1, mkRule2
   , mkRule3, mkRule4, mkRule5
+
+  , checkRule
+  , checkRules
   ) where
+
+import Control.DeepSeq ( deepseq )
 
 import Control.Monad ( MonadPlus(..), guard )
 import Control.Monad.Trans ( lift )
@@ -118,3 +123,20 @@ mkRule4 f = f <$> nextVar <*> nextVar <*> nextVar <*> nextVar
 
 mkRule5 :: (MetaVar -> MetaVar -> MetaVar -> MetaVar -> MetaVar -> StepTo l) -> IO (StepTo l)
 mkRule5 f = f <$> nextVar <*> nextVar <*> nextVar <*> nextVar <*> nextVar
+
+-------------------------------- Sort checking ------------------------------
+
+-- Current impl does not track MetaVar sorts, nor does it check the RedState
+
+checkRhs :: Signature l -> Rhs l -> ()
+checkRhs sig (Build conf) = checkTerm sig (confTerm conf)
+checkRhs sig (SideCondition _ r) = checkRhs sig r
+checkRhs sig (LetStepTo c1 c2 r) = checkTerm sig (confTerm c1) `seq` checkTerm sig (confTerm c2) `seq` checkRhs sig r
+checkRhs sig (LetComputation _ _ r) = checkRhs sig r
+
+checkRule :: Signature l -> StepTo l -> ()
+checkRule sig (StepTo conf rhs) = checkTerm sig (confTerm conf) `seq` checkRhs sig rhs
+
+checkRules :: Signature l -> Rules l -> ()
+checkRules sig []     = ()
+checkRules sig (r:rs) = checkRule sig r `seq` checkRules sig rs
