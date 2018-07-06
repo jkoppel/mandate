@@ -36,7 +36,7 @@ conf :: Term AddLang v -> Configuration AddLang v
 conf t = Conf t EmptyState
 
 addLangRules :: IO (Rules AddLang)
-addLangRules = sequence  [
+addLangRules = sequence [
                    mkRule3 $ \e1 e2 e1' ->
                              let (me1, me2, me1') = (mv e1, mv e2, mv e1') in
                              StepTo (conf $ Plus me1 me2)
