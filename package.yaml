@@ -27,6 +27,7 @@ library:
   dependencies:
   - bytestring
   - containers
+  - deepseq
   - hashable
   - intern
   - mtl

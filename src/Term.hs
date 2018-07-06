@@ -5,6 +5,8 @@ module Term (
   Sort(..)
 , Symbol(..)
 , SigNode(..)
+, sigNodeSymbol
+, sigNodeSort
 , Signature(..)
 
 , Term
@@ -12,10 +14,13 @@ module Term (
 , pattern IntNode
 , pattern MetaVar
 
+, checkTerm
 ) where
 
+import Control.DeepSeq ( deepseq )
+
 import Data.Function ( on )
-import Data.List ( intersperse )
+import Data.List ( intersperse, find )
 import Data.String ( IsString(..) )
 
 import GHC.Generics ( Generic )
@@ -59,6 +64,14 @@ instance Hashable Symbol where
 data SigNode = NodeSig !Symbol [Sort] Sort
              | IntSig !Symbol Sort
   deriving ( Eq, Ord, Show, Generic )
+
+sigNodeSymbol :: SigNode -> Symbol
+sigNodeSymbol (NodeSig s _ _) = s
+sigNodeSymbol (IntSig s _)    = s
+
+sigNodeSort :: SigNode -> Sort
+sigNodeSort (NodeSig _ _ s) = s
+sigNodeSort (IntSig _ s)    = s
 
 data Signature a = Signature [SigNode]
   deriving ( Eq, Ord, Show, Generic )
@@ -153,6 +166,49 @@ pattern IntNode :: Symbol -> Integer -> Term a v
 pattern IntNode s n <- (TIntNode _ s n) where
   IntNode s n = fromGeneric $ intern $ toUGeneric (BIntNode s n)
 
-pattern MetaVar :: MetaVar -> Term a Open
+pattern MetaVar :: () => (v ~ Open) => MetaVar -> Term a v
 pattern MetaVar v <- (TMetaVar _ v) where
   MetaVar v = fromGeneric $ intern $ toUGeneric (BMetaVar v)
+
+
+------------------------------------------------------------------------------------
+
+-- If want the language in error messages, can add Typeable constraints and show the TypeRep
+getInSig :: Signature l -> Symbol -> SigNode
+getInSig (Signature sig) s = case find (\n -> sigNodeSymbol n == s) sig of
+                           Just n -> n
+                           Nothing -> error ("Cannot find symbol " ++ show s ++ " in signature " ++ show sig)
+
+sortForSym :: Signature l -> Symbol -> Sort
+sortForSym sig s = sigNodeSort $ getInSig sig s
+
+-- Metavars are currently unsorted / can have any sort
+sortOfTerm :: Signature l -> Term l v -> Maybe Sort
+sortOfTerm sig (Node    sym _) = Just $ sortForSym sig sym
+sortOfTerm sig (IntNode sym _) = Just $ sortForSym sig sym
+sortOfTerm sig (MetaVar _)     = Nothing
+
+sortCheckTerm :: Signature l -> Term l v -> Sort -> ()
+sortCheckTerm sig t sort =
+  case sortOfTerm sig t of
+    Just sort' -> if sort' == sort then
+                    ()
+                  else
+                    error ("Expected term " ++ show t ++ " to have sort " ++ show sort ++ " but was sort " ++ show sort')
+    Nothing -> ()
+
+-- This version is for debugging only, and will halt execution on failure
+-- Bad terms should never be created
+checkTerm :: Signature l -> Term l v -> ()
+checkTerm sig t@(Node s ts)   = case getInSig sig s of
+                                  NodeSig _ ss _ -> if length ss /= length ts then
+                                                      error ("Invalid number of arguments in " ++ show t)
+                                                    else
+                                                      zipWith (sortCheckTerm sig) ts ss `deepseq`
+                                                      map (checkTerm sig) ts `deepseq`
+                                                      ()
+                                  IntSig _ _     -> error ("In Term " ++ show t ++ ", IntNode symbol used as node: " ++ show s)
+checkTerm sig t@(IntNode s i) = case getInSig sig s of
+                                  NodeSig _ _ _ -> error ("In Term " ++ show t ++ ", node symbol used as IntNode: " ++ show s)
+                                  IntSig _ _    -> ()
+checkTerm _   (MetaVar _)   = (())
