@@ -12,6 +12,7 @@ module Term (
 , Term
 , pattern Node
 , pattern IntNode
+, pattern StrNode
 , pattern MetaVar
 
 , checkTerm

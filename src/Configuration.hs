@@ -1,4 +1,4 @@
-{-# LANGUAGE DataKinds, FlexibleInstances, GADTs, KindSignatures, TypeFamilies #-}
+{-# LANGUAGE DataKinds, FlexibleInstances, GADTs, KindSignatures, PatternSynonyms, TypeFamilies, ViewPatterns #-}
 
 module Configuration (
     RedState
@@ -9,6 +9,10 @@ module Configuration (
   , SimpEnv(..)
   , SimpEnvMap(..)
   , getSimpEnvMap
+
+  , pattern EmptySimpMap
+  , pattern EmptySimpEnv
+  , pattern WholeSimpEnv
   ) where
 
 import Data.Map ( Map )
@@ -31,7 +35,7 @@ type Configuration l = GConfiguration l (RedState l)
 data EmptyState (v :: OpenClosed) = EmptyState
 
 instance {-# OVERLAPPABLE #-} (Show (s v)) => Show (GConfiguration l s v) where
-  showsPrec d (Conf t s) = showString "(" . showsPrec d t . showString ", " . showsPrec d s . showString ")"
+  showsPrec d (Conf t s) = showString "(" . showsPrec d t . showString "; " . showsPrec d s . showString ")"
 
 instance {-# OVERLAPPING #-} Show (GConfiguration l EmptyState v) where
   showsPrec d (Conf t _) = showsPrec d t
@@ -51,6 +55,16 @@ data SimpEnvMap a b (v :: OpenClosed) where
 getSimpEnvMap :: SimpEnvMap a b v-> Map a (b v)
 getSimpEnvMap (SimpEnvMap m) = m
 
+pattern EmptySimpMap :: (Ord a) => (Ord a) => SimpEnvMap a b v
+pattern EmptySimpMap <- SimpEnvMap (Map.null -> True) where
+  EmptySimpMap = SimpEnvMap Map.empty
+
+pattern EmptySimpEnv :: (Ord a, Typeable a, Typeable b) => (Ord a, Typeable a, Typeable b) => SimpEnv a b v
+pattern EmptySimpEnv = JustSimpMap EmptySimpMap
+
+pattern WholeSimpEnv :: (Ord a, Typeable a, Typeable b) => (Ord a, Typeable a, Typeable b) => MetaVar -> SimpEnv a b Open
+pattern WholeSimpEnv v = SimpEnvRest v EmptySimpMap
+
 -- TODO: Intern
 
 
@@ -58,5 +72,8 @@ instance (Show a, Show (b v)) => Show (SimpEnvMap a b v) where
   showsPrec d (SimpEnvMap m) = foldr (\(k,v) s -> s . showsPrec (d+1) k . showString ": " . showsPrec (d+1) v) id (Map.toList m)
 
 instance (Show a, Show (b v)) => Show (SimpEnv a b v) where
-  showsPrec d (SimpEnvRest v m) = showsPrec d v . showString ", " . showsPrec d m
+  showsPrec d (SimpEnvRest v m) = if Map.null (getSimpEnvMap m) then
+                                    showsPrec d v
+                                  else
+                                    showsPrec d v . showString ", " . showsPrec d m
   showsPrec d (JustSimpMap m)   = showsPrec d m

@@ -43,6 +43,7 @@ executables:
     - -with-rtsopts=-N
     dependencies:
     - derive-cfg
+    - intern
 
 tests:
   derive-cfg-test:

@@ -127,6 +127,8 @@ mkRule5 f = f <$> nextVar <*> nextVar <*> nextVar <*> nextVar <*> nextVar
 -------------------------------- Sort checking ------------------------------
 
 -- Current impl does not track MetaVar sorts, nor does it check the RedState
+-- Unfortunately, so far, messing up the MetaVar sort is 1/1 of my rule errors, so
+-- don't let this give you a false sense of security!
 
 checkRhs :: Signature l -> Rhs l -> ()
 checkRhs sig (Build conf) = checkTerm sig (confTerm conf)
