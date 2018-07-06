@@ -7,6 +7,7 @@ module Semantics (
   , MRules
 
   , stepTerm
+  , evaluationSequence
 
   , mkRule0, mkRule1, mkRule2
   , mkRule3, mkRule4, mkRule5
@@ -91,6 +92,11 @@ stepTerm rs t = runMatch $ go rs
     go []     = mzero
     go (r:rs) = useRule rs r t `mplus` go rs
 
+
+evaluationSequence :: (Matchable (Configuration l)) => Rules l -> Configuration l Closed -> [Configuration l Closed]
+evaluationSequence rules c = c : case stepTerm rules c of
+                                   Nothing -> []
+                                   Just c' -> evaluationSequence rules c'
 
 -------------------------------- Helpers for creating rules ------------------------------
 
