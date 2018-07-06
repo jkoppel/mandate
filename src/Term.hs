@@ -63,15 +63,18 @@ instance Hashable Symbol where
 
 data SigNode = NodeSig !Symbol [Sort] Sort
              | IntSig !Symbol Sort
+             | StrSig !Symbol Sort
   deriving ( Eq, Ord, Show, Generic )
 
 sigNodeSymbol :: SigNode -> Symbol
 sigNodeSymbol (NodeSig s _ _) = s
 sigNodeSymbol (IntSig s _)    = s
+sigNodeSymbol (StrSig s _)    = s
 
 sigNodeSort :: SigNode -> Sort
 sigNodeSort (NodeSig _ _ s) = s
 sigNodeSort (IntSig _ s)    = s
+sigNodeSort (StrSig _ s)    = s
 
 data Signature a = Signature [SigNode]
   deriving ( Eq, Ord, Show, Generic )
@@ -83,15 +86,16 @@ data Signature a = Signature [SigNode]
 -- between the same term in different languages
 data AnyLanguage
 
--- TODO: Consider hiding ids/constructors, using pattern syns
 data Term a v where
     TNode    :: !Id -> !Symbol  -> [Term a v] -> Term a v
     TIntNode :: !Id -> !Symbol -> Integer -> Term a v
+    TStrNode :: !Id -> !Symbol -> InternedByteString -> Term a v
     TMetaVar :: !Id -> !MetaVar -> Term a Open
 
 instance Show (Term a v) where
   showsPrec d (TNode _ s ts) = showsPrec (d+1) s . showList ts
   showsPrec d (TIntNode _ s n) = showsPrec (d+1) s . showString "(" . showsPrec (d+1) n . showString ")"
+  showsPrec d (TStrNode _ s str) = showsPrec (d+1) s . showString "(" . showsPrec (d+1) str . showString ")"
   showsPrec d (TMetaVar _ v) = showsPrec d v
 
   showList ts = showString "(" . foldr (.) id (intersperse (showString ", ") (map (showsPrec 0) ts)) . showString ")"
@@ -99,6 +103,7 @@ instance Show (Term a v) where
 getId :: Term a v -> Id
 getId (TNode    i _ _) = i
 getId (TIntNode i _ _) = i
+getId (TStrNode i _ _) = i
 getId (TMetaVar i _)   = i
 
 type GenericTerm = Term AnyLanguage Open
@@ -115,6 +120,7 @@ fromGeneric = unsafeCoerce
 data UninternedTerm v a where
  BNode :: Symbol -> [Term a v] -> UninternedTerm a v
  BIntNode :: Symbol -> Integer -> UninternedTerm a v
+ BStrNode :: Symbol -> InternedByteString -> UninternedTerm a v
  BMetaVar :: MetaVar -> UninternedTerm a Open
 
 type GenericUninternedTerm = UninternedTerm AnyLanguage Open
@@ -130,17 +136,20 @@ instance Interned GenericTerm where
   type Uninterned GenericTerm = GenericUninternedTerm
   data Description GenericTerm = DNode Symbol [Id]
                                | DIntNode Symbol Integer
+                               | DStrNode Symbol Id
                                | DMetaVar MetaVar
     deriving ( Eq, Ord, Generic )
 
-  describe (BNode s ts)    = DNode s (map getId ts)
-  describe (BIntNode s n)  = DIntNode s n
-  describe (BMetaVar m)    = DMetaVar m
+  describe (BNode s ts)     = DNode s (map getId ts)
+  describe (BIntNode s n)   = DIntNode s n
+  describe (BStrNode s str) = DStrNode s (internedByteStringId str)
+  describe (BMetaVar m)     = DMetaVar m
 
   identify i = go where
-    go (BNode s ts)   = TNode i s ts
-    go (BIntNode s n) = TIntNode i s n
-    go (BMetaVar m)   = TMetaVar i m
+    go (BNode s ts)     = TNode i s ts
+    go (BIntNode s n)   = TIntNode i s n
+    go (BStrNode s str) = TStrNode i s str
+    go (BMetaVar m)    = TMetaVar i m
 
   cache = termCache
 
@@ -166,6 +175,10 @@ pattern IntNode :: Symbol -> Integer -> Term a v
 pattern IntNode s n <- (TIntNode _ s n) where
   IntNode s n = fromGeneric $ intern $ toUGeneric (BIntNode s n)
 
+pattern StrNode :: Symbol -> InternedByteString -> Term a v
+pattern StrNode s str <- (TStrNode _ s str) where
+  StrNode s str = fromGeneric $ intern $ toUGeneric (BStrNode s str)
+
 pattern MetaVar :: () => (v ~ Open) => MetaVar -> Term a v
 pattern MetaVar v <- (TMetaVar _ v) where
   MetaVar v = fromGeneric $ intern $ toUGeneric (BMetaVar v)
@@ -186,6 +199,7 @@ sortForSym sig s = sigNodeSort $ getInSig sig s
 sortOfTerm :: Signature l -> Term l v -> Maybe Sort
 sortOfTerm sig (Node    sym _) = Just $ sortForSym sig sym
 sortOfTerm sig (IntNode sym _) = Just $ sortForSym sig sym
+sortOfTerm sig (StrNode sym _) = Just $ sortForSym sig sym
 sortOfTerm sig (MetaVar _)     = Nothing
 
 sortCheckTerm :: Signature l -> Term l v -> Sort -> ()
@@ -208,7 +222,13 @@ checkTerm sig t@(Node s ts)   = case getInSig sig s of
                                                       map (checkTerm sig) ts `deepseq`
                                                       ()
                                   IntSig _ _     -> error ("In Term " ++ show t ++ ", IntNode symbol used as node: " ++ show s)
+                                  StrSig _ _     -> error ("In Term " ++ show t ++ ", StrNode symbol used as node: " ++ show s)
 checkTerm sig t@(IntNode s i) = case getInSig sig s of
                                   NodeSig _ _ _ -> error ("In Term " ++ show t ++ ", node symbol used as IntNode: " ++ show s)
                                   IntSig _ _    -> ()
+                                  StrSig _ _    -> error ("In Term " ++ show t ++ ", StrNode symbol used as IntNode: " ++ show s)
+checkTerm sig t@(StrNode s i) = case getInSig sig s of
+                                  NodeSig _ _ _ -> error ("In Term " ++ show t ++ ", node symbol used as IntNode: " ++ show s)
+                                  IntSig _ _    -> error ("In Term " ++ show t ++ ", IntNode symbol used as StrNode: " ++ show s)
+                                  StrSig _ _    -> ()
 checkTerm _   (MetaVar _)   = (())
