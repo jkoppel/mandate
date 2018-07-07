@@ -91,6 +91,9 @@ varExp s = VarExp $ Var $ VarName s
 pattern (:=) :: InternedByteString -> Term ImpLang v -> Term ImpLang v
 pattern (:=) var t = Assign (Var (VarName var)) t
 
+pattern (:<) :: Term ImpLang v -> Term ImpLang v -> Term ImpLang v
+pattern (:<) l r = LT l r
+
 intConst :: Integer -> Term ImpLang v
 intConst n = Val $ Const n
 
@@ -133,6 +136,31 @@ impLangRules = sequence [
                              let ms = mv s in
                              StepTo (conf (Seq Skip ms) mu)
                                (Build $ conf ms mu)
+
+                 , name "if-cong" $
+                   mkRule6 $ \e e' s t mu mu' ->
+                             let (me, me', ms, mt) = (mv e, mv e', mv s, mv t) in
+                             StepTo (conf (If me ms mt) mu)
+                               (LetStepTo (conf me' mu') (conf me mu)
+                               (Build $ conf (If me' ms mt) mu))
+
+                 , name "if-true" $
+                   mkRule3 $ \s t mu ->
+                             let (ms, mt) = (mv s, mv t) in
+                             StepTo (conf (If True ms mt) mu)
+                               (Build $ conf ms mu)
+
+                 , name "if-false" $
+                   mkRule3 $ \s t mu ->
+                             let (ms, mt) = (mv s, mv t) in
+                             StepTo (conf (If False ms mt) mu)
+                               (Build $ conf mt mu)
+
+                 , name "while" $
+                   mkRule3 $ \e s mu ->
+                            let (me, ms) = (mv e, mv s) in
+                            StepTo (conf (While me ms) mu)
+                              (Build $ conf (If me (ms `Seq` (While me ms)) Skip) mu)
 
                  ------------------------ Vars  ---------------------------------------------
 
@@ -178,14 +206,14 @@ impLangRules = sequence [
                              let (mv1, me2, me2') = (mv v1, mv e2, mv e2') in
                              StepTo (conf (LT (Val mv1) me2) g)
                                (LetStepTo (conf me2' g) (conf me2 g)
-                               (Build $ conf (LT (Val mv1) me2') g))
+                               (Build $ conf (LT mv1 me2') g))
 
                  , name "lt-eval" $
                    mkRule4 $ \v1 v2 v' g ->
                              let (mv1, mv2, mv') = (mv v1, mv v2, mv v') in
                              StepTo (conf (LT (Val mv1) (Val mv2)) g)
                                (LetComputation v' ([v1, v2], \[Const n1, Const n2] -> if n1 < n2 then True else False)
-                               (Build $ conf (Val mv') g))
+                               (Build $ conf mv' g))
 
                 ]
 
@@ -199,3 +227,11 @@ term1 =       ("x" := intConst 1)
 
 conf2 :: Configuration ImpLang Closed
 conf2 = Conf (varExp "x") (JustSimpMap $ SingletonSimpMap (VarName "x") (Const 1))
+
+term3 :: Term ImpLang Closed
+term3 =       ("i" := intConst 0)
+        `Seq` ("s" := intConst 0)
+        `Seq` (While (varExp "i" :< intConst 10)
+                (      ("s" := Plus (varExp "s") (varExp "i"))
+                 `Seq` ("i" := Plus (varExp "i") (intConst 1))))
+        `Seq` ("z" := intConst 100)

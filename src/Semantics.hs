@@ -14,6 +14,7 @@ module Semantics (
   , name
   , mkRule0, mkRule1, mkRule2
   , mkRule3, mkRule4, mkRule5
+  , mkRule6
 
   , checkRule
   , checkRules
@@ -157,6 +158,9 @@ mkRule4 f = f <$> nextVar <*> nextVar <*> nextVar <*> nextVar
 
 mkRule5 :: (MetaVar -> MetaVar -> MetaVar -> MetaVar -> MetaVar -> StepTo l) -> IO (StepTo l)
 mkRule5 f = f <$> nextVar <*> nextVar <*> nextVar <*> nextVar <*> nextVar
+
+mkRule6 :: (MetaVar -> MetaVar -> MetaVar -> MetaVar -> MetaVar -> MetaVar -> StepTo l) -> IO (StepTo l)
+mkRule6 f = f <$> nextVar <*> nextVar <*> nextVar <*> nextVar <*> nextVar <*> nextVar
 
 -------------------------------- Sort checking ------------------------------
 
