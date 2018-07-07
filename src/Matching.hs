@@ -1,4 +1,4 @@
-{-# LANGUAGE DataKinds, EmptyDataDecls, FlexibleContexts, FlexibleInstances, GADTs, TupleSections, UndecidableInstances, ViewPatterns #-}
+{-# LANGUAGE DataKinds, EmptyDataDecls, FlexibleContexts, FlexibleInstances, GADTs, GeneralizedNewtypeDeriving, TupleSections, UndecidableInstances, ViewPatterns #-}
 
 module Matching (
     MonadMatchable(..)
@@ -6,12 +6,18 @@ module Matching (
   , Match
   , runMatch
 
+  , MatchEffect
+  , runMatchEffect
+  , matchEffectInput
+  , matchEffectOutput
+
   , Matchable(..)
 
   , EmptyState(..)
   ) where
 
 import Control.Monad ( MonadPlus(..), guard )
+import Control.Monad.Identity ( Identity(..) )
 import Control.Monad.State ( MonadState(..), StateT, evalStateT, modify )
 import Control.Monad.Trans ( lift )
 
@@ -19,6 +25,11 @@ import Data.Dynamic ( Dynamic, toDyn, fromDynamic)
 import Data.Map ( Map, (!) )
 import qualified Data.Map as Map
 import Data.Typeable ( Typeable )
+
+import System.IO.Unsafe ( unsafePerformIO )
+
+import Data.ByteString.Char8 ( ByteString )
+import qualified Data.ByteString.Char8 as BS
 
 import Configuration
 import Debug
@@ -30,11 +41,28 @@ newtype MatchState = MatchState { getMatchState :: Map MetaVar Dynamic }
 modMatchState :: (Map MetaVar Dynamic -> Map MetaVar Dynamic) -> MatchState -> MatchState
 modMatchState f = MatchState . f . getMatchState
 
+
 -- Maybe is on inside; means state will reset on backtrack
 type Match = StateT MatchState Maybe
 
 runMatch :: Match a -> Maybe a
 runMatch m = evalStateT m (MatchState Map.empty)
+
+newtype MatchEffect a = MatchEffect (Identity a)
+  deriving ( Functor, Applicative, Monad )
+
+runMatchEffect :: MatchEffect a -> Match a
+runMatchEffect (MatchEffect x) = return $ runIdentity x
+
+matchEffectInput :: MatchEffect ByteString
+matchEffectInput = return $ unsafePerformIO BS.getLine
+{-# NOINLINE matchEffectInput #-}
+
+-- TODO: This doesn't actually work, probably because strictness,
+-- because probably I shouldn't be using unsafePerformIO. Oh well; not currently important.
+matchEffectOutput :: ByteString -> MatchEffect ()
+matchEffectOutput s = return $ unsafePerformIO $ BS.putStr s
+{-# NOINLINE matchEffectOutput #-}
 
 class (MonadPlus m) => MonadMatchable m where
   putVar :: (Typeable a, Eq (a Closed)) => MetaVar -> a Closed -> m ()

@@ -49,6 +49,8 @@ executables:
     - -rtsopts
     - -with-rtsopts=-N
     dependencies:
+    - bytestring
+    - deepseq
     - derive-cfg
     - intern
 

@@ -1,6 +1,7 @@
 :set -XOverloadedStrings
 :set -XTypeApplications
 :l Languages.Imp
+import Control.DeepSeq
 import Configuration
 import Term
 rs <- rules @ ImpLang

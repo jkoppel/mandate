@@ -56,7 +56,7 @@ addLangRules = sequence [
                    mkRule3 $ \v1 v2 v' ->
                              let (mv1, mv2, mv') = (mv v1, mv v2, mv v') in
                              StepTo (conf $ Plus (EVal mv1) (EVal mv2))
-                               (LetComputation v' ([v1, v2], \[Const n1, Const n2] -> Const (n1+n2))
+                               (LetComputation v' ([v1, v2], \[Const n1, Const n2] -> return $ Const (n1+n2))
                                (Build $ conf $ EVal mv'))
                ]
 

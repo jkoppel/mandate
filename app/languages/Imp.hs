@@ -7,6 +7,8 @@ module Languages.Imp (
 
 import Prelude hiding ( True, False, LT )
 
+import Data.ByteString.Char8 ( ByteString )
+import qualified Data.ByteString.Char8 as BS
 import Data.Interned.ByteString ( InternedByteString(..) )
 
 import Configuration
@@ -29,6 +31,9 @@ impLangSig = Signature [ NodeSig ":=" ["Var", "Exp"] "Stmt"
                        , NodeSig "Seq" ["Stmt", "Stmt"] "Stmt"
                        , NodeSig "If" ["Exp", "Stmt", "Stmt"] "Stmt"
                        , NodeSig "While" ["Exp", "Stmt"] "Stmt"
+
+                       , NodeSig "ReadInt" [] "Exp"
+                       , NodeSig "WriteInt" ["Exp"] "Stmt"
 
                        , NodeSig "Var" ["VarName"] "Var"
                        , StrSig "VarName" "VarName"
@@ -58,6 +63,12 @@ pattern If x y z = Node "If" [x,y,z]
 pattern While :: Term ImpLang v -> Term ImpLang v -> Term ImpLang v
 pattern While x y = Node "While" [x, y]
 
+pattern ReadInt :: Term ImpLang v
+pattern ReadInt = Node "ReadInt" []
+
+pattern WriteInt :: Term ImpLang v -> Term ImpLang v
+pattern WriteInt x = Node "WriteInt" [x]
+
 pattern Var :: Term ImpLang v -> Term ImpLang v
 pattern Var x = Node "Var" [x]
 
@@ -74,7 +85,7 @@ pattern False :: Term ImpLang v
 pattern False = Val "false" []
 
 pattern EVal :: Term ImpLang v -> Term ImpLang v
-pattern EVal n = Node "Val" [n]
+pattern EVal n = Node "EVal" [n]
 
 pattern Const :: Integer -> Term ImpLang v
 pattern Const n = IntNode "Const" n
@@ -162,6 +173,29 @@ impLangRules = sequence [
                             StepTo (conf (While me ms) mu)
                               (Build $ conf (If me (ms `Seq` (While me ms)) Skip) mu)
 
+                 ----------------------------------------------------------------------------
+
+                 , name "read-int" $
+                   mkRule2 $ \val mu ->
+                             let (mval) = (mv val) in
+                             StepTo (conf ReadInt mu)
+                               (LetComputation val ([], \[] -> Const <$> read <$> BS.unpack <$> matchEffectInput)
+                               (Build $ conf (EVal mval) mu))
+
+                 , name "write-int-cong" $
+                   mkRule4 $ \arg arg' mu mu' ->
+                             let (marg, marg') = (mv arg, mv arg') in
+                             StepTo (conf (WriteInt marg) mu)
+                               (LetStepTo (conf marg' mu') (conf marg mu)
+                               (Build $ conf (WriteInt marg') mu'))
+
+                 , name "write-int" $
+                   mkRule3 $ \arg val mu ->
+                             let (marg) = (mv arg) in
+                             StepTo (conf (WriteInt (EVal marg)) mu)
+                               (LetComputation val ([arg], \[Const n] -> do matchEffectOutput (BS.pack $ show n) >> return Skip)
+                               (Build $ conf Skip mu))
+
                  ------------------------ Vars  ---------------------------------------------
 
                  , name "var-lookup" $
@@ -173,47 +207,47 @@ impLangRules = sequence [
                  --------------------- Plus and LT ------------------------------------------
 
                  , name "plus-cong-1" $
-                   mkRule4 $ \e1 e2 e1' g ->
+                   mkRule5 $ \e1 e2 e1' mu mu' ->
                              let (me1, me2, me1') = (mv e1, mv e2, mv e1') in
-                             StepTo (conf (Plus me1 me2) g)
-                               (LetStepTo (conf me1' g) (conf me1 g)
-                               (Build $ conf (Plus me1' me2) g))
+                             StepTo (conf (Plus me1 me2) mu)
+                               (LetStepTo (conf me1' mu') (conf me1 mu)
+                               (Build $ conf (Plus me1' me2) mu'))
 
                  , name "plus-cong-2" $
-                   mkRule4 $ \v1 e2 e2' g ->
+                   mkRule5 $ \v1 e2 e2' mu mu' ->
                              let (mv1, me2, me2') = (mv v1, mv e2, mv e2') in
-                             StepTo (conf (Plus (EVal mv1) me2) g)
-                               (LetStepTo (conf me2' g) (conf me2 g)
-                               (Build $ conf (Plus (EVal mv1) me2') g))
+                             StepTo (conf (Plus (EVal mv1) me2) mu)
+                               (LetStepTo (conf me2' mu') (conf me2 mu)
+                               (Build $ conf (Plus (EVal mv1) me2') mu'))
 
                  , name "plus-eval" $
-                   mkRule4 $ \v1 v2 v' g ->
+                   mkRule4 $ \v1 v2 v' mu ->
                              let (mv1, mv2, mv') = (mv v1, mv v2, mv v') in
-                             StepTo (conf (Plus (EVal mv1) (EVal mv2)) g)
-                               (LetComputation v' ([v1, v2], \[Const n1, Const n2] -> Const (n1+n2))
-                               (Build $ conf (EVal mv') g))
+                             StepTo (conf (Plus (EVal mv1) (EVal mv2)) mu)
+                               (LetComputation v' ([v1, v2], \[Const n1, Const n2] -> return $ Const (n1+n2))
+                               (Build $ conf (EVal mv') mu))
 
 
                  , name "lt-cong-1" $
-                   mkRule4 $ \e1 e2 e1' g ->
+                   mkRule5 $ \e1 e2 e1' mu mu' ->
                              let (me1, me2, me1') = (mv e1, mv e2, mv e1') in
-                             StepTo (conf (LT me1 me2) g)
-                               (LetStepTo (conf me1' g) (conf me1 g)
-                               (Build $ conf (LT me1' me2) g))
+                             StepTo (conf (LT me1 me2) mu)
+                               (LetStepTo (conf me1' mu') (conf me1 mu)
+                               (Build $ conf (LT me1' me2) mu'))
 
                  , name "lt-cong-2" $
-                   mkRule4 $ \v1 e2 e2' g ->
+                   mkRule5 $ \v1 e2 e2' mu mu' ->
                              let (mv1, me2, me2') = (mv v1, mv e2, mv e2') in
-                             StepTo (conf (LT (EVal mv1) me2) g)
-                               (LetStepTo (conf me2' g) (conf me2 g)
-                               (Build $ conf (LT mv1 me2') g))
+                             StepTo (conf (LT (EVal mv1) me2) mu)
+                               (LetStepTo (conf me2' mu') (conf me2 mu)
+                               (Build $ conf (LT (EVal mv1) me2') mu'))
 
                  , name "lt-eval" $
-                   mkRule4 $ \v1 v2 v' g ->
+                   mkRule4 $ \v1 v2 v' mu ->
                              let (mv1, mv2, mv') = (mv v1, mv v2, mv v') in
-                             StepTo (conf (LT (EVal mv1) (EVal mv2)) g)
-                               (LetComputation v' ([v1, v2], \[Const n1, Const n2] -> if n1 < n2 then True else False)
-                               (Build $ conf mv' g))
+                             StepTo (conf (LT (EVal mv1) (EVal mv2)) mu)
+                               (LetComputation v' ([v1, v2], \[Const n1, Const n2] -> if n1 < n2 then return True else return False)
+                               (Build $ conf mv' mu))
 
                 ]
 
@@ -233,9 +267,10 @@ conf2 :: Configuration ImpLang Closed
 conf2 = Conf (varExp "x") (JustSimpMap $ SingletonSimpMap (VarName "x") (Const 1))
 
 term3 :: Term ImpLang Closed
-term3 =       ("i" := intConst 0)
+term3 =       ("u" := ReadInt)
+        `Seq` ("i" := intConst 0)
         `Seq` ("s" := intConst 0)
-        `Seq` (While (varExp "i" :< intConst 10)
+        `Seq` (While (varExp "i" :< varExp "u")
                 (      ("s" := Plus (varExp "s") (varExp "i"))
                  `Seq` ("i" := Plus (varExp "i") (intConst 1))))
-        `Seq` ("z" := intConst 100)
+        `Seq` (WriteInt $ varExp "s")

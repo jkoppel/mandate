@@ -49,11 +49,11 @@ data StepTo l where
 data NamedRule l = NamedRule {ruleName :: ByteString, getRule :: StepTo l}
 
 -- TODO: Can't depend on state
-type ExtFunc l r = ([MetaVar], [Term l Closed] -> r)
+type ExtFunc l r = ([MetaVar], [Term l Closed] -> MatchEffect r)
 
 --TODO: How to get rid of this vacuous Typeable instances?
 runExtFunc :: (Typeable l) => ExtFunc l r -> Match r
-runExtFunc (vs, f) = f <$> getVars vs
+runExtFunc (vs, f) = getVars vs >>= runMatchEffect . f
 
 data Rhs l = Build (MConf l)
            | SideCondition (ExtFunc l Bool) (Rhs l)
@@ -100,7 +100,7 @@ instance (Show (MConf l)) => Show (NamedRule l) where
 
 runRhs :: (Matchable (Configuration l), Typeable l) => NamedRules l -> Rhs l -> Match (Configuration l Closed)
 runRhs rs (Build c) = fillMatch c
-runRhs rs (SideCondition f r) = do guard =<< runExtFunc f
+runRhs rs (SideCondition f r) = do guard =<<  runExtFunc f
                                    runRhs rs r
 runRhs rs (LetStepTo c1 c2 r) = do c2Filled <- fillMatch c2
                                    debugStepM $ "Filled match succeeded: " ++ show (confTerm c2Filled)
