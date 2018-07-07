@@ -30,6 +30,7 @@ import Data.ByteString.Char8 ( ByteString )
 import qualified Data.ByteString.Char8 as BS
 
 import Configuration
+import Debug
 import Matching
 import Term
 import Var
@@ -99,30 +100,38 @@ instance (Show (MConf l)) => Show (NamedRule l) where
 
 -------------------------------- Execution ------------------------------
 
-runRhs :: (Matchable (Configuration l), Typeable l) => Rules l -> Rhs l -> Match (Configuration l Closed)
+runRhs :: (Matchable (Configuration l), Typeable l) => NamedRules l -> Rhs l -> Match (Configuration l Closed)
 runRhs rs (Build c) = fillMatch c
 runRhs rs (SideCondition f r) = do guard =<< runExtFunc f
                                    runRhs rs r
 runRhs rs (LetStepTo c1 c2 r) = do c2Filled <- fillMatch c2
+                                   debugStepM $ "Filled match succeeded: " ++ show (confTerm c2Filled)
                                    c2' <- lift $ stepTerm rs c2Filled
+                                   debugStepM $ "Recursive step suceeded. Result: " ++ show (confTerm c2')
                                    match c1 c2'
                                    runRhs rs r
 runRhs rs (LetComputation v f r) = do putVar v =<< runExtFunc f
                                       runRhs rs r
 
 
-useRule :: (Matchable (Configuration l)) => Rules l -> StepTo l -> Configuration l Closed -> Match (Configuration l Closed)
-useRule rs (StepTo c1 r) c2 = match c1 c2 >> runRhs rs r
+useRule :: (Matchable (Configuration l)) => NamedRules l -> NamedRule l -> Configuration l Closed -> Match (Configuration l Closed)
+useRule rs (NamedRule nm (StepTo c1 r)) c2 = do
+    debugStepM $ "Trying rule " ++ BS.unpack nm ++ " for term " ++ show (confTerm c2)
+    match c1 c2
+    debugStepM $ "LHS matched: " ++ BS.unpack nm
+    ret <- runRhs rs r
+    debugStepM $ "Rule succeeeded:" ++ BS.unpack nm
+    return ret
 
-stepTerm :: (Matchable (Configuration l)) => Rules l -> Configuration l Closed -> Maybe (Configuration l Closed)
-stepTerm rs t = runMatch $ go rs
+stepTerm :: (Matchable (Configuration l)) => NamedRules l -> Configuration l Closed -> Maybe (Configuration l Closed)
+stepTerm allRs t = runMatch $ go allRs
   where
     go []     = mzero
-    go (r:rs) = useRule rs r t `mplus` go rs
+    go (r:rs) = useRule allRs r t `mplus` go rs
 
 
 evaluationSequence :: (Matchable (Configuration l)) => NamedRules l -> Configuration l Closed -> [Configuration l Closed]
-evaluationSequence rules c = c : case stepTerm (map getRule rules) c of
+evaluationSequence rules c = c : case stepTerm rules c of
                                    Nothing -> []
                                    Just c' -> evaluationSequence rules c'
 

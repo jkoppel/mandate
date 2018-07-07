@@ -41,6 +41,7 @@ type ForallOC (c :: * -> Constraint) t = (c (t Open), c (t Closed))
 
 class HasVars f where
   assumeClosed :: f v -> f Closed
+  asOpen       :: f v -> f Open
 
 assumeClosedList :: (HasVars f) => [f v] -> [f Closed]
 assumeClosedList = map assumeClosed

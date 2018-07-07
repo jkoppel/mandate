@@ -191,6 +191,8 @@ instance HasVars (Term l) where
   assumeClosed (StrNode s str) = StrNode s str
   assumeClosed (MetaVar v)     = error ("Assuming term closed, but has var " ++ show v)
 
+  asOpen = fromGeneric . toGeneric
+
 ------------------------------------------------------------------------------------
 
 -- If want the language in error messages, can add Typeable constraints and show the TypeRep

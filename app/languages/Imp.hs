@@ -195,3 +195,7 @@ term1 :: Term ImpLang Closed
 term1 =       ("x" := intConst 1)
         `Seq` ("y" := intConst 2)
         `Seq` ("z" := Plus (varExp "x") (varExp "y"))
+
+
+conf2 :: Configuration ImpLang Closed
+conf2 = Conf (varExp "x") (JustSimpMap $ SingletonSimpMap (VarName "x") (Const 1))

@@ -21,6 +21,7 @@ import qualified Data.Map as Map
 import Data.Typeable ( Typeable )
 
 import Configuration
+import Debug
 import Term
 import Var
 
@@ -36,26 +37,26 @@ runMatch :: Match a -> Maybe a
 runMatch m = evalStateT m (MatchState Map.empty)
 
 class (MonadPlus m) => MonadMatchable m where
-  putVar :: (Typeable a, Eq a) => MetaVar -> a -> m ()
-  getVarMaybe :: Typeable a => MetaVar -> (a -> m b) -> m b -> m b
-  getVarDefault :: Typeable a => MetaVar -> m a -> m a
-  getVar :: Typeable a => MetaVar -> m a
-  withFreshCtx :: m a -> m a
+  putVar :: (Typeable a, Eq (a Closed)) => MetaVar -> a Closed -> m ()
+  getVarMaybe :: Typeable a => MetaVar -> (a Closed -> m b) -> m b -> m b
+  getVarDefault :: Typeable a => MetaVar -> m (a Closed) -> m (a Closed)
+  getVar :: Typeable a => MetaVar -> m (a Closed)
+  withFreshCtx :: m x -> m x
 
   getVarDefault v = getVarMaybe v return
+  getVar var = getVarDefault var mzero
 
 instance (MonadState MatchState m, MonadPlus m) => MonadMatchable m where
   putVar var val = do curVal <- getVarMaybe var (return.Just) (return Nothing)
                       case curVal of
-                        Nothing   -> modify (modMatchState $ Map.insert var (toDyn val))
+                        Nothing   -> do debugStepM $ "Setting var " ++ show var
+                                        modify (modMatchState $ Map.insert var (toDyn val))
                         Just val' -> guard (val == val')
 
   getVarMaybe var f def = do maybeDyn <- Map.lookup var <$> getMatchState <$> get
                              case (maybeDyn :: Maybe Dynamic) of
                                Nothing -> def
                                Just x  -> maybe def f (fromDynamic x)
-
-  getVar var = getVarDefault var mzero
 
   withFreshCtx m = do old <- get
                       put $ MatchState Map.empty
@@ -67,7 +68,7 @@ instance (MonadState MatchState m, MonadPlus m) => MonadMatchable m where
 getVars :: (MonadMatchable m, Typeable (Term l)) => [MetaVar] -> m [Term l Closed]
 getVars = mapM getVar
 
-class (HasVars f) => Matchable f where
+class (HasVars f, ForallOC Show f) => Matchable f where
   -- Extra precondition:
   -- Variables in an open term may be in "template" or "pattern" position. This distinction is not made syntactially.
   -- Currently, the only example of a template variable is the LHSs of bindings in SimpEnvMap.
@@ -95,13 +96,14 @@ instance (Typeable (Term l)) => Matchable (Term l) where
   match _               _               = mzero
 
 
-  partiallyFillMatch = fillMatchTermGen (\v -> getVarDefault v (return $ MetaVar v))
+  partiallyFillMatch = fillMatchTermGen (\v -> getVarMaybe v (return . asOpen) (return $ MetaVar v))
   fillMatch = fillMatchTermGen getVar
 
 
 instance {-# OVERLAPPABLE #-} (Matchable (Term l), Matchable s) => Matchable (GConfiguration l s) where
   match (Conf t1 s1) (Conf t2 s2) = do match t1 t2
                                        s1' <- partiallyFillMatch s1
+                                       debugStepM $ "Partially filled state: " ++ show s1'
                                        match s1' s2
 
   partiallyFillMatch (Conf t s) = Conf <$> partiallyFillMatch t <*> partiallyFillMatch s
@@ -109,7 +111,7 @@ instance {-# OVERLAPPABLE #-} (Matchable (Term l), Matchable s) => Matchable (GC
 
 -- Hack to prevent over-eagerly expanding (Matchable (Configuration l)) constraints
 data UnusedLanguage
-instance {-# OVERLAPPING #-} (HasVars s) => Matchable (GConfiguration UnusedLanguage s) where
+instance {-# OVERLAPPING #-} (HasVars s, ForallOC Show s) => Matchable (GConfiguration UnusedLanguage s) where
   match = error "Matching UnusedLanguage"
   partiallyFillMatch = error "Matching UnusedLanguage"
   fillMatch = error "Matching UnusedLanguage"
@@ -161,7 +163,10 @@ instance (Matchable a, Matchable b) => Matchable (SimpEnvMap a b) where
 instance (Matchable a, Matchable b) => Matchable (SimpEnv a b) where
   match (SimpEnvRest v m1) (JustSimpMap m2) = do
     let (mp1, mp2) = (assumeClosedKeys (getSimpEnvMap m1), getSimpEnvMap m2)
-    putVar v (SimpEnvMap $ Map.difference mp2 mp1)
+    let diff = Map.difference mp2 mp1
+    debugStepM $ "Matching maps " ++ show mp1 ++ " and " ++ show mp2
+    debugStepM $ "Binding var " ++ show v ++ " to " ++ show diff
+    putVar v (SimpEnvMap diff)
     match m1 (SimpEnvMap $ Map.intersection mp2 mp1)
 
   match (JustSimpMap m1) (JustSimpMap m2) = match m1 m2

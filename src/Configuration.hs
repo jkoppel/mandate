@@ -35,6 +35,7 @@ data GConfiguration l s v = Conf { confTerm :: Term l v, confState :: s v}
 type Configuration l = GConfiguration l (RedState l)
 
 data EmptyState (v :: OpenClosed) = EmptyState
+  deriving ( Eq, Ord, Show )
 
 instance {-# OVERLAPPABLE #-} (Show (s v)) => Show (GConfiguration l s v) where
   showsPrec d (Conf t s) = showString "(" . showsPrec d t . showString "; " . showsPrec d s . showString ")"
@@ -44,9 +45,11 @@ instance {-# OVERLAPPING #-} Show (GConfiguration l EmptyState v) where
 
 instance HasVars EmptyState where
   assumeClosed EmptyState = EmptyState
+  asOpen       EmptyState = EmptyState
 
 instance (HasVars s) => HasVars (GConfiguration l s) where
   assumeClosed (Conf t s) = Conf (assumeClosed t) (assumeClosed s)
+  asOpen       (Conf t s) = Conf (asOpen       t) (asOpen       s)
 
 
 -- Strictly speaking, a real ACI map should be designed in a way so that you could match Gamma1, Gamma2 against an env,
@@ -67,28 +70,32 @@ deriving instance (Eq (a v), Eq (b v)) => Eq (SimpEnvMap a b v)
 getSimpEnvMap :: SimpEnvMap a b v -> Map (a v) (b v)
 getSimpEnvMap (SimpEnvMap m) = m
 
-pattern EmptySimpMap :: (ForallOC Ord a, ForallOC Eq b) => (ForallOC Ord a, ForallOC Eq b) => SimpEnvMap a b v
+pattern EmptySimpMap :: () => (ForallOC Ord a, ForallOC Eq b) => SimpEnvMap a b v
 pattern EmptySimpMap <- SimpEnvMap (Map.null -> True) where
   EmptySimpMap = SimpEnvMap Map.empty
 
-pattern SingletonSimpMap :: (ForallOC Ord a, ForallOC Eq b) => (ForallOC Ord a, ForallOC Eq b) => a v -> b v -> SimpEnvMap a b v
+pattern SingletonSimpMap :: () => (ForallOC Ord a, ForallOC Eq b) => a v -> b v -> SimpEnvMap a b v
 pattern SingletonSimpMap a b <- SimpEnvMap (Map.toList -> [(a,b)]) where
   SingletonSimpMap a b = SimpEnvMap (Map.singleton a b)
 
-pattern EmptySimpEnv :: (ForallOC Ord a, ForallOC Eq b, Typeable a, Typeable b) => (ForallOC Ord a, ForallOC Eq b, Typeable a, Typeable b) => SimpEnv a b v
+pattern EmptySimpEnv :: () => (ForallOC Ord a, ForallOC Eq b, Typeable a, Typeable b) => SimpEnv a b v
 pattern EmptySimpEnv = JustSimpMap EmptySimpMap
 
-pattern WholeSimpEnv :: (ForallOC Ord a, ForallOC Eq b, Typeable a, Typeable b) => (ForallOC Ord a, ForallOC Eq b, Typeable a, Typeable b) => MetaVar -> SimpEnv a b Open
+pattern WholeSimpEnv :: () => (ForallOC Ord a, ForallOC Eq b, Typeable a, Typeable b) => MetaVar -> SimpEnv a b Open
 pattern WholeSimpEnv v = SimpEnvRest v EmptySimpMap
 
-pattern AssocOneVal :: (ForallOC Ord a, ForallOC Eq b, Typeable a, Typeable b) => (ForallOC Ord a, ForallOC Eq b, Typeable a, Typeable b) => MetaVar -> a Open -> b Open -> SimpEnv a b Open
+pattern AssocOneVal :: () => (ForallOC Ord a, ForallOC Eq b, Typeable a, Typeable b) => MetaVar -> a Open -> b Open -> SimpEnv a b Open
 pattern AssocOneVal v a b = SimpEnvRest v (SingletonSimpMap a b)
 
 -- TODO: Intern
 
 
 instance (Show (a v), Show (b v)) => Show (SimpEnvMap a b v) where
-  showsPrec d (SimpEnvMap m) = foldr (\(k,v) s -> s . showsPrec (d+1) k . showString ": " . showsPrec (d+1) v) id (Map.toList m)
+  showsPrec d EmptySimpMap   = id
+  showsPrec d (SimpEnvMap m) = let (first:rest) = Map.toList m in
+                               foldr (\kv s -> s . showString ", " . showAssoc kv) (showAssoc first) rest
+    where
+      showAssoc (k, v) = showsPrec (d+1) k . showString ": " . showsPrec (d+1) v
 
 instance (Show (a v), Show (b v)) => Show (SimpEnv a b v) where
   showsPrec d (SimpEnvRest v m) = if Map.null (getSimpEnvMap m) then
@@ -99,7 +106,11 @@ instance (Show (a v), Show (b v)) => Show (SimpEnv a b v) where
 
 instance (HasVars a, HasVars b) => HasVars (SimpEnvMap a b) where
   assumeClosed (SimpEnvMap m) = SimpEnvMap $ Map.mapKeys assumeClosed $ Map.map assumeClosed m
+  asOpen       (SimpEnvMap m) = SimpEnvMap $ Map.mapKeys asOpen       $ Map.map asOpen       m
 
 instance (HasVars a, HasVars b) => HasVars (SimpEnv a b) where
   assumeClosed (SimpEnvRest v _) = error ("Assuming SimpEnv is closed, but has rest variable " ++ show v)
-  assumeClosed (JustSimpMap m)   = JustSimpMap $ assumeClosed m
+  assumeClosed (JustSimpMap   m) = JustSimpMap $ assumeClosed m
+
+  asOpen       (SimpEnvRest v m) = SimpEnvRest v (asOpen m)
+  asOpen       (JustSimpMap   m) = JustSimpMap $ asOpen m
