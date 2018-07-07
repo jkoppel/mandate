@@ -1,11 +1,11 @@
 {-# LANGUAGE DataKinds, EmptyDataDecls, OverloadedStrings, PatternSynonyms, TypeFamilies #-}
 
 module Languages.Add (
-    addLangSig
-  , addLangRules
+    AddLang
   ) where
 
 import Configuration
+import Lang
 import Matching
 import Semantics
 import Term
@@ -60,6 +60,10 @@ addLangRules = sequence [
                                (Build $ conf $ EVal mv'))
                ]
 
+
+instance Lang AddLang where
+  signature = addLangSig
+  rules = addLangRules
 
 -----------
 

@@ -1,6 +1,7 @@
 :set -XOverloadedStrings
+:set -XTypeApplications
 :l Languages.Imp
 import Configuration
 import Term
-rules <- impLangRules
-putStrLn "Try this: mapM_ (putStrLn.show) $ evaluationSequence rules (Conf term1 EmptySimpEnv)"
+rs <- rules @ ImpLang
+putStrLn "Try this: mapM_ (putStrLn.show) $ evaluationSequence rs (Conf term1 EmptySimpEnv)"

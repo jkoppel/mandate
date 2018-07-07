@@ -6,7 +6,6 @@ module Semantics (
   , Rhs(..)
   , Rules
   , NamedRules
-  , MRules
 
   , stepTerm
   , evaluationSequence
@@ -63,8 +62,6 @@ data Rhs l = Build (MConf l)
 
 type Rules l = [StepTo l]
 type NamedRules l = [NamedRule l]
-type MRules l = IO (Rules l)
-
 
 ----
 -- This is me having fun learning how to write Show instances and use showsPrec.

@@ -12,4 +12,4 @@ import Term
 
 class (Matchable (Configuration l)) => Lang l where
   signature :: Signature l
-  rules :: MRules l
+  rules :: IO (NamedRules l)

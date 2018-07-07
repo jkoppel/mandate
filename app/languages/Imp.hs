@@ -2,8 +2,7 @@
 
 
 module Languages.Imp (
-    impLangSig
-  , impLangRules
+    ImpLang
   ) where
 
 import Prelude hiding ( True, False, LT )
@@ -11,6 +10,7 @@ import Prelude hiding ( True, False, LT )
 import Data.Interned.ByteString ( InternedByteString(..) )
 
 import Configuration
+import Lang
 import Matching
 import Semantics
 import Term
@@ -216,6 +216,10 @@ impLangRules = sequence [
                                (Build $ conf mv' g))
 
                 ]
+
+instance Lang ImpLang where
+  signature = impLangSig
+  rules = impLangRules
 
 ------------------------------------------------------------------------------------------------------------------
 
