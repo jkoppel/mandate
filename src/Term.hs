@@ -185,6 +185,12 @@ pattern MetaVar v <- (TMetaVar _ v) where
   MetaVar v = fromGeneric $ intern $ toUGeneric (BMetaVar v)
 
 
+instance HasVars (Term l) where
+  assumeClosed (Node s ts)     = Node s (map assumeClosed ts)
+  assumeClosed (IntNode s i)   = IntNode s i -- Could save epsilon time using unsafeCoerce
+  assumeClosed (StrNode s str) = StrNode s str
+  assumeClosed (MetaVar v)     = error ("Assuming term closed, but has var " ++ show v)
+
 ------------------------------------------------------------------------------------
 
 -- If want the language in error messages, can add Typeable constraints and show the TypeRep
