@@ -89,8 +89,8 @@ data AnyLanguage
 
 data Term a v where
     TNode    :: !Id -> !Symbol  -> [Term a v] -> Term a v
-    TIntNode :: !Id -> !Symbol -> Integer -> Term a v
-    TStrNode :: !Id -> !Symbol -> InternedByteString -> Term a v
+    TIntNode :: !Id -> !Symbol -> !Integer -> Term a v
+    TStrNode :: !Id -> !Symbol -> !InternedByteString -> Term a v
     TMetaVar :: !Id -> !MetaVar -> Term a Open
 
 instance Show (Term a v) where

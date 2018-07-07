@@ -2,13 +2,16 @@
 
 module Semantics (
     StepTo(..)
+  , NamedRule(..)
   , Rhs(..)
   , Rules
+  , NamedRules
   , MRules
 
   , stepTerm
   , evaluationSequence
 
+  , name
   , mkRule0, mkRule1, mkRule2
   , mkRule3, mkRule4, mkRule5
 
@@ -22,6 +25,9 @@ import Control.Monad ( MonadPlus(..), guard )
 import Control.Monad.Trans ( lift )
 import Data.List ( intersperse )
 import Data.Typeable ( Typeable )
+
+import Data.ByteString.Char8 ( ByteString )
+import qualified Data.ByteString.Char8 as BS
 
 import Configuration
 import Matching
@@ -39,6 +45,8 @@ type MConf l = Configuration l Open
 data StepTo l where
  StepTo :: (Typeable l) => MConf l -> Rhs l -> StepTo l
 
+data NamedRule l = NamedRule {ruleName :: ByteString, getRule :: StepTo l}
+
 -- TODO: Can't depend on state
 type ExtFunc l r = ([MetaVar], [Term l Closed] -> r)
 
@@ -52,8 +60,14 @@ data Rhs l = Build (MConf l)
            | LetComputation MetaVar (ExtFunc l (Term l Closed)) (Rhs l) -- let x = f(T) in R
 
 type Rules l = [StepTo l]
+type NamedRules l = [NamedRule l]
 type MRules l = IO (Rules l)
 
+
+----
+-- This is me having fun learning how to write Show instances and use showsPrec.
+-- This is not an endorsement of having this kind of human-readable displaying happen
+-- in Show, as opposed to in a separate Pretty class
 
 instance (Show (MConf l)) => Show (StepTo l) where
   showsPrec d (StepTo t r) = showString "step(" . showsPrec (d+1) t . showString ") = " . showsPrec (d+1) r
@@ -72,6 +86,15 @@ instance (Show (MConf l)) => Show (Rhs l) where
   showsPrec d (LetComputation x (ms, _) r) = showString "let " . showsPrec (d+1) x . showString " = " .
                                              showString "someFunc(" . showsPrec (d+1) ms .
                                              showString ") in " . showsPrec d r
+
+
+instance (Show (MConf l)) => Show (NamedRule l) where
+  showsPrec d (NamedRule nm r) = showString (BS.unpack nm) . showString ":\n" . showsPrec (d+1) r
+  showList rs = showString "Begin Rules:\n\n" .
+                foldr (.) id (intersperse (showString "\n\n") $ map (showsPrec 0) rs) .
+                showString "\nEnd Rules"
+
+
 
 
 -------------------------------- Execution ------------------------------
@@ -98,13 +121,15 @@ stepTerm rs t = runMatch $ go rs
     go (r:rs) = useRule rs r t `mplus` go rs
 
 
-evaluationSequence :: (Matchable (Configuration l)) => Rules l -> Configuration l Closed -> [Configuration l Closed]
-evaluationSequence rules c = c : case stepTerm rules c of
+evaluationSequence :: (Matchable (Configuration l)) => NamedRules l -> Configuration l Closed -> [Configuration l Closed]
+evaluationSequence rules c = c : case stepTerm (map getRule rules) c of
                                    Nothing -> []
                                    Just c' -> evaluationSequence rules c'
 
 -------------------------------- Helpers for creating rules ------------------------------
 
+name :: (Monad m) => ByteString -> m (StepTo l) -> m (NamedRule l)
+name s r = NamedRule s <$> r
 
 mkRule0 :: StepTo l -> IO (StepTo l)
 mkRule0 = return
