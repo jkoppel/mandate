@@ -84,11 +84,14 @@ class (HasVars f, ForallOC Show f) => Matchable f where
 
 fillMatchTermGen :: (MonadMatchable m, Typeable (Term l)) => (MetaVar -> m (Term l v)) -> Term l Open -> m (Term l v)
 fillMatchTermGen f (Node s ts)   = Node s <$> (mapM (fillMatchTermGen f) ts)
+fillMatchTermGen f (Val  s ts)   = Val s <$> (mapM (fillMatchTermGen f) ts)
 fillMatchTermGen f (IntNode s i) = return (IntNode s i) -- This could just be unsafeCoerce....or hopefully just coerce
 fillMatchTermGen f (MetaVar v)   = f v
 
 instance (Typeable (Term l)) => Matchable (Term l) where
   match (Node s1 ts1)   (Node s2 ts2)
+    | (s1 == s2)                        = sequence_ $ zipWith match ts1 ts2
+  match (Val  s1 ts1)   (Val  s2 ts2)
     | (s1 == s2)                        = sequence_ $ zipWith match ts1 ts2
   match (IntNode s1 i1) (IntNode s2 i2)
     | (s1 == s2) && (i1 == i2)          = return ()

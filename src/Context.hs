@@ -11,4 +11,4 @@ import Term
 data Frame = TODO
 
 data Context = Halt
-             | Push Context Frame
+             | Push Frame Context

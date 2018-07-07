@@ -25,7 +25,7 @@ type instance RedState ImpLang = SimpEnv (Term ImpLang) (Term ImpLang)
 
 impLangSig :: Signature ImpLang
 impLangSig = Signature [ NodeSig ":=" ["Var", "Exp"] "Stmt"
-                       , NodeSig "Skip" [] "Stmt"
+                       , ValSig "Skip" [] "Stmt"
                        , NodeSig "Seq" ["Stmt", "Stmt"] "Stmt"
                        , NodeSig "If" ["Exp", "Stmt", "Stmt"] "Stmt"
                        , NodeSig "While" ["Exp", "Stmt"] "Stmt"
@@ -34,9 +34,9 @@ impLangSig = Signature [ NodeSig ":=" ["Var", "Exp"] "Stmt"
                        , StrSig "VarName" "VarName"
                        , NodeSig "VarExp" ["Var"] "Exp"
 
-                       , NodeSig "true" [] "Exp"
-                       , NodeSig "false" [] "Exp"
-                       , NodeSig "Val" ["Const"] "Exp"
+                       , ValSig "true" [] "Exp"
+                       , ValSig "false" [] "Exp"
+                       , ValSig "EVal" ["Const"] "Exp"
                        , IntSig "Const" "Const"
 
                        , NodeSig "+" ["Exp", "Exp"] "Exp"
@@ -47,7 +47,7 @@ pattern Assign :: Term ImpLang v -> Term ImpLang v -> Term ImpLang v
 pattern Assign x y = Node ":=" [x, y]
 
 pattern Skip :: Term ImpLang v
-pattern Skip = Node "Skip" []
+pattern Skip = Val "Skip" []
 
 pattern Seq :: Term ImpLang v -> Term ImpLang v -> Term ImpLang v
 pattern Seq x y = Node "Seq" [x, y]
@@ -68,13 +68,13 @@ pattern VarExp :: Term ImpLang v -> Term ImpLang v
 pattern VarExp v = Node "VarExp" [v]
 
 pattern True :: Term ImpLang v
-pattern True = Node "true" []
+pattern True = Val "true" []
 
 pattern False :: Term ImpLang v
-pattern False = Node "false" []
+pattern False = Val "false" []
 
-pattern Val :: Term ImpLang v -> Term ImpLang v
-pattern Val n = Node "Val" [n]
+pattern EVal :: Term ImpLang v -> Term ImpLang v
+pattern EVal n = Node "Val" [n]
 
 pattern Const :: Integer -> Term ImpLang v
 pattern Const n = IntNode "Const" n
@@ -95,7 +95,7 @@ pattern (:<) :: Term ImpLang v -> Term ImpLang v -> Term ImpLang v
 pattern (:<) l r = LT l r
 
 intConst :: Integer -> Term ImpLang v
-intConst n = Val $ Const n
+intConst n = EVal $ Const n
 
 conf :: Term ImpLang Open -> MetaVar -> Configuration ImpLang Open
 conf t v = Conf t (WholeSimpEnv v)
@@ -119,7 +119,7 @@ impLangRules = sequence [
                  , name "assn-eval" $
                    mkRule3 $ \var val mu ->
                              let (mvar, mval) = (mv var, mv val) in
-                             StepTo (conf (Assign (Var mvar) (Val mval)) mu)
+                             StepTo (conf (Assign (Var mvar) (EVal mval)) mu)
                                (Build $ Conf Skip (AssocOneVal mu mvar mval))
 
                  ----------------------------------------------------------------------------
@@ -168,7 +168,7 @@ impLangRules = sequence [
                    mkRule3 $ \var val mu ->
                              let (mvar, mval) = (mv var, mv val) in
                              StepTo (Conf (VarExp (Var mvar)) (AssocOneVal mu mvar mval))
-                               (Build $ Conf (Val mval) (AssocOneVal mu mvar mval))
+                               (Build $ Conf (EVal mval) (AssocOneVal mu mvar mval))
 
                  --------------------- Plus and LT ------------------------------------------
 
@@ -182,16 +182,16 @@ impLangRules = sequence [
                  , name "plus-cong-2" $
                    mkRule4 $ \v1 e2 e2' g ->
                              let (mv1, me2, me2') = (mv v1, mv e2, mv e2') in
-                             StepTo (conf (Plus (Val mv1) me2) g)
+                             StepTo (conf (Plus (EVal mv1) me2) g)
                                (LetStepTo (conf me2' g) (conf me2 g)
-                               (Build $ conf (Plus (Val mv1) me2') g))
+                               (Build $ conf (Plus (EVal mv1) me2') g))
 
                  , name "plus-eval" $
                    mkRule4 $ \v1 v2 v' g ->
                              let (mv1, mv2, mv') = (mv v1, mv v2, mv v') in
-                             StepTo (conf (Plus (Val mv1) (Val mv2)) g)
+                             StepTo (conf (Plus (EVal mv1) (EVal mv2)) g)
                                (LetComputation v' ([v1, v2], \[Const n1, Const n2] -> Const (n1+n2))
-                               (Build $ conf (Val mv') g))
+                               (Build $ conf (EVal mv') g))
 
 
                  , name "lt-cong-1" $
@@ -204,14 +204,14 @@ impLangRules = sequence [
                  , name "lt-cong-2" $
                    mkRule4 $ \v1 e2 e2' g ->
                              let (mv1, me2, me2') = (mv v1, mv e2, mv e2') in
-                             StepTo (conf (LT (Val mv1) me2) g)
+                             StepTo (conf (LT (EVal mv1) me2) g)
                                (LetStepTo (conf me2' g) (conf me2 g)
                                (Build $ conf (LT mv1 me2') g))
 
                  , name "lt-eval" $
                    mkRule4 $ \v1 v2 v' g ->
                              let (mv1, mv2, mv') = (mv v1, mv v2, mv v') in
-                             StepTo (conf (LT (Val mv1) (Val mv2)) g)
+                             StepTo (conf (LT (EVal mv1) (EVal mv2)) g)
                                (LetComputation v' ([v1, v2], \[Const n1, Const n2] -> if n1 < n2 then True else False)
                                (Build $ conf mv' g))
 
