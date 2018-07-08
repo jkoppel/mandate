@@ -17,16 +17,16 @@ import Data.ByteString.Char8 ( ByteString )
 import qualified Data.ByteString.Char8 as BS
 
 import Configuration
-import Context
 import LangBase
+import Semantics.Context
 import Semantics.General
 import Semantics.SOS
 import Var
 
 data Phase = Up | Down
 
-data AMRhs payload l = AMSideCondition  (ExtCond l) (AMRhs payload l)
-                     | AMLetComputation MetaVar (ExtComp l) (AMRhs payload l)
+data AMRhs payload l = AMSideCondition  (ExtCond l Open) (AMRhs payload l)
+                     | AMLetComputation MetaVar (ExtComp l Open) (AMRhs payload l)
                      | AMRhs (payload l)
 
 

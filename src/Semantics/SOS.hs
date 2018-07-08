@@ -48,9 +48,9 @@ data StepTo l where
 data NamedRule l = NamedRule {ruleName :: ByteString, getRule :: StepTo l}
 
 data Rhs l = Build (MConf l)
-           | SideCondition (ExtCond l) (Rhs l)
+           | SideCondition (ExtCond l Open) (Rhs l)
            | LetStepTo (MConf l) (MConf l) (Rhs l) -- let (x,mu) = stepto(T,mu) in R
-           | LetComputation MetaVar (ExtComp l) (Rhs l) -- let x = f(T) in R
+           | LetComputation MetaVar (ExtComp l Open) (Rhs l) -- let x = f(T) in R
 
 type Rules l = [StepTo l]
 type NamedRules l = [NamedRule l]
