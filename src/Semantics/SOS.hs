@@ -1,6 +1,6 @@
 {-# LANGUAGE DataKinds, FlexibleContexts, FlexibleInstances, GADTs, PatternSynonyms, TypeOperators, UndecidableInstances #-}
 
-module Semantics (
+module Semantics.SOS (
     StepTo(..)
   , NamedRule(..)
   , Rhs(..)
@@ -33,13 +33,11 @@ import Configuration
 import Debug
 import LangBase
 import Matching
+import Semantics.General
 import Term
 import Var
 
 ------------------------------------------------------------------------------------------------------------------
-
--- Match configuration
-type MConf l = Configuration l Open
 
 -- I don't like the need to spread these Typeable instances.
 -- This caps the propagation of constraints. There's no particular reason to put
@@ -48,16 +46,6 @@ data StepTo l where
  StepTo :: (Typeable l) => MConf l -> Rhs l -> StepTo l
 
 data NamedRule l = NamedRule {ruleName :: ByteString, getRule :: StepTo l}
-
-type ExtComp l = (CompFunc l, [MetaVar])
-type ExtCond l = (SideCond l, [MetaVar])
-
---TODO: How to get rid of this vacuous Typeable instances?
-runExtComp :: (LangBase l) => ExtComp l -> Match (Term l Closed)
-runExtComp (f, vs) = getVars vs >>= runMatchEffect . runCompFunc f
-
-runExtCond :: (LangBase l) => ExtCond l -> Match Bool
-runExtCond (f, vs) = getVars vs >>= runMatchEffect . runSideCond f
 
 data Rhs l = Build (MConf l)
            | SideCondition (ExtCond l) (Rhs l)

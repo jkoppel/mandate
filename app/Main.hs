@@ -5,7 +5,7 @@ module Main where
 import Data.List
 
 import Lang
-import Semantics
+import Semantics.SOS
 
 import Languages.Add
 import Languages.Imp

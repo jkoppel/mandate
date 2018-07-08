@@ -7,7 +7,7 @@ module Languages.Add (
 import Configuration
 import Lang
 import Matching
-import Semantics
+import Semantics.SOS
 import Term
 import Var
 
@@ -71,7 +71,7 @@ addLangRules = sequence [
                    mkRule3 $ \v1 v2 v' ->
                              let (mv1, mv2, mv') = (mv v1, mv v2, mv v') in
                              StepTo (conf $ Plus (EVal mv1) (EVal mv2))
-                               (LetComputation v' (RunAdd, [v1, v2])
+                               (LetComputation v' (RunAdd, [mv1, mv2])
                                (Build $ conf $ EVal mv'))
                ]
 

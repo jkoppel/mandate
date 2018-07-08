@@ -14,7 +14,7 @@ import Data.Interned.ByteString ( InternedByteString(..) )
 import Configuration
 import Lang
 import Matching
-import Semantics
+import Semantics.SOS
 import Term
 import Var
 
@@ -215,7 +215,7 @@ impLangRules = sequence [
                    mkRule3 $ \arg val mu ->
                              let (marg) = (mv arg) in
                              StepTo (conf (WriteInt (EVal marg)) mu)
-                               (LetComputation val (DoWriteInt, [arg])
+                               (LetComputation val (DoWriteInt, [marg])
                                (Build $ conf Skip mu))
 
                  ------------------------ Vars  ---------------------------------------------
@@ -246,7 +246,7 @@ impLangRules = sequence [
                    mkRule4 $ \v1 v2 v' mu ->
                              let (mv1, mv2, mv') = (mv v1, mv v2, mv v') in
                              StepTo (conf (Plus (EVal mv1) (EVal mv2)) mu)
-                               (LetComputation v' (RunAdd, [v1, v2])
+                               (LetComputation v' (RunAdd, [mv1, mv2])
                                (Build $ conf (EVal mv') mu))
 
 
@@ -268,7 +268,7 @@ impLangRules = sequence [
                    mkRule4 $ \v1 v2 v' mu ->
                              let (mv1, mv2, mv') = (mv v1, mv v2, mv v') in
                              StepTo (conf (LT (EVal mv1) (EVal mv2)) mu)
-                               (LetComputation v' (RunLT, [v1, v2])
+                               (LetComputation v' (RunLT, [mv1, mv2])
                                (Build $ conf mv' mu))
 
                 ]

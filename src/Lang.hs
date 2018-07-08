@@ -13,7 +13,7 @@ module Lang (
 import Configuration
 import LangBase
 import Matching
-import Semantics
+import Semantics.SOS
 import Term
 import Var
 
