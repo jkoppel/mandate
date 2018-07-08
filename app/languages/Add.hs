@@ -1,4 +1,4 @@
-{-# LANGUAGE DataKinds, EmptyDataDecls, OverloadedStrings, PatternSynonyms, TypeFamilies #-}
+{-# LANGUAGE DataKinds, EmptyCase, EmptyDataDecls, OverloadedStrings, PatternSynonyms, TypeFamilies #-}
 
 module Languages.Add (
     AddLang
@@ -11,11 +11,20 @@ import Semantics
 import Term
 import Var
 
-data AddLang
 
+
+data AddLang
 
 instance LangBase AddLang where
   type RedState AddLang = EmptyState
+
+  data CompFunc AddLang = RunAdd
+  compFuncName RunAdd = "runAdd"
+  runCompFunc RunAdd [Const n1, Const n2] = return $ Const (n1+n2)
+
+  data SideCond AddLang
+  sideCondName x   = case x of {}
+  runSideCond  x _ = case x of {}
 
 instance Lang AddLang where
   signature = addLangSig
@@ -62,7 +71,7 @@ addLangRules = sequence [
                    mkRule3 $ \v1 v2 v' ->
                              let (mv1, mv2, mv') = (mv v1, mv v2, mv v') in
                              StepTo (conf $ Plus (EVal mv1) (EVal mv2))
-                               (LetComputation v' ([v1, v2], \[Const n1, Const n2] -> return $ Const (n1+n2))
+                               (LetComputation v' (RunAdd, [v1, v2])
                                (Build $ conf $ EVal mv'))
                ]
 

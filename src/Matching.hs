@@ -1,4 +1,4 @@
-{-# LANGUAGE DataKinds, EmptyDataDecls, FlexibleContexts, FlexibleInstances, GADTs, GeneralizedNewtypeDeriving, TupleSections, UndecidableInstances, ViewPatterns #-}
+{-# LANGUAGE DataKinds, EmptyDataDecls, FlexibleContexts, FlexibleInstances, GADTs, TupleSections, UndecidableInstances, ViewPatterns #-}
 
 module Matching (
     MonadMatchable(..)
@@ -6,12 +6,9 @@ module Matching (
   , Match
   , runMatch
 
-  , MatchEffect
-  , runMatchEffect
-  , matchEffectInput
-  , matchEffectOutput
-
   , Matchable(..)
+  , module MatchEffect
+  , runMatchEffect
 
   , EmptyState(..)
   ) where
@@ -19,7 +16,6 @@ module Matching (
 import Control.Monad ( MonadPlus(..), guard )
 import Control.Monad.IO.Class ( liftIO )
 import Control.Monad.State ( MonadState(..), StateT, evalStateT, modify )
-import Control.Monad.Trans ( lift )
 import Control.Monad.Trans.Maybe ( MaybeT(..) )
 
 import Data.Dynamic ( Dynamic, toDyn, fromDynamic)
@@ -27,11 +23,9 @@ import Data.Map ( Map, (!) )
 import qualified Data.Map as Map
 import Data.Typeable ( Typeable )
 
-import Data.ByteString.Char8 ( ByteString )
-import qualified Data.ByteString.Char8 as BS
-
 import Configuration
 import Debug
+import MatchEffect
 import Term
 import Var
 
@@ -47,19 +41,8 @@ type Match = StateT MatchState (MaybeT IO)
 runMatch :: Match a -> IO (Maybe a)
 runMatch m = runMaybeT $ evalStateT m (MatchState Map.empty)
 
-newtype MatchEffect a = MatchEffect (IO a)
-  deriving ( Functor, Applicative, Monad )
-
 runMatchEffect :: MatchEffect a -> Match a
 runMatchEffect (MatchEffect x) = liftIO x
-
-matchEffectInput :: MatchEffect ByteString
-matchEffectInput = MatchEffect BS.getLine
-{-# NOINLINE matchEffectInput #-}
-
-matchEffectOutput :: ByteString -> MatchEffect ()
-matchEffectOutput s = MatchEffect $ BS.putStr s
-{-# NOINLINE matchEffectOutput #-}
 
 class (MonadPlus m) => MonadMatchable m where
   putVar :: (Typeable a, Eq (a Closed)) => MetaVar -> a Closed -> m ()

@@ -31,6 +31,7 @@ import qualified Data.ByteString.Char8 as BS
 
 import Configuration
 import Debug
+import LangBase
 import Matching
 import Term
 import Var
@@ -48,17 +49,20 @@ data StepTo l where
 
 data NamedRule l = NamedRule {ruleName :: ByteString, getRule :: StepTo l}
 
--- TODO: Can't depend on state
-type ExtFunc l r = ([MetaVar], [Term l Closed] -> MatchEffect r)
+type ExtComp l = (CompFunc l, [MetaVar])
+type ExtCond l = (SideCond l, [MetaVar])
 
 --TODO: How to get rid of this vacuous Typeable instances?
-runExtFunc :: (Typeable l) => ExtFunc l r -> Match r
-runExtFunc (vs, f) = getVars vs >>= runMatchEffect . f
+runExtComp :: (LangBase l) => ExtComp l -> Match (Term l Closed)
+runExtComp (f, vs) = getVars vs >>= runMatchEffect . runCompFunc f
+
+runExtCond :: (LangBase l) => ExtCond l -> Match Bool
+runExtCond (f, vs) = getVars vs >>= runMatchEffect . runSideCond f
 
 data Rhs l = Build (MConf l)
-           | SideCondition (ExtFunc l Bool) (Rhs l)
+           | SideCondition (ExtCond l) (Rhs l)
            | LetStepTo (MConf l) (MConf l) (Rhs l) -- let (x,mu) = stepto(T,mu) in R
-           | LetComputation MetaVar (ExtFunc l (Term l Closed)) (Rhs l) -- let x = f(T) in R
+           | LetComputation MetaVar (ExtComp l) (Rhs l) -- let x = f(T) in R
 
 type Rules l = [StepTo l]
 type NamedRules l = [NamedRule l]
@@ -68,26 +72,26 @@ type NamedRules l = [NamedRule l]
 -- This is not an endorsement of having this kind of human-readable displaying happen
 -- in Show, as opposed to in a separate Pretty class
 
-instance (Show (MConf l)) => Show (StepTo l) where
+instance (Show (MConf l), LangBase l) => Show (StepTo l) where
   showsPrec d (StepTo t r) = showString "step(" . showsPrec (d+1) t . showString ") = " . showsPrec (d+1) r
 
   showList rs = showString "Begin Rules:\n\n" .
                 foldr (.) id (intersperse (showString "\n\n") $ map (showsPrec 0) rs) .
                 showString "\n\nEnd Rules"
 
-instance (Show (MConf l)) => Show (Rhs l) where
+instance (Show (MConf l), LangBase l) => Show (Rhs l) where
   showsPrec d (Build t) = showsPrec (d+1) t
-  showsPrec d (SideCondition _ r) = showString "guard <some func>, " . showsPrec d r
+  showsPrec d (SideCondition (c, vs) r) = showString "guard " . showString (BS.unpack $ sideCondName c) . showsPrec (d+1) vs . showString ")" . showsPrec d r
   showsPrec d (LetStepTo x e r) = showString "let " . showsPrec (d+1) x .
                                   showString " = step(" . showsPrec (d+1) e .
                                   showString ") in " .
                                   showsPrec d r
-  showsPrec d (LetComputation x (ms, _) r) = showString "let " . showsPrec (d+1) x . showString " = " .
-                                             showString "someFunc(" . showsPrec (d+1) ms .
+  showsPrec d (LetComputation x (f, ms) r) = showString "let " . showsPrec (d+1) x . showString " = " .
+                                             showString (BS.unpack $ compFuncName f) . showString "(" . showsPrec (d+1) ms .
                                              showString ") in " . showsPrec d r
 
 
-instance (Show (MConf l)) => Show (NamedRule l) where
+instance (Show (MConf l), LangBase l) => Show (NamedRule l) where
   showsPrec d (NamedRule nm r) = showString (BS.unpack nm) . showString ":\n" . showsPrec (d+1) r
   showList rs = showString "Begin Rules:\n\n" .
                 foldr (.) id (intersperse (showString "\n\n") $ map (showsPrec 0) rs) .
@@ -98,9 +102,9 @@ instance (Show (MConf l)) => Show (NamedRule l) where
 
 -------------------------------- Execution ------------------------------
 
-runRhs :: (Matchable (Configuration l), Typeable l) => NamedRules l -> Rhs l -> Match (Configuration l Closed)
+runRhs :: (Matchable (Configuration l), LangBase l) => NamedRules l -> Rhs l -> Match (Configuration l Closed)
 runRhs rs (Build c) = fillMatch c
-runRhs rs (SideCondition f r) = do guard =<<  runExtFunc f
+runRhs rs (SideCondition f r) = do guard =<< runExtCond f
                                    runRhs rs r
 runRhs rs (LetStepTo c1 c2 r) = do c2Filled <- fillMatch c2
                                    debugStepM $ "Filled match succeeded: " ++ show (confTerm c2Filled)
@@ -108,11 +112,11 @@ runRhs rs (LetStepTo c1 c2 r) = do c2Filled <- fillMatch c2
                                    debugStepM $ "Recursive step suceeded. Result: " ++ show (confTerm c2')
                                    match c1 c2'
                                    runRhs rs r
-runRhs rs (LetComputation v f r) = do putVar v =<< runExtFunc f
+runRhs rs (LetComputation v f r) = do putVar v =<< runExtComp f
                                       runRhs rs r
 
 
-useRule :: (Matchable (Configuration l)) => NamedRules l -> NamedRule l -> Configuration l Closed -> Match (Configuration l Closed)
+useRule :: (Matchable (Configuration l), LangBase l) => NamedRules l -> NamedRule l -> Configuration l Closed -> Match (Configuration l Closed)
 useRule rs (NamedRule nm (StepTo c1 r)) c2 = do
     debugStepM $ "Trying rule " ++ BS.unpack nm ++ " for term " ++ show (confTerm c2)
     match c1 c2
@@ -121,14 +125,14 @@ useRule rs (NamedRule nm (StepTo c1 r)) c2 = do
     debugStepM $ "Rule succeeeded:" ++ BS.unpack nm
     return ret
 
-stepTerm :: (Matchable (Configuration l)) => NamedRules l -> Configuration l Closed -> Match (Configuration l Closed)
+stepTerm :: (Matchable (Configuration l), LangBase l) => NamedRules l -> Configuration l Closed -> Match (Configuration l Closed)
 stepTerm allRs t = go allRs
   where
     go []     = mzero
     go (r:rs) = useRule allRs r t `mplus` go rs
 
 
-evaluationSequence :: (Matchable (Configuration l)) => NamedRules l -> Configuration l Closed -> IO [Configuration l Closed]
+evaluationSequence :: (Matchable (Configuration l), LangBase l) => NamedRules l -> Configuration l Closed -> IO [Configuration l Closed]
 evaluationSequence rules c = go c
   where
     go c = (c :) <$> do mc' <- runMatch $ stepTerm rules c
