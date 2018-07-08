@@ -4,5 +4,4 @@
 import Control.DeepSeq
 import Configuration
 import Term
-rs <- rules @ ImpLang
-putStrLn "Try this: mapM_ (putStrLn.show) $ evaluationSequence rs (Conf term1 EmptySimpEnv)"
+putStrLn "Try this: evaluationSequenceL (Conf term1 EmptySimpEnv) >>= mapM_ (putStrLn.show)"
