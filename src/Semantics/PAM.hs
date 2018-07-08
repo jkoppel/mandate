@@ -1,4 +1,4 @@
-{-# LANGUAGE DataKinds, OverloadedStrings #-}
+{-# LANGUAGE DataKinds, GADTs, OverloadedStrings #-}
 
 -- | Implementation of "phased abstract machines," a transition system corresponding
 --   to reduction (Felleisen-Hieb) semantics
@@ -17,10 +17,11 @@ import Data.ByteString.Char8 ( ByteString )
 import qualified Data.ByteString.Char8 as BS
 
 import Configuration
-import LangBase
+import Lang
 import Semantics.Context
 import Semantics.General
 import Semantics.SOS
+import Term
 import Var
 
 data Phase = Up | Down
@@ -30,7 +31,11 @@ data AMRhs payload l = AMSideCondition  (ExtCond l Open) (AMRhs payload l)
                      | AMRhs (payload l)
 
 
-data PAMState l = PAMState (MConf l) (Context l Open) (Phase)
+data PAMState l = PAMState { pamConf :: MConf l
+                           , pamK     ::Context l Open
+                           , pamPhase :: Phase
+                           }
+
 type PAMRhs = AMRhs PAMState
 
 data PAMRule l = PAM { pamBefore :: PAMState l
@@ -50,38 +55,31 @@ type InfNameStream = [ByteString]
 infNameStream :: ByteString -> InfNameStream
 infNameStream nam = map (\i -> mconcat [nam, "-", BS.pack $ show i]) [1..]
 
-{-
-data SplitRhs l = SplitRhs (PAMRhs l) (PAMState l)  (Rhs l)
-                | DoneSplit (PAMRhs l)
+splitFrame :: PosFrame l Open -> Context l Open -> (PAMRhs l, Context l Open, Maybe (Frame l Open))
+splitFrame (KBuild c) k = (AMRhs $ PAMState c k Up, k, Nothing)
+splitFrame (KSideCond cond pf) k = let (subRhs, ctx, rest) = splitFrame pf k in
+                                   (AMSideCondition cond subRhs, ctx, rest)
+splitFrame (KStepTo c f) k = let cont = KPush f k in
+                             (AMRhs $ PAMState c cont Down, cont, Just f)
+splitFrame (KComputation comp (KInp (Conf (MetaVar mv) _) pf)) k = let (subRhs, ctx, rest) = splitFrame pf k in
+                                                                   (AMLetComputation mv comp subRhs, ctx, rest)
 
-splitRhs :: Rhs l -> Context l -> SplitRhs l
-splitRhs (Build conf) k = DoneSplit $ AMRhs (conf, k, Up)
---splitRhs (SideCondition )
-splitRhs (LetStepTo vConf conf' rhs') = SplitRhs (AMRhs (, rhsToContext k rhs', Down)) () rhs'
-
-data Rhs l = Build (MConf l)
-           | SideCondition (ExtCond l) (Rhs l)
-           | LetStepTo (MConf l) (MConf l) (Rhs l) -- let (x,mu) = stepto(T,mu) in R
-           | LetComputation MetaVar (ExtComp l) (Rhs l) -- let x = f(T) in R
-
-
-sosRuleToPAM' :: InfNameStream -> PAMState l -> RHS l -> IO [NamedPAMRule l]
-sosRuleToPAM' (nm:nms) st rhs =
-  case splitRhs rhs of
-    SplitRhs pamRhs st' rhs' -> do
-      kv1 <- nextVar
-      kv2 <- nextVar
-      let pr = namePAMRule nm $ PAMRule st pamRhs
-      rest <- sosRuleToPAM nms st' rhs'
-      return $ pr : rest
-    DoneSplit pamRhs -> return [PAMRule st pamRHS]
-
-sosRuleToPAM :: NamedRule l -> IO [NamedPAMRule l]
-sosRuleToPAM (NamedRule nam (StepTo conf rhs)) = sosRuleToPAM' (infNameStream nam) <$> startState <*> return rhs
-  where
-    startState = nextVar >>= \kv -> return (conf, KVar kv, Down)
+sosRuleToPAM' :: InfNameStream -> PAMState l -> Context l Open -> PosFrame l Open -> IO [NamedPAMRule l]
+sosRuleToPAM' (nm:nms) st k fr = do
+    let (rhs, k', frRest) = splitFrame fr k
+    restRules <- case frRest of
+                   Nothing               -> return []
+                   Just (KInp conf' fr') -> sosRuleToPAM' nms (PAMState conf' k' Up) k fr'
+    let rule = namePAMRule nm $ PAM st rhs
+    return (rule : restRules)
 
 
-sosToPAM :: NamedRules l -> IO (NamedPAMRules l)
+sosRuleToPAM :: (Lang l) => NamedRule l -> IO [NamedPAMRule l]
+sosRuleToPAM (NamedRule nam (StepTo conf rhs)) = do
+  kv <- nextVar
+  let startState = PAMState conf (KVar kv) Down
+  sosRuleToPAM' (infNameStream nam) startState (KVar kv) (rhsToFrame rhs)
+
+
+sosToPAM :: (Lang l) => NamedRules l -> IO (NamedPAMRules l)
 sosToPAM rs = concat <$> mapM sosRuleToPAM rs
--}
