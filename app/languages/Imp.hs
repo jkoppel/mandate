@@ -47,6 +47,8 @@ instance Lang ImpLang where
   signature = impLangSig
   rules = impLangRules
 
+  initConf t = Conf t EmptySimpEnv
+
 impLangSig :: Signature ImpLang
 impLangSig = Signature [ NodeSig ":=" ["Var", "Exp"] "Stmt"
                        , ValSig "Skip" [] "Stmt"

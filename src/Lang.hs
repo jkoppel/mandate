@@ -21,6 +21,8 @@ class (LangBase l, Matchable (Configuration l)) => Lang l where
   signature :: Signature l
   rules :: IO (NamedRules l)
 
+  initConf :: Term l v -> Configuration l v
+
 evaluationSequenceL :: (Lang l) => Configuration l Closed -> IO [Configuration l Closed]
 evaluationSequenceL conf = rules >>= \rs -> evaluationSequence rs conf
 

@@ -30,6 +30,8 @@ instance Lang AddLang where
   signature = addLangSig
   rules = addLangRules
 
+  initConf t = Conf t EmptyState
+
 addLangSig :: Signature AddLang
 addLangSig = Signature [ NodeSig "+" ["Exp", "Exp"] "Exp"
                        , ValSig "EVal" ["Const"] "Exp"
