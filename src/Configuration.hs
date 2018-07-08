@@ -1,8 +1,7 @@
 {-# LANGUAGE ConstraintKinds, DataKinds, FlexibleInstances, GADTs, KindSignatures, PatternSynonyms, StandaloneDeriving, TypeFamilies, ViewPatterns #-}
 
 module Configuration (
-    RedState
-  , GConfiguration(..)
+    GConfiguration(..)
   , Configuration
 
   , EmptyState(..)
@@ -22,12 +21,11 @@ import qualified Data.Map as Map
 
 import Data.Typeable ( Typeable )
 
+import LangBase
 import Term
 import Var
 
 ------------------------------------------------------------------------------------------------------------------
-
-type family RedState l :: OpenClosed -> *
 
 data GConfiguration l s v = Conf { confTerm :: Term l v, confState :: s v}
   deriving (Eq, Ord)

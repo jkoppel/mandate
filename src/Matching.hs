@@ -17,16 +17,15 @@ module Matching (
   ) where
 
 import Control.Monad ( MonadPlus(..), guard )
-import Control.Monad.Identity ( Identity(..) )
+import Control.Monad.IO.Class ( liftIO )
 import Control.Monad.State ( MonadState(..), StateT, evalStateT, modify )
 import Control.Monad.Trans ( lift )
+import Control.Monad.Trans.Maybe ( MaybeT(..) )
 
 import Data.Dynamic ( Dynamic, toDyn, fromDynamic)
 import Data.Map ( Map, (!) )
 import qualified Data.Map as Map
 import Data.Typeable ( Typeable )
-
-import System.IO.Unsafe ( unsafePerformIO )
 
 import Data.ByteString.Char8 ( ByteString )
 import qualified Data.ByteString.Char8 as BS
@@ -43,25 +42,23 @@ modMatchState f = MatchState . f . getMatchState
 
 
 -- Maybe is on inside; means state will reset on backtrack
-type Match = StateT MatchState Maybe
+type Match = StateT MatchState (MaybeT IO)
 
-runMatch :: Match a -> Maybe a
-runMatch m = evalStateT m (MatchState Map.empty)
+runMatch :: Match a -> IO (Maybe a)
+runMatch m = runMaybeT $ evalStateT m (MatchState Map.empty)
 
-newtype MatchEffect a = MatchEffect (Identity a)
+newtype MatchEffect a = MatchEffect (IO a)
   deriving ( Functor, Applicative, Monad )
 
 runMatchEffect :: MatchEffect a -> Match a
-runMatchEffect (MatchEffect x) = return $ runIdentity x
+runMatchEffect (MatchEffect x) = liftIO x
 
 matchEffectInput :: MatchEffect ByteString
-matchEffectInput = return $ unsafePerformIO BS.getLine
+matchEffectInput = MatchEffect BS.getLine
 {-# NOINLINE matchEffectInput #-}
 
--- TODO: This doesn't actually work, probably because strictness,
--- because probably I shouldn't be using unsafePerformIO. Oh well; not currently important.
 matchEffectOutput :: ByteString -> MatchEffect ()
-matchEffectOutput s = return $ unsafePerformIO $ BS.putStr s
+matchEffectOutput s = MatchEffect $ BS.putStr s
 {-# NOINLINE matchEffectOutput #-}
 
 class (MonadPlus m) => MonadMatchable m where

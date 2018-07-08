@@ -104,7 +104,7 @@ runRhs rs (SideCondition f r) = do guard =<<  runExtFunc f
                                    runRhs rs r
 runRhs rs (LetStepTo c1 c2 r) = do c2Filled <- fillMatch c2
                                    debugStepM $ "Filled match succeeded: " ++ show (confTerm c2Filled)
-                                   c2' <- lift $ stepTerm rs c2Filled
+                                   c2' <- withFreshCtx $ stepTerm rs c2Filled
                                    debugStepM $ "Recursive step suceeded. Result: " ++ show (confTerm c2')
                                    match c1 c2'
                                    runRhs rs r
@@ -121,17 +121,20 @@ useRule rs (NamedRule nm (StepTo c1 r)) c2 = do
     debugStepM $ "Rule succeeeded:" ++ BS.unpack nm
     return ret
 
-stepTerm :: (Matchable (Configuration l)) => NamedRules l -> Configuration l Closed -> Maybe (Configuration l Closed)
-stepTerm allRs t = runMatch $ go allRs
+stepTerm :: (Matchable (Configuration l)) => NamedRules l -> Configuration l Closed -> Match (Configuration l Closed)
+stepTerm allRs t = go allRs
   where
     go []     = mzero
     go (r:rs) = useRule allRs r t `mplus` go rs
 
 
-evaluationSequence :: (Matchable (Configuration l)) => NamedRules l -> Configuration l Closed -> [Configuration l Closed]
-evaluationSequence rules c = c : case stepTerm rules c of
-                                   Nothing -> []
-                                   Just c' -> evaluationSequence rules c'
+evaluationSequence :: (Matchable (Configuration l)) => NamedRules l -> Configuration l Closed -> IO [Configuration l Closed]
+evaluationSequence rules c = go c
+  where
+    go c = (c :) <$> do mc' <- runMatch $ stepTerm rules c
+                        case mc' of
+                          Nothing -> return []
+                          Just c' -> evaluationSequence rules c'
 
 -------------------------------- Helpers for creating rules ------------------------------
 

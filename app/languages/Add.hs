@@ -13,7 +13,13 @@ import Var
 
 data AddLang
 
-type instance RedState AddLang = EmptyState
+
+instance LangBase AddLang where
+  type RedState AddLang = EmptyState
+
+instance Lang AddLang where
+  signature = addLangSig
+  rules = addLangRules
 
 addLangSig :: Signature AddLang
 addLangSig = Signature [ NodeSig "+" ["Exp", "Exp"] "Exp"
@@ -59,11 +65,6 @@ addLangRules = sequence [
                                (LetComputation v' ([v1, v2], \[Const n1, Const n2] -> return $ Const (n1+n2))
                                (Build $ conf $ EVal mv'))
                ]
-
-
-instance Lang AddLang where
-  signature = addLangSig
-  rules = addLangRules
 
 -----------
 

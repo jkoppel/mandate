@@ -23,7 +23,13 @@ data ImpLang
 -- Why are the keys of this map terms?
 -- Because my infrastructure, namely ExtFunc's, currently assumes metavars are only bound to
 -- terms (and maps), so it must be a term.
-type instance RedState ImpLang = SimpEnv (Term ImpLang) (Term ImpLang)
+
+instance LangBase ImpLang where
+  type RedState ImpLang = SimpEnv (Term ImpLang) (Term ImpLang)
+
+instance Lang ImpLang where
+  signature = impLangSig
+  rules = impLangRules
 
 impLangSig :: Signature ImpLang
 impLangSig = Signature [ NodeSig ":=" ["Var", "Exp"] "Stmt"
@@ -250,10 +256,6 @@ impLangRules = sequence [
                                (Build $ conf mv' mu))
 
                 ]
-
-instance Lang ImpLang where
-  signature = impLangSig
-  rules = impLangRules
 
 ------------------------------------------------------------------------------------------------------------------
 
