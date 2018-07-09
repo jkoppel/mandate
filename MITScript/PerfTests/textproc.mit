@@ -1,0 +1,68 @@
+List = fun(){ this = {head:None; 
+        len: fun(){ if(this.head == None){ return 0; }else{ return this.head.len; }};
+	add: fun(v){ this.head = {len:this.len()+1 ; car:v; cdr:this.head;}; }; 
+	print: fun(){ 
+		t = this.head;
+		while(!(t == None)){
+			print(t.car);
+			t = t.cdr;
+		}
+        };
+	forall: fun(f){ t = this.head;
+		while(!(t == None)){
+			f(t.car);
+			t = t.cdr;
+		}
+	};
+};
+return this;
+ };
+
+N = intcast(input());
+l = List();
+i=0;
+while(i < N){
+	l.add(input());
+	i = i + 1;
+}
+
+b = true;
+other = List();
+i = 0;
+l.forall(fun(s){ 
+  global b;
+  global i;
+  if(b){
+     other.add("SKIP: " + i + " " + s);
+  }
+  b = !b;
+  i = i + 1;
+});
+
+print("l.len() = " + l.len());
+
+duplicate = fun(lst){
+   state = {n:0;};
+   rv = List();
+   lst.forall(fun(s){ rv.add(state.n + " " + s); state.n = state.n+1; });
+   lst.forall(fun(s){ rv.add(state.n + " " + s); state.n = state.n+1; });
+   return rv;
+};
+
+big = duplicate(duplicate(duplicate(duplicate(duplicate(l)))));
+print("big.len = " + big.len());
+
+countDuplicates = fun(l1 l2){
+  state = {n:0;};
+  l1.forall(
+    fun(s){ 
+       l2.forall(fun(t){  if(s==t){  state.n = state.n + 1; }});
+    }
+  );
+  return state.n;
+};
+
+print( "Duplicates l other: " + countDuplicates(l, other) );
+print( "Duplicates l l: " + countDuplicates(l, l) );
+print( "Duplicates other other: " + countDuplicates(other, other) );
+print( "Duplicates big big: " + countDuplicates(big, big));

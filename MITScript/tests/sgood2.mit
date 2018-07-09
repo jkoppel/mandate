@@ -1,0 +1,23 @@
+  
+   
+   
+          
+   
+       
+   
+
+ 
+Program:(
+Statement:(Assignment(LHS(Name(x)NameExtension())<-Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(Constant(7)))))))))))
+Statement:(Assignment(LHS(Name(foo)NameExtension())<-Expression(Function(Parameters:Name(x),Name(val)Body:Block(
+Statement:(IfStatement(Condition:Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(LHS(Name(x)NameExtension()))))>Arithmetic(Product(Unit(Constant(0)))))))))If Block:Block(
+Statement:(Return(Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(Call(Name:LHS(Name(foo)NameExtension())Args:Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(LHS(Name(x)NameExtension())))-Product(Unit(Constant(1))))))))),Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(LHS(Name(val)NameExtension())))+Product(Unit(Constant("x"))))))))))))))))))))
+)End Block
+Else Block:Block(
+Statement:(Return(Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(LHS(Name(val)NameExtension())))))))))))
+)End Block
+))
+)End Block
+))))
+Statement:(Call(Name:LHS(Name(print)NameExtension())Args:Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(Call(Name:LHS(Name(foo)NameExtension())Args:Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(Constant(5))))))))),Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(Constant(""))))))))))))))))))))
+)End Program

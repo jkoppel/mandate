@@ -1,0 +1,149 @@
+Tree = fun(){
+  Node = fun(v){
+    this= { 
+        val:v; 
+        left:None; 
+        right:None;
+	len: fun(){ 
+	   count = 1;
+	   if(!(this.left == None)){ count = count + this.left.len(); }
+	   if(!(this.right == None)){ count = count + this.right.len(); }
+	   return count;
+	};
+	contains: fun(x){
+	   if(x == this.val){ return true;}
+	   if(x < this.val){ 
+		if(this.left == None){ return false; }
+                else{ return this.left.contains(x); } 
+           }
+           else{ if(this.right == None){ return false; }
+                 else{ return this.right.contains(x); } 
+           }
+	};
+        add:fun(x){
+           if(x < this.val){
+              if(this.left == None){ this.left = Node(x); }
+              else{ this.left.add(x); }
+           }else{
+	      if(x > this.val){
+                if(this.right == None){ this.right = Node(x); }
+                else{ this.right.add(x); }
+              }
+           }
+        };
+        min: fun(){
+	     if(this.left==None){ return this.val;}
+	     else{ return this.left.min(); }
+	};	
+        max: fun(){
+	     if(this.right==None){ return this.val;}
+	     else{ return this.right.max(); }
+	};	
+        forall: fun(f){
+            if(!(this.left==None)){ this.left.forall(f); }
+            f(this.val);
+            if(!(this.right==None)){ this.right.forall(f); }
+        };
+    };
+    return this;
+  };
+  this = {
+    root:None;
+    contains: fun(x){
+      if(this.root==None){
+	return false;	
+      }else{
+ 	return this.root.contains(x);	
+      }
+    };
+    add:fun(x){
+      if(this.root==None){
+	this.root = Node(x);
+      }else{
+ 	this.root.add(x);	
+      }
+
+    };
+    min: fun(){ 
+       if(this.root == None){
+	return "Error";
+       }else{
+        return this.root.min();         
+       }
+    };
+    max: fun(){ 
+       if(this.root == None){
+	return "Error";
+       }else{
+         return this.root.max();         
+       }
+    };
+	
+
+    len : fun(){ 
+       if(this.root == None){
+	  return 0;
+       }else{
+          return this.root.len();         
+       }
+	
+    };
+    forall : fun(f){
+       if(this.root == None){
+
+       }else{
+          this.root.forall(f);         
+       }
+    };
+
+  };
+  
+  
+
+  return this;
+};
+
+
+
+
+M = 400;
+N = intcast(input());
+t = Tree();
+i=0;
+while(i < N){
+        j = 0;
+        inval =intcast(input()) ;
+        while(j < M){
+           t.add(inval+ j);
+        j = j + 1;
+	}
+        i = i + 1;
+}
+
+min = t.min();
+max = t.max();
+
+print("Min = " + min);
+print("Max = " + max);
+
+i = min;
+missing = 0;
+while(i <= max){
+   if(!t.contains(i)){
+	missing = missing + 1;
+   }
+   i = i + 1;
+}
+
+print("Range size = " + (max-min+1));
+print("Missing = " + missing);
+print("Length = " + t.len() );
+
+print("After forall");
+
+
+
+
+
+
+

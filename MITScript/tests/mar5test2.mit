@@ -1,0 +1,29 @@
+Vector = fun(x y){
+  this = {
+    getx : fun(){ return x; };
+    gety : fun(){ return y; };
+    print : fun(){ print("(" + x + ", " + y + ")"); };
+    eq : fun(that){ return that.getx() == x & that.gety() ==y; };
+    plus : fun(that){ return Vector(x + that.getx(), y + that.gety()); };
+  };
+  return this;
+};
+
+v1 = Vector(2,2);
+v2 = Vector(4,4);
+
+print("V1");
+v1.print();
+
+print("V2");
+v2.print();
+x = v1.plus(v1);
+
+
+if(x.eq(v2)){
+print("The vectors are equal");
+x.print();
+
+}
+
+

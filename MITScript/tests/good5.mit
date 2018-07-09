@@ -1,0 +1,14 @@
+p = {x:0; y:0;};
+im = fun(x y){
+   if(x==p.x & y==p.y){
+      return "x";
+   }
+   return " ";
+};
+i = 0;
+while(i < 30){
+   console.log(im(i, i), 30, 30);
+   p.x = i;
+   p.y = i;
+   i = i+1;
+}

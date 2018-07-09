@@ -1,0 +1,5 @@
+  
+  Program:(
+Statement:(Assignment(LHS(Name(a)NameExtension(BracketExpression(Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(Constant(5))))))))))Name(y)))<-Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(Constant(7)))))))))))
+Statement:(Assignment(LHS(Name(x)NameExtension(Name(y)Name(z)Name(b)))<-Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(LHS(Name(o)NameExtension(BracketExpression(Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(Constant(0))))))))))))))))))))))
+)End Program

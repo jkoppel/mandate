@@ -1,0 +1,3 @@
+Parser and printer for MITScript, based on the official code for Assignment 1 of MIT's 6.035 class: http://6.035.scripts.mit.edu/sp17/a1.html
+
+This is not a git submodule because (1) we don't need most of the code, and (2) this language should be frozen in time and not updated with the course, and (3) I've found git submodules to be nothing but trouble.

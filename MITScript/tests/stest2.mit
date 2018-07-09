@@ -1,0 +1,45 @@
+    
+      
+      
+      
+        
+    	    
+	    
+	    
+	    
+	       
+	  
+	        
+	      
+    
+     
+
+
+       
+       
+
+ 
+Program:(
+Statement:(Assignment(LHS(Name(calculate_cost)NameExtension())<-Expression(Function(Parameters:Name(name_to_salary),Name(name_to_hours)Body:Block(
+Statement:(Assignment(LHS(Name(name_list)NameExtension())<-Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(Call(Name:LHS(Name(Object)NameExtension(Name(keys)))Args:Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(LHS(Name(name_to_salary)NameExtension()))))))))))))))))))))
+Statement:(Assignment(LHS(Name(cost)NameExtension())<-Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(Constant(0)))))))))))
+Statement:(Assignment(LHS(Name(i)NameExtension())<-Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(Constant(0)))))))))))
+Statement:(WhileLoop(Condition:Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(LHS(Name(i)NameExtension()))))<Arithmetic(Product(Unit(LHS(Name(name_list)NameExtension(Name(length)))))))))))Body:Block(
+Statement:(Assignment(LHS(Name(name)NameExtension())<-Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(LHS(Name(name_list)NameExtension(BracketExpression(Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(LHS(Name(i)NameExtension()))))))))))))))))))))))
+Statement:(Assignment(LHS(Name(salary)NameExtension())<-Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(LHS(Name(name_to_salary)NameExtension(BracketExpression(Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(LHS(Name(name)NameExtension()))))))))))))))))))))))
+Statement:(Assignment(LHS(Name(hours)NameExtension())<-Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(LHS(Name(name_to_hours)NameExtension(BracketExpression(Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(LHS(Name(name)NameExtension()))))))))))))))))))))))
+Statement:(IfStatement(Condition:Expression(Boolean(Conjunction(BoolUnit!(Predicate(Arithmetic(Product(Unit(LHS(Name(hours)NameExtension())))))))))If Block:Block(
+Statement:(Call(Name:LHS(Name(error)NameExtension())Args:Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(Constant("No hour data for worker ")))+Product(Unit(LHS(Name(name)NameExtension())))))))))))
+)End Block
+))
+Statement:(Assignment(LHS(Name(cost)NameExtension())<-Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(LHS(Name(cost)NameExtension())))+Product(Unit(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(LHS(Name(salary)NameExtension()))*Unit(LHS(Name(hours)NameExtension()))))))))))))))))))
+Statement:(Assignment(LHS(Name(i)NameExtension())<-Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(LHS(Name(i)NameExtension())))+Product(Unit(Constant(1)))))))))))
+)End Block
+))
+Statement:(Return(Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(LHS(Name(cost)NameExtension())))))))))))
+)End Block
+))))
+Statement:(Assignment(LHS(Name(name_to_salary)NameExtension())<-Expression(Record(Name(Alice)Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(Constant(45))))))))),Name(Bob)Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(Constant(50))))))))),Name(Eve)Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(Constant(55)))))))))))))
+Statement:(Assignment(LHS(Name(name_to_hours)NameExtension())<-Expression(Record(Name(Alice)Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(Constant(10))))))))),Name(Bob)Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(Constant(10))))))))),Name(Eve)Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(Constant(10)))))))))))))
+Statement:(Call(Name:LHS(Name(console)NameExtension(Name(log)))Args:Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(Call(Name:LHS(Name(calculate_cost)NameExtension())Args:Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(LHS(Name(name_to_salary)NameExtension()))))))))),Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(LHS(Name(name_to_hours)NameExtension()))))))))))))))))))))
+)End Program

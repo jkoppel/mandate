@@ -1,0 +1,322 @@
+Datum = fun (vector size)
+{
+    this = { 
+         vector : vector;
+         size : size;
+         print : fun ()
+         {
+            str = "[";
+            i = 0;
+            while (i < size)
+            {
+                if (!(i == 0))
+                {
+                    str = str + ", ";
+                }
+            
+                str = str + vector[i];
+   
+                i = i + 1;
+            }
+            str = str + "]";
+
+            print(str);
+         };
+    };
+
+   return this;
+};
+
+ParseDatum = fun(size)
+{
+    vector = {};
+
+    i = 0;
+    while (i < size)
+    {
+        value = intcast(input());
+
+        vector[i] = value;
+
+        i = i + 1;
+    }
+
+   return Datum(vector, size);
+};
+
+distance = fun(left right)
+{
+    size = left.size;
+
+    dist = 0;
+    i = 0;
+
+    while (i < size)
+    {
+        l = left.vector[i];
+        r = right.vector[i];
+
+        diff = l - r;
+
+        if (diff < 0)
+        {
+            diff = -diff;            
+        }
+
+        dist = diff + dist;
+
+        i = i + 1;
+    }
+
+    return dist;
+};
+
+List = fun()
+{
+    Node = fun(e t) { return { elem : e; tail : t; }; };
+
+    this = {
+
+        head : None;
+
+        add : fun(elem)
+        {
+            this.head = Node(elem, this.head);
+        };
+
+        get_rec : fun(index node)
+        {
+            if (index == 0)
+            {
+                return node.elem;
+            }
+
+            return this.get_rec(index - 1, node.tail);
+        };
+
+        get : fun(index)
+        {
+            return this.get_rec(index, this.head);
+        };
+
+        map_rec : fun(f node result)
+        {
+            if (node == None)
+            {
+                return result;
+            }
+    
+            this.map_rec(f, node.tail, result);
+        
+            result.add(f(node.elem));
+        };
+
+        map : fun(f)
+        {
+            result = List();
+          
+            this.map_rec(f, this.head, result);
+          
+            return result;
+        };
+
+        reduce_rec : fun(f left_value node idx)
+        {
+            if (node == None)
+            {
+                return left_value;
+            }
+           
+            result = f(left_value, node.elem, idx);
+ 
+            return this.reduce_rec(f, result, node.tail, idx + 1);
+        };
+        
+        reduce : fun(f init)
+        {
+            return this.reduce_rec(f, init, this.head, 0);
+        };
+
+        str : fun()
+        {
+            s = "[";
+
+            node = this.head;
+
+            while (!(node == None))
+            {
+                t = node.elem;
+ 
+                s = s + " " + t;
+
+                node = node.tail;
+            }
+    
+            s = s + " ]";
+
+            return s;
+        };
+
+        print : fun()
+        {
+            node = this.head;
+
+            while (!(node == None))
+            {
+                t = node.elem;
+ 
+                t.print();
+
+                node = node.tail;
+            }
+        };
+   };
+ 
+   return this;
+};
+
+sum = fun(list)
+{
+    head = list.head;
+
+    value = 0;
+    while (!(head == None))
+    {
+        value = value + head.elem;
+        head = head.tail;
+    }
+
+    return value;
+};
+
+arg_min = fun(list)
+{
+    head = list.head;
+    value = 100000000;
+    min_index = -1;
+
+    index = 0;
+    while (!(head == None))
+    {
+        this_value = head.elem;
+        if (this_value < value)
+        {
+            value = this_value;
+            min_index = index;   
+        }
+
+        index = index + 1;
+
+        head = head.tail;
+    }
+
+    return min_index;
+};
+
+assign_cluster = fun (data datum clusters) 
+{   
+    dist = fun (other) 
+    {
+        other_datum = data.get(other);
+
+        d = distance(datum, other_datum);
+        
+        return d;
+    };
+
+    distances = clusters.map(dist);
+
+    index = arg_min(distances);
+   
+    return index;
+};
+
+assign_clusters = fun (data clusters)
+{
+    f = fun (map datum datum_index)
+    {
+        idx = assign_cluster(data, datum, clusters);
+
+        if(map[idx] == None)
+        {
+            map[idx] = List();
+        }
+
+        map[idx].add(datum_index);
+
+        return map;
+    };
+
+    return data.reduce(f, { });
+};
+
+step_count = intcast(input());
+
+clusters = List();
+cluster_count = intcast(input());
+
+i = 0;
+while (i < cluster_count)
+{
+    clusters.add(intcast(input()));
+
+    i = i + 1;
+}
+
+datapoint_size = intcast(input());
+datapoint_count = intcast(input());
+
+data = List();
+i = 0;
+while (i < datapoint_count)
+{
+    datum = ParseDatum(datapoint_size);
+
+    data.add(datum);
+
+    i = i + 1;
+}
+
+print(clusters.str());
+
+step = 0;
+while (step < step_count)
+{
+
+    assignment = assign_clusters(data, clusters);
+
+    new_clusters = List();
+
+    c = 0;
+    while (c < cluster_count)
+    {
+        indices = assignment[c];
+
+        distance_as_center = fun(elem_index)
+       {
+            datum = data.get(elem_index);
+
+            dist = fun(other_index) { return distance(datum, data.get(other_index)); };
+            
+            distances = indices.map(dist);
+
+            return sum(distances);
+        };
+
+        distances = indices.map(distance_as_center);
+       
+        best_center_index = arg_min(distances);
+
+        best_center_datum_index = indices.get(best_center_index);
+
+        new_clusters.add(best_center_datum_index);
+
+        c = c + 1;           
+    }
+
+    clusters = new_clusters;
+
+    print(clusters.str());
+
+    step = step + 1;
+}

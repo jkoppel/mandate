@@ -1,0 +1,42 @@
+debugprint = print;
+oldprint = print;
+print = fun(x){ 
+         debugprint("Inside S1"); 
+         oldprint("--> " + x); 
+};
+
+f = fun(x){
+  print(x);
+  y = x + "?";
+  z = 234;
+  global z;
+  getprint= fun(){ return print; } ;
+  f = fun(x){
+	oldprint = getprint();
+	print = fun(x){ 
+		debugprint("Inside S2");
+		oldprint("--> " + x); 
+	};
+        debugprint("Here we go!");
+     	print(x);
+        print(y);
+	print(z);
+  };
+  f("Hello");
+  y = y + "???";
+  z = "And now?";
+  f("is this for real?");
+  global print;
+  
+  oldprint = print;
+print = fun(x){ oldprint("--> " + x); };
+
+  f("This is getting confusing.");
+  return f;
+};
+
+g = f("TEST1");
+g("TEST2");
+f("TEST3");
+g("TEST4");
+

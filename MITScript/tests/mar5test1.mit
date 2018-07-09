@@ -1,0 +1,14 @@
+x = 5;
+fac = fun(x){ 
+    if(x <= 1){
+	return x;
+    }
+    v = fac(x-1);
+    print("fac of " + (x-1) + " is " + v);
+    return x * v;
+};
+
+v = fac(x);
+print("fac of " + (x) + " is " + v);
+
+

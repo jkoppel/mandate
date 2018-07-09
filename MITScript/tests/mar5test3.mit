@@ -1,0 +1,25 @@
+
+Account = fun(){
+private = { balances: {}; };
+this = {
+ addClient: fun(name){ private.balances[name] = 0; };
+ increment : fun(name){ 
+	if(private.balances[name] == None){ this.addClient(name); }
+	private.balances[name] = private.balances[name] + 1; 
+};
+ print: fun(name){ print("Balance for " + name + " is " + private.balances[name]); } ;
+};
+
+return this;
+};
+
+
+acc = Account();
+acc.addClient("Armando");
+acc.print("Armando");
+acc.increment("Armando");
+acc.print("Armando");
+
+acc.increment("Michael");
+acc.print("Michael");
+

@@ -1,0 +1,11 @@
+  
+  
+     
+Program:(
+Statement:(Assignment(LHS(Name(x)NameExtension())<-Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(Constant(5)))))))))))
+Statement:(Assignment(LHS(Name(y)NameExtension())<-Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(Constant(7)))))))))))
+Statement:(Assignment(LHS(Name(z)NameExtension())<-Expression(Function(Parameters:Name(x)Body:Block(
+Statement:(Return(Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(LHS(Name(x)NameExtension())))))))))))
+)End Block
+))))
+)End Program

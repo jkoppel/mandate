@@ -1,0 +1,26 @@
+x = 0;
+get = fun(){
+  global x;
+  x = x + 1;
+  return x;
+};
+
+r = {x:get(); y:get(); z:get(); a:get(); b:get();};
+
+print("P" + r.x);
+print("P" + r.y);
+print("P" + r.z);
+print("P" + r.a);
+print("P" + r.b);
+
+paramorder = fun(a b c d){
+print("Q " + a);
+print("Q " + b);
+print("Q " + c);
+print("Q " + d);
+
+};
+
+paramorder(get(), get(), get(), get());
+
+

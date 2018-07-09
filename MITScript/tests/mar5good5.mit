@@ -1,0 +1,32 @@
+consolePrint = fun(im x y){
+i=0; 
+while(i<x){
+j = 0;
+line = "";
+while(j<y){
+ch = im(i,j);
+line = line + ch;
+j = j + 1;
+}
+print(line);
+i = i + 1;
+}
+
+};
+
+p = {x:0; y:0;};
+im = fun(x y){ 
+   if(x==p.x & y==p.y){
+      return "x";
+   }
+   return " ";
+};
+i = 0;
+while(i < 30){
+ 
+   consolePrint(im, 30, 30);
+   p.x = i;
+   p.y = i;
+   i = i+1;
+}
+

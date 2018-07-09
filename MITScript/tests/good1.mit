@@ -1,0 +1,3 @@
+x = 5;
+y = 7;
+z = fun(x){ return x; };

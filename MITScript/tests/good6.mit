@@ -1,0 +1,13 @@
+Point = fun(x y){
+this = {
+	x:x;
+	y:y;
+	print: fun(){
+		console.log("Point(" + this.x + ", " + this.y + ")");
+	};
+};
+return this;
+};
+
+p = Point(5,5);
+p.print();

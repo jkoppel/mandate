@@ -1,0 +1,23 @@
+x = 5;
+foo = fun(t){
+   if(t > 4){
+   x = t; 
+   moo = fun(u){
+	x = 3; 
+	boo = fun(v){
+		print("x should be " + v + " is " + x);
+	};
+	boo(3);
+        x = 2;
+	boo(2);
+	return boo;
+   };
+   f = moo();
+   f(2);
+   print(" this x should be " + t + " is " + x);
+   }else{
+
+
+   }
+};
+foo(5);

@@ -1,0 +1,54 @@
+Array = fun(size){
+  this = {
+	put: fun(idx val){ 
+            if( idx < size){
+		this[idx] = val; 
+	    }else{
+		print("Index " + idx + " out of bounds ");
+            }
+	};
+	get: fun(idx){
+	    if( idx < size){
+		return this[idx];
+            }else{
+                print("Index " + idx + " out of bounds ");
+            }
+	};
+	print: fun(){
+	    i = 0;
+	    out = "";
+	    while(i<size){
+		out = out + this.get(i) + " ";
+		i = i + 1;
+            }
+	    print("[" + out + "]");
+	};
+
+  };
+  return this;
+};
+
+print("Before a1");
+a1 = Array(10);
+a1.put(0, 5);
+a1.put(2, 3);
+a1.put(0, 2);
+a1.put(3, true);
+a1.put(4, Array);
+print("Before print array");
+a1.print();
+
+f = a1.get(4);
+a2 = f(3);
+a2.put(0, "O");
+a2.put(1, "U");
+a2.put(2, "H");
+a2.put(3, "X");
+a2.put(4, "Y");
+a2.print();
+
+
+
+
+
+

@@ -1,0 +1,10 @@
+x = fun(y) { return 5; };
+y = fun(a b) {
+  return a + b;
+};
+
+z = y(4, 5);
+
+a = fun() { return 5; };
+
+a();

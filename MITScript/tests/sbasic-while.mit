@@ -1,0 +1,10 @@
+    
+      
+          
+Program:(
+Statement:(WhileLoop(Condition:Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(LHS(Name(x)NameExtension()))))>Arithmetic(Product(Unit(Constant(30)))))))))Body:Block(
+Statement:(Call(Name:LHS(Name(print)NameExtension())Args:Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(LHS(Name(x)NameExtension())))))))))))
+Statement:(Assignment(LHS(Name(x)NameExtension())<-Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(LHS(Name(x)NameExtension())))-Product(Unit(Constant(4)))))))))))
+)End Block
+))
+)End Program

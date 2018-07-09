@@ -1,0 +1,93 @@
+
+
+Ncars = 300;
+Nsteps = 500;
+
+
+
+forall = fun(c f){
+   n = c.n;
+   i=0;
+   while(i<n){
+      f(c[i]);
+      i = i + 1;
+   }
+};
+
+mapreduce = fun(c m r){
+   n = c.n;
+   if(n <= 1){
+       return "Error";
+   }
+   res = r(m(c[0]), m(c[1]));
+   i = 2;
+   while(i<n){
+      res = r(res, m(c[i]));
+      i = i + 1;
+   }
+   return res;
+};
+
+
+Car = fun(x y){
+   return { x:x; y:y; vx:0; vy:0; };
+};
+
+
+manycars = fun(n xbnd ){
+  carmap = {n:n;};
+  x = 0;
+  y = 0;
+  vx = 0;
+  vy = 0;
+  n = n-1;
+  while(n >= 0){
+    c = Car(x,y);
+    carmap[n] = c;
+    x = x + 10;
+    if(x > xbnd){ x = 0; y = y + 10; }
+    c.vx = vx;
+    c.vy = vy;
+    n = n - 1;
+    vx = vx + 1;
+    if(vx > 2){ vx = 0; vy = vy + 1; }
+    if(vy > 2){ vy = 0; }
+  }
+  return carmap;
+};
+
+
+
+step = fun(carmap){
+   f=fun(car){
+	checkColision = fun(c1 c2){
+           return (c1.x == c2.x & c1.y == c2.y);
+        };
+        car.x = car.x + car.vx;
+        car.y = car.y + car.vy;
+        colided = mapreduce(carmap, fun(c){ return checkColision(car, c); }, fun(a b){ return a & b; });
+        if(colided){
+            car.x = car.x - car.vx;
+            car.y = car.y - car.vy;
+            car.vx = -car.vx;
+            car.vy = -car.vy;
+        }
+        
+   };
+
+
+   forall(carmap, f);
+
+};
+
+print("Before sim");
+cars = manycars(Ncars, 100);
+print("During sim \n" + cars);
+
+i = 0;
+while(i < Nsteps){
+step(cars);
+i = i + 1;
+}
+
+print("In the end \n" + cars);

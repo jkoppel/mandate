@@ -1,0 +1,32 @@
+   
+   
+     
+       
+   
+    
+
+  
+  
+      
+     
+     
+     
+Program:(
+Statement:(Assignment(LHS(Name(p)NameExtension())<-Expression(Record(Name(x)Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(Constant(0))))))))),Name(y)Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(Constant(0)))))))))))))
+Statement:(Assignment(LHS(Name(im)NameExtension())<-Expression(Function(Parameters:Name(x),Name(y)Body:Block(
+Statement:(IfStatement(Condition:Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(LHS(Name(x)NameExtension()))))==Arithmetic(Product(Unit(LHS(Name(p)NameExtension(Name(x))))))))&BoolUnit(Predicate(Arithmetic(Product(Unit(LHS(Name(y)NameExtension()))))==Arithmetic(Product(Unit(LHS(Name(p)NameExtension(Name(y)))))))))))If Block:Block(
+Statement:(Return(Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(Constant("x")))))))))))
+)End Block
+))
+Statement:(Return(Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(Constant(" ")))))))))))
+)End Block
+))))
+Statement:(Assignment(LHS(Name(i)NameExtension())<-Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(Constant(0)))))))))))
+Statement:(WhileLoop(Condition:Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(LHS(Name(i)NameExtension()))))<Arithmetic(Product(Unit(Constant(30)))))))))Body:Block(
+Statement:(Call(Name:LHS(Name(console)NameExtension(Name(log)))Args:Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(Call(Name:LHS(Name(im)NameExtension())Args:Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(LHS(Name(i)NameExtension()))))))))),Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(LHS(Name(i)NameExtension())))))))))))))))))),Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(Constant(30))))))))),Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(Constant(30)))))))))))
+Statement:(Assignment(LHS(Name(p)NameExtension(Name(x)))<-Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(LHS(Name(i)NameExtension())))))))))))
+Statement:(Assignment(LHS(Name(p)NameExtension(Name(y)))<-Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(LHS(Name(i)NameExtension())))))))))))
+Statement:(Assignment(LHS(Name(i)NameExtension())<-Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(LHS(Name(i)NameExtension())))+Product(Unit(Constant(1)))))))))))
+)End Block
+))
+)End Program

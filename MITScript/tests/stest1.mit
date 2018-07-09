@@ -1,0 +1,25 @@
+  
+
+  
+    
+              
+               
+          
+
+
+    Program:(
+Statement:(Assignment(LHS(Name(x)NameExtension())<-Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(Call(Name:LHS(Name(input)NameExtension())Args:Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(Constant("Please enter the value you want to seed with"))))))))))))))))))))
+Statement:(Assignment(LHS(Name(it_count)NameExtension())<-Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(Constant(0)))))))))))
+Statement:(WhileLoop(Condition:Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(LHS(Name(x)NameExtension()))))>Arithmetic(Product(Unit(Constant(1)))))))))Body:Block(
+Statement:(IfStatement(Condition:Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(Call(Name:LHS(Name(is_even)NameExtension())Args:Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(LHS(Name(x)NameExtension()))))))))))))))))))If Block:Block(
+Statement:(Assignment(LHS(Name(x)NameExtension())<-Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(LHS(Name(x)NameExtension()))/Unit(Constant(2)))))))))))
+)End Block
+Else Block:Block(
+Statement:(Assignment(LHS(Name(x)NameExtension())<-Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(Constant(3))*Unit(LHS(Name(x)NameExtension())))+Product(Unit(Constant(1)))))))))))
+)End Block
+))
+Statement:(Assignment(LHS(Name(it_count)NameExtension())<-Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(LHS(Name(it_count)NameExtension())))+Product(Unit(Constant(1)))))))))))
+)End Block
+))
+Statement:(Call(Name:LHS(Name(print)NameExtension())Args:Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(Constant("it took a total of ")))+Product(Unit(LHS(Name(it_count)NameExtension())))+Product(Unit(Constant("steps to enter a cycle")))))))))))
+)End Program

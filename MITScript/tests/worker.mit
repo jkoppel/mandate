@@ -1,0 +1,19 @@
+delegateList = {
+  load_scripts : "load_scripts";
+  run : run;
+};
+
+b = fun(message) {
+  call = delegateList[event.data["call"]];
+  result = call(event.data["args"]);
+};
+
+
+f = fun(text) {
+  postMessage({ call : "log"; args : "text"; });
+};
+
+
+f = fun(content) {
+  postMessage({ call : "displayplot"; args : "content";});
+};

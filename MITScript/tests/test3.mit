@@ -1,0 +1,33 @@
+Lock = fun(num_threads) {
+     that = {};
+     that.flags = AtomicBooleanList();
+
+     that.lock = fun(thread_id) {
+     	       if (that.bit_list.length() < thread_id - 1) {
+	       	  assert(false);
+	       }
+	       while(!that.flags.get(thread_id)) {
+	           that.flags.set(thread_id, True);
+		   j = 0;
+		   while(that.flags.get(thread_id) & j < i) {
+		       if (that.flags.get(j)) {
+		           that.flags.set(i, False);
+			   while(that.flags.get(j)) {}
+		       }
+		       j = j + 1;
+		   }
+	       }
+	       j = i + 1;
+	       while (j < that.flags.length()) {
+	           while(that.flags.get(j)) {}
+		   j = j + 1;
+	       }
+     };
+
+     that.unlock = fun(thread_id) {
+         that.flags.set(thread_id, False);
+     };
+};
+l = Lock();
+l.lock();
+l.unlock();

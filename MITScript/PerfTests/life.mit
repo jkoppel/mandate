@@ -1,0 +1,189 @@
+Board = fun(size)
+{
+    this = {
+
+        rows : { };
+
+        get : fun(row col)
+        {
+            return this.rows[row][col];
+        };
+
+        set : fun(row col value)
+        {
+            this.rows[row][col] = value;
+        };
+
+        is_alive : fun(row col)
+        {
+            if (row < 0 | this.size <= row)
+            {
+                return false;
+            }
+
+            if (col < 0 | this.size <= col)
+            {
+                return false;
+            }
+
+            return this.get(row, col) == true;
+        };
+
+        print : fun()
+        {
+            size = this.size;
+            
+            i = 0; 
+            while (i < size)
+            {
+                str = "";
+                
+                j = 0;
+                while (j < size)
+                {
+                    if(this.is_alive(i, j))
+                    {
+                        str = str + "+";
+                    }
+                    else
+                    {
+                        str = str + ".";
+                    }
+
+                    j = j + 1;
+                }
+
+                print(str);
+         		
+                i = i + 1;
+            }
+        };
+        
+     	size : size;
+    };
+ 
+    i = 0;
+    while (i < size)
+    {
+        row = { };
+
+        j = 0;
+        while (j < size)
+        {
+            row[j] = false;
+
+            j = j + 1;
+        }
+
+        this.rows[i] = row;
+
+        i = i + 1;       
+    }
+
+    return this;
+};
+
+get_coord = fun(coord i)
+{
+   return coord + i - 1;
+};
+
+simulate = fun(board next)
+{
+    N = board.size;
+    
+    x = 0;
+    while (x < N)
+    {
+        y = 0;
+        while (y < N)
+        {
+            count = 0;
+
+            i = 0;
+	
+            while (i < 3)
+            {
+                j = 0;
+                while (j < 3)
+                {
+                    if (!(i == 1 & j == 1)) 
+                    {
+                        x_coord = get_coord(x, i);
+                        y_coord = get_coord(y, j);
+              		
+                        if (board.is_alive(x_coord, y_coord))
+                        {
+                            count = count + 1;
+			}
+                    }
+                    
+                    j = j + 1;
+                }
+
+                i = i + 1;
+            }
+
+            if (board.is_alive(x, y))
+            {
+                if (count < 2)
+                {
+                    next.set(x, y, false);
+                } 
+                else{ if(count == 2 | count == 3)
+                {
+                    next.set(x, y, true);
+                }
+                else 
+                {
+                    next.set(x, y, false);
+                } }
+            } 
+            else{  if (count == 3)
+            {
+                next.set(x, y, true);
+            }
+            else 
+            {
+                next.set(x, y, false);
+            } }
+
+            y = y + 1;
+        }
+        
+        x = x + 1;
+    }
+};
+
+steps = intcast(input());
+size = intcast(input());
+
+board = Board(size);
+next = Board(size);
+
+count = intcast(input());
+
+i = 0;
+while (i < count)
+{
+    x = intcast(input());
+    y = intcast(input());
+
+    board.set(x, y, true);
+
+    i = i + 1;
+}
+
+step = 0;
+while (step < steps)
+{
+    simulate(board, next);
+
+    temp = board;
+    board = next;
+    next = temp;
+    
+    step = step + 1;
+}
+
+board.print();

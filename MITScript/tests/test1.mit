@@ -1,0 +1,10 @@
+x = input("Please enter the value you want to seed with");
+
+it_count = 0;
+while (x > 1) {
+      if (is_even(x)) { x = x / 2; }
+      else { x = 3 * x + 1; }
+      it_count = it_count + 1;
+}
+
+print("it took a total of " + it_count + "steps to enter a cycle");

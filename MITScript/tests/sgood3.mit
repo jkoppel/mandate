@@ -1,0 +1,13 @@
+    
+  
+               
+
+
+Program:(
+Statement:(Assignment(LHS(Name(point)NameExtension())<-Expression(Record(Name(x)Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(Constant(12))))))))),Name(y)Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(Constant(24))))))))),Name(name)Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(Constant("point1")))))))))))))
+Statement:(Assignment(LHS(Name(display)NameExtension())<-Expression(Function(Parameters:Name(pt)Body:Block(
+Statement:(Call(Name:LHS(Name(console)NameExtension(Name(log)))Args:Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(Constant("Point(")))+Product(Unit(LHS(Name(pt)NameExtension(Name(name)))))+Product(Unit(Constant(", ")))+Product(Unit(LHS(Name(pt)NameExtension(Name(x)))))+Product(Unit(Constant(", ")))+Product(Unit(LHS(Name(pt)NameExtension(Name(y)))))+Product(Unit(Constant(")")))))))))))
+)End Block
+))))
+Statement:(Call(Name:LHS(Name(display)NameExtension())Args:Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(LHS(Name(point)NameExtension())))))))))))
+)End Program

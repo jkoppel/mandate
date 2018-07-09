@@ -1,0 +1,3 @@
+      Program:(
+Statement:(Assignment(LHS(Name(y)NameExtension())<-Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(LHS(Name(x)NameExtension()))*Unit(Constant(3)))+Product(Unit(Constant(5)))))))))))
+)End Program

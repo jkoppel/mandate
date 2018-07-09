@@ -1,0 +1,24 @@
+   
+  
+	
+	
+	 
+		        
+	
+
+ 
+
+
+  
+Program:(
+Statement:(Assignment(LHS(Name(Point)NameExtension())<-Expression(Function(Parameters:Name(x),Name(y)Body:Block(
+Statement:(Assignment(LHS(Name(this)NameExtension())<-Expression(Record(Name(x)Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(LHS(Name(x)NameExtension()))))))))),Name(y)Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(LHS(Name(y)NameExtension()))))))))),Name(print)Expression(Function(Parameters:Body:Block(
+Statement:(Call(Name:LHS(Name(console)NameExtension(Name(log)))Args:Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(Constant("Point(")))+Product(Unit(LHS(Name(this)NameExtension(Name(x)))))+Product(Unit(Constant(", ")))+Product(Unit(LHS(Name(this)NameExtension(Name(y)))))+Product(Unit(Constant(")")))))))))))
+)End Block
+))))))
+Statement:(Return(Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(LHS(Name(this)NameExtension())))))))))))
+)End Block
+))))
+Statement:(Assignment(LHS(Name(p)NameExtension())<-Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(Call(Name:LHS(Name(Point)NameExtension())Args:Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(Constant(5))))))))),Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(Constant(5))))))))))))))))))))
+Statement:(Call(Name:LHS(Name(p)NameExtension(Name(print)))Args:))
+)End Program

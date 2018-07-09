@@ -1,0 +1,50 @@
+  
+  
+     
+     
+     
+	  
+	  
+		      
+	
+	
+          
+	
+	 
+   
+     
+   
+         
+   
+
+   
+
+
+Program:(
+Statement:(Assignment(LHS(Name(x)NameExtension())<-Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(Constant(5)))))))))))
+Statement:(Assignment(LHS(Name(foo)NameExtension())<-Expression(Function(Parameters:Name(t)Body:Block(
+Statement:(IfStatement(Condition:Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(LHS(Name(t)NameExtension()))))>Arithmetic(Product(Unit(Constant(4)))))))))If Block:Block(
+Statement:(Assignment(LHS(Name(x)NameExtension())<-Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(LHS(Name(t)NameExtension())))))))))))
+Statement:(Assignment(LHS(Name(moo)NameExtension())<-Expression(Function(Parameters:Name(u)Body:Block(
+Statement:(Assignment(LHS(Name(x)NameExtension())<-Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(Constant(3)))))))))))
+Statement:(Assignment(LHS(Name(boo)NameExtension())<-Expression(Function(Parameters:Name(v)Body:Block(
+Statement:(Call(Name:LHS(Name(console)NameExtension(Name(log)))Args:Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(Constant("x should be ")))+Product(Unit(LHS(Name(v)NameExtension())))+Product(Unit(Constant(" is ")))+Product(Unit(LHS(Name(x)NameExtension())))))))))))
+)End Block
+))))
+Statement:(Call(Name:LHS(Name(boo)NameExtension())Args:Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(Constant(3)))))))))))
+Statement:(Assignment(LHS(Name(x)NameExtension())<-Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(Constant(2)))))))))))
+Statement:(Call(Name:LHS(Name(boo)NameExtension())Args:Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(Constant(2)))))))))))
+Statement:(Return(Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(LHS(Name(boo)NameExtension())))))))))))
+)End Block
+))))
+Statement:(Assignment(LHS(Name(f)NameExtension())<-Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(Call(Name:LHS(Name(moo)NameExtension())Args:)))))))))))
+Statement:(Call(Name:LHS(Name(f)NameExtension())Args:Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(Constant(2)))))))))))
+Statement:(Call(Name:LHS(Name(console)NameExtension(Name(log)))Args:Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(Constant(" this x should be ")))+Product(Unit(LHS(Name(t)NameExtension())))+Product(Unit(Constant(" is ")))+Product(Unit(LHS(Name(x)NameExtension())))))))))))
+)End Block
+Else Block:Block(
+)End Block
+))
+)End Block
+))))
+Statement:(Call(Name:LHS(Name(foo)NameExtension())Args:Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(Constant(5)))))))))))
+)End Program

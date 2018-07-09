@@ -1,0 +1,25 @@
+      
+    
+     
+
+
+   
+
+      
+
+Program:(
+Statement:(Assignment(LHS(Name(x)NameExtension())<-Expression(Function(Parameters:Name(y)Body:Block(
+Statement:(Return(Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(Constant(5)))))))))))
+)End Block
+))))
+Statement:(Assignment(LHS(Name(y)NameExtension())<-Expression(Function(Parameters:Name(a),Name(b)Body:Block(
+Statement:(Return(Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(LHS(Name(a)NameExtension())))+Product(Unit(LHS(Name(b)NameExtension())))))))))))
+)End Block
+))))
+Statement:(Assignment(LHS(Name(z)NameExtension())<-Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(Call(Name:LHS(Name(y)NameExtension())Args:Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(Constant(4))))))))),Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(Constant(5))))))))))))))))))))
+Statement:(Assignment(LHS(Name(a)NameExtension())<-Expression(Function(Parameters:Body:Block(
+Statement:(Return(Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(Constant(5)))))))))))
+)End Block
+))))
+Statement:(Call(Name:LHS(Name(a)NameExtension())Args:))
+)End Program

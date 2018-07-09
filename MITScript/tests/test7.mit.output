@@ -1,0 +1,15 @@
+1
+2
+3
+Bigger 2
+Bigger 3
+Bigger 4
+Bigger a1
+Bigger b1
+Bigger c1
+head: FUNCTION
+tail: FUNCTION
+toStr: FUNCTION
+toStr_: FUNCTION
+
+[1, 2, 3, ]

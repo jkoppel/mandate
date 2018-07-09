@@ -1,0 +1,77 @@
+   
+       
+       
+
+        
+     	             
+	       	  
+	       
+	        
+	            
+		     
+		        
+		         
+		            
+			    
+		       
+		           
+		   
+	       
+	           
+	           
+	            
+		       
+	       
+     
+
+        
+          
+     
+
+  
+
+Program:(
+Statement:(Assignment(LHS(Name(Lock)NameExtension())<-Expression(Function(Parameters:Name(num_threads)Body:Block(
+Statement:(Assignment(LHS(Name(that)NameExtension())<-Expression(Record())))
+Statement:(Assignment(LHS(Name(that)NameExtension(Name(flags)))<-Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(Call(Name:LHS(Name(AtomicBooleanList)NameExtension())Args:)))))))))))
+Statement:(Assignment(LHS(Name(that)NameExtension(Name(lock)))<-Expression(Function(Parameters:Name(thread_id)Body:Block(
+Statement:(IfStatement(Condition:Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(Call(Name:LHS(Name(that)NameExtension(Name(bit_list)Name(length)))Args:))))<Arithmetic(Product(Unit(LHS(Name(thread_id)NameExtension())))-Product(Unit(Constant(1)))))))))If Block:Block(
+Statement:(Call(Name:LHS(Name(assert)NameExtension())Args:Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(Constant(False)))))))))))
+)End Block
+))
+Statement:(WhileLoop(Condition:Expression(Boolean(Conjunction(BoolUnit!(Predicate(Arithmetic(Product(Unit(Call(Name:LHS(Name(that)NameExtension(Name(flags)Name(get)))Args:Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(LHS(Name(thread_id)NameExtension()))))))))))))))))))Body:Block(
+Statement:(Call(Name:LHS(Name(that)NameExtension(Name(flags)Name(set)))Args:Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(LHS(Name(thread_id)NameExtension()))))))))),Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(LHS(Name(True)NameExtension())))))))))))
+Statement:(Assignment(LHS(Name(j)NameExtension())<-Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(Constant(0)))))))))))
+Statement:(WhileLoop(Condition:Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(Call(Name:LHS(Name(that)NameExtension(Name(flags)Name(get)))Args:Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(LHS(Name(thread_id)NameExtension())))))))))))))))&BoolUnit(Predicate(Arithmetic(Product(Unit(LHS(Name(j)NameExtension()))))<Arithmetic(Product(Unit(LHS(Name(i)NameExtension())))))))))Body:Block(
+Statement:(IfStatement(Condition:Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(Call(Name:LHS(Name(that)NameExtension(Name(flags)Name(get)))Args:Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(LHS(Name(j)NameExtension()))))))))))))))))))If Block:Block(
+Statement:(Call(Name:LHS(Name(that)NameExtension(Name(flags)Name(set)))Args:Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(LHS(Name(i)NameExtension()))))))))),Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(LHS(Name(False)NameExtension())))))))))))
+Statement:(WhileLoop(Condition:Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(Call(Name:LHS(Name(that)NameExtension(Name(flags)Name(get)))Args:Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(LHS(Name(j)NameExtension()))))))))))))))))))Body:Block(
+)End Block
+))
+)End Block
+))
+Statement:(Assignment(LHS(Name(j)NameExtension())<-Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(LHS(Name(j)NameExtension())))+Product(Unit(Constant(1)))))))))))
+)End Block
+))
+)End Block
+))
+Statement:(Assignment(LHS(Name(j)NameExtension())<-Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(LHS(Name(i)NameExtension())))+Product(Unit(Constant(1)))))))))))
+Statement:(WhileLoop(Condition:Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(LHS(Name(j)NameExtension()))))<Arithmetic(Product(Unit(Call(Name:LHS(Name(that)NameExtension(Name(flags)Name(length)))Args:)))))))))Body:Block(
+Statement:(WhileLoop(Condition:Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(Call(Name:LHS(Name(that)NameExtension(Name(flags)Name(get)))Args:Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(LHS(Name(j)NameExtension()))))))))))))))))))Body:Block(
+)End Block
+))
+Statement:(Assignment(LHS(Name(j)NameExtension())<-Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(LHS(Name(j)NameExtension())))+Product(Unit(Constant(1)))))))))))
+)End Block
+))
+)End Block
+))))
+Statement:(Assignment(LHS(Name(that)NameExtension(Name(unlock)))<-Expression(Function(Parameters:Name(thread_id)Body:Block(
+Statement:(Call(Name:LHS(Name(that)NameExtension(Name(flags)Name(set)))Args:Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(LHS(Name(thread_id)NameExtension()))))))))),Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(LHS(Name(False)NameExtension())))))))))))
+)End Block
+))))
+)End Block
+))))
+Statement:(Assignment(LHS(Name(l)NameExtension())<-Expression(Boolean(Conjunction(BoolUnit(Predicate(Arithmetic(Product(Unit(Call(Name:LHS(Name(Lock)NameExtension())Args:)))))))))))
+Statement:(Call(Name:LHS(Name(l)NameExtension(Name(lock)))Args:))
+Statement:(Call(Name:LHS(Name(l)NameExtension(Name(unlock)))Args:))
+)End Program

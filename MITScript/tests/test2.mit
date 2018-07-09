@@ -1,0 +1,21 @@
+calculate_cost = fun(name_to_salary name_to_hours) {
+    name_list = Object.keys(name_to_salary);
+    cost = 0;
+    i = 0;
+    while (i < name_list.length) {
+    	  name = name_list[i];
+	  salary = name_to_salary[name];
+	  hours = name_to_hours[name];
+	  if (!hours) {
+	     error("No hour data for worker " + name);
+	  }
+	  cost = cost + (salary * hours);
+	  i = i + 1;
+    }
+    return cost;
+};
+
+name_to_salary = {Alice: 45; Bob: 50; Eve: 55;};
+name_to_hours = {Alice: 10; Bob: 10; Eve: 10;};
+
+console.log(calculate_cost(name_to_salary, name_to_hours));

@@ -1,0 +1,27 @@
+Nil = { toStr_: fun(){ return "";}; toStr:fun(){ return "[]";}; };
+Cons = fun(h t){ 
+   this = { head:fun(){ return h; }; 
+            tail:fun(){ return t; };
+	    toStr_:fun(){ return h + ", " + t.toStr_(); };
+            toStr: fun(){ return "[" + this.toStr_() + "]"; }; 
+          };
+   return this;
+};
+
+forall = fun(list f){
+  if(list == Nil){
+  }else{
+	f(list.head());
+	forall(list.tail(), f);
+  }
+};
+
+l = Cons(1, Cons(2, Cons(3, Nil)));
+
+forall(l, print);
+f = fun(l){ forall(l, fun(x){ print("Bigger " + (x+1)); }); return l; };
+
+f(l);
+print(f(Cons("a", Cons("b", Cons("c", Nil)))));
+print(l.toStr());
+

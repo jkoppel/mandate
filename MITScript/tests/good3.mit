@@ -1,0 +1,5 @@
+point = {x:12; y:24; name:"point1";};
+display = fun(pt){
+   console.log("Point(" + pt.name + ", " + pt.x + ", " + pt.y + ")");
+};
+display(point);
