@@ -1,4 +1,4 @@
-{-# LANGUAGE EmptyDataDecls, FlexibleContexts, FlexibleInstances, GADTs, ScopedTypeVariables, TupleSections, TypeApplications, UndecidableInstances, ViewPatterns #-}
+{-# LANGUAGE EmptyDataDecls, FlexibleContexts, FlexibleInstances, GADTs, TupleSections, UndecidableInstances #-}
 
 module Matching (
     MonadMatchable(..)

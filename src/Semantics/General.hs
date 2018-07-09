@@ -1,5 +1,3 @@
-{-# LANGUAGE FlexibleContexts #-}
-
 module Semantics.General (
     ExtComp
   , runExtComp

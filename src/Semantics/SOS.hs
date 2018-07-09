@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts, FlexibleInstances, GADTs, PatternSynonyms, TypeOperators, UndecidableInstances #-}
+{-# LANGUAGE FlexibleContexts, FlexibleInstances, GADTs, UndecidableInstances #-}
 
 module Semantics.SOS (
     StepTo(..)

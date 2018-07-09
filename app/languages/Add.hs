@@ -1,4 +1,4 @@
-{-# LANGUAGE DataKinds, EmptyCase, EmptyDataDecls, FlexibleInstances, OverloadedStrings, PatternSynonyms, TypeFamilies #-}
+{-# LANGUAGE EmptyDataDecls, FlexibleInstances, OverloadedStrings, PatternSynonyms, TypeFamilies #-}
 
 module Languages.Add (
     AddLang

@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts, GADTs, OverloadedStrings, StandaloneDeriving, UndecidableInstances #-}
+{-# LANGUAGE FlexibleContexts, OverloadedStrings, StandaloneDeriving, UndecidableInstances #-}
 
 -- | Implementation of "phased abstract machines," a transition system corresponding
 --   to reduction (Felleisen-Hieb) semantics
