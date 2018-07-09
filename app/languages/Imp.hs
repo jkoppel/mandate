@@ -14,6 +14,7 @@ import Data.Interned.ByteString ( InternedByteString(..) )
 import Configuration
 import Lang
 import Matching
+import Semantics.General
 import Semantics.PAM
 import Semantics.SOS
 import Term
@@ -200,7 +201,7 @@ impLangRules = sequence [
                    mkRule2 $ \val mu ->
                              let (mval) = (mv val) in
                              StepTo (conf ReadInt mu)
-                               (LetComputation (initConf $ MetaVar val) (DoReadInt, [])
+                               (LetComputation (initConf $ MetaVar val) (ExtComp DoReadInt [])
                                (Build $ conf (EVal mval) mu))
 
                  , name "write-int-cong" $
@@ -214,7 +215,7 @@ impLangRules = sequence [
                    mkRule3 $ \arg val mu ->
                              let (marg) = (mv arg) in
                              StepTo (conf (WriteInt (EVal marg)) mu)
-                               (LetComputation (initConf $ MetaVar val) (DoWriteInt, [marg])
+                               (LetComputation (initConf $ MetaVar val) (ExtComp DoWriteInt [marg])
                                (Build $ conf Skip mu))
 
                  ------------------------ Vars  ---------------------------------------------
@@ -245,7 +246,7 @@ impLangRules = sequence [
                    mkRule4 $ \v1 v2 v' mu ->
                              let (mv1, mv2, mv') = (mv v1, mv v2, mv v') in
                              StepTo (conf (Plus (EVal mv1) (EVal mv2)) mu)
-                               (LetComputation (initConf $ MetaVar v') (RunAdd, [mv1, mv2])
+                               (LetComputation (initConf $ MetaVar v') (ExtComp RunAdd [mv1, mv2])
                                (Build $ conf (EVal mv') mu))
 
 
@@ -267,7 +268,7 @@ impLangRules = sequence [
                    mkRule4 $ \v1 v2 v' mu ->
                              let (mv1, mv2, mv') = (mv v1, mv v2, mv v') in
                              StepTo (conf (LT (EVal mv1) (EVal mv2)) mu)
-                               (LetComputation (initConf $ MetaVar v') (RunLT, [mv1, mv2])
+                               (LetComputation (initConf $ MetaVar v') (ExtComp RunLT [mv1, mv2])
                                (Build $ conf mv' mu))
 
                 ]

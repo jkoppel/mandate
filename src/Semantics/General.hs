@@ -1,12 +1,9 @@
-module Semantics.General (
-    ExtComp
-  , runExtComp
-  , getVarsExtComp
-  , matchExtComp
-  , refreshVarsExtComp
-  , fillMatchExtComp
+{-# LANGUAGE FlexibleContexts, StandaloneDeriving #-}
 
-  , showsPrecExtComp
+module Semantics.General (
+    ExtComp(..)
+  , runExtComp
+
   , showRules
   ) where
 
@@ -25,31 +22,29 @@ import Matching
 import Term
 import Var
 
--- TODO: This should just be a real data structure which implements Matchable already
+data ExtComp l = ExtComp (CompFunc l) [Term l]
 
-type ExtComp l = (CompFunc l, [Term l])
+deriving instance (LangBase l) => Eq (ExtComp l)
 
 runExtComp :: (LangBase l) => ExtComp l -> Match (Configuration l)
-runExtComp (f, ts) = do ts' <- fillMatchList ts
-                        runMatchEffect $ runCompFunc f ts'
+runExtComp (ExtComp f ts) = do ts' <- fillMatchList ts
+                               runMatchEffect $ runCompFunc f ts'
 
-getVarsExtComp :: (LangBase l) => ExtComp l -> Set MetaVar
-getVarsExtComp (f, ts) = fold (map getVars ts)
+instance (LangBase l) => Show (ExtComp l) where
+  showsPrec d (ExtComp f ts) = showString (BS.unpack $ compFuncName f) . showsPrec (d+1) ts
 
-matchExtComp :: (LangBase l, MonadMatchable m) => Pattern (ExtComp l) -> Matchee (ExtComp l) -> m ()
-matchExtComp (Pattern (f1, ts1)) (Matchee (f2, ts2)) = do
-  guard (f1 == f2)
-  guard (length ts1 == length ts2)
-  matchList (Pattern ts1) (Matchee ts2)
+instance (LangBase l) => Matchable (ExtComp l) where
+  getVars (ExtComp f ts) = fold (map getVars ts)
 
-fillMatchExtComp :: (LangBase l, MonadMatchable m) => ExtComp l -> m (ExtComp l)
-fillMatchExtComp (f, ts) = mapM fillMatch ts >>= \ts' -> return (f, ts')
+  match (Pattern (ExtComp f1 ts1)) (Matchee (ExtComp f2 ts2)) = do
+    guard (f1 == f2)
+    guard (length ts1 == length ts2)
+    matchList (Pattern ts1) (Matchee ts2)
 
-refreshVarsExtComp :: (LangBase l, MonadMatchable m) => ExtComp l -> m (ExtComp l)
-refreshVarsExtComp (f, ts) = refreshVarsList ts >>= \ts' -> return (f, ts')
+  fillMatch (ExtComp f ts) = ExtComp f <$> fillMatchList ts
 
-showsPrecExtComp :: (LangBase l) => Int -> ExtComp l -> ShowS
-showsPrecExtComp d (f, ts) = showString (BS.unpack $ compFuncName f) . showsPrec (d+1) ts
+  refreshVars (ExtComp f ts) = ExtComp f <$> refreshVarsList ts
+
 
 
 ---------------------------------------------------------------------

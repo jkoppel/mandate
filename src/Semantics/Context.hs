@@ -43,7 +43,7 @@ instance (Show (Configuration l), LangBase l) => Show (PosFrame l) where
   showsPrec d (KStepTo c f) = showString "step(" . showsPrec (d+1) c .
                                 showString ") => " .
                                 showsPrec d f
-  showsPrec d (KComputation c r) = showsPrecExtComp d c . showString " => " . showsPrec d r
+  showsPrec d (KComputation c r) = showsPrec d c . showString " => " . showsPrec d r
 
 
 instance (Show (Configuration l), LangBase l) => Show (Frame l) where
@@ -62,21 +62,20 @@ rhsToFrame (LetComputation out comp rhs) = KComputation comp (KInp out (rhsToFra
 instance (LangBase l, Matchable (Configuration l)) => Matchable (PosFrame l) where
   getVars (KBuild       c  ) = getVars c
   getVars (KStepTo      c f) = getVars c `Set.union` getVars f
-  getVars (KComputation c f) = getVarsExtComp c `Set.union` getVars f
+  getVars (KComputation c f) = getVars c `Set.union` getVars f
 
   match (Pattern (KBuild       c1   )) (Matchee (KBuild       c2   )) = match (Pattern c1) (Matchee c2)
   match (Pattern (KStepTo      c1 f1)) (Matchee (KStepTo      c2 f2)) = match (Pattern c1) (Matchee c2) >> match (Pattern f1) (Matchee f2)
-  match (Pattern (KComputation c1 f1)) (Matchee (KComputation c2 f2)) =    matchExtComp (Pattern c1) (Matchee c2)
-                                                                        >> match     (Pattern f1)    (Matchee f2)
+  match (Pattern (KComputation c1 f1)) (Matchee (KComputation c2 f2)) = match (Pattern c1) (Matchee c2) >> match (Pattern f1) (Matchee f2)
   match _ _ = mzero
 
   refreshVars (KBuild       c  ) = KBuild       <$> refreshVars c
   refreshVars (KStepTo      c f) = KStepTo      <$> refreshVars c <*> refreshVars f
-  refreshVars (KComputation c f) = KComputation <$> refreshVarsExtComp c <*> refreshVars f
+  refreshVars (KComputation c f) = KComputation <$> refreshVars c <*> refreshVars f
 
   fillMatch (KBuild       c  ) = KBuild       <$> fillMatch c
   fillMatch (KStepTo      c f) = KStepTo      <$> fillMatch c <*> fillMatch f
-  fillMatch (KComputation c f) = KComputation <$> fillMatchExtComp c <*> fillMatch f
+  fillMatch (KComputation c f) = KComputation <$> fillMatch c <*> fillMatch f
 
 instance (LangBase l, Matchable (Configuration l)) => Matchable (Frame l) where
   getVars (KInp c pf) = getVars c `Set.union` getVars pf

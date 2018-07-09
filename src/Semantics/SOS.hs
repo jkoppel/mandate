@@ -66,7 +66,7 @@ instance (Show (Configuration l), LangBase l) => Show (Rhs l) where
                                   showString ") in " .
                                   showsPrec d r
   showsPrec d (LetComputation x c r) = showString "let " . showsPrec (d+1) x . showString " = " .
-                                       showsPrecExtComp d c . showString " in " . showsPrec d r
+                                       showsPrec d c . showString " in " . showsPrec d r
 
 
 instance (Show (Configuration l), LangBase l) => Show (NamedRule l) where
