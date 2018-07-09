@@ -17,6 +17,8 @@ module Semantics.PAM (
 
   , pamEvaluationTree'
   , pamEvaluationTree
+
+  , happyPath -- TODO: Move
   ) where
 
 import Control.Monad ( MonadPlus(..) )
@@ -84,7 +86,7 @@ instance (Lang l) => Matchable (PAMState l) where
   fillMatch   (PAMState c k p) = PAMState <$> fillMatch   c <*> fillMatch   k <*> pure p
 
 instance (Show (Configuration l), Show (Context l)) => Show (PAMState l) where
-  showsPrec d (PAMState c k phase) = showString "<" . showsPrec d c . showString ", " .
+  showsPrec d (PAMState c k phase) = showString "<" . showsPrec d c . showString " | " .
                                      showsPrec d k . showString "> " . showsPrec d phase
 
 type PAMRhs = AMRhs PAMState
@@ -207,7 +209,18 @@ pamEvaluationSequence :: (Lang l) => NamedPAMRules l -> Term l -> IO [PAMState l
 pamEvaluationSequence rules t = pamEvaluationSequence' rules (initPamState t)
 
 
-data Rose a = Rose a [Rose a]
+data Rose a = Rose { roseGetElt :: a, roseGetChildren ::  [Rose a] }
+
+addDepth :: Rose a -> Rose (a, Int)
+addDepth (Rose a rs) = Rose (a, 1 + maximum ([-1] ++ map (snd.roseGetElt) rs')) rs'
+  where
+    rs' = map addDepth rs
+
+happyPath :: Rose a -> [a]
+happyPath rose = go (addDepth rose)
+  where
+    go (Rose (a, 0) []) = [a]
+    go (Rose (a, d) rs) = a : (go $ head $ filter (\t -> (snd $ roseGetElt t) == d-1) rs)
 
 instance Show a => Show (Rose a) where
   showsPrec d (Rose a rs) = showString (concat $ replicate d "--") . showsPrec 0 a . showString "\n" .
