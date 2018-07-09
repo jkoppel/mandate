@@ -1,4 +1,4 @@
-{-# LANGUAGE DataKinds, FlexibleContexts, TypeFamilies #-}
+{-# LANGUAGE FlexibleContexts, TypeFamilies #-}
 
 module LangBase (
     LangBase(..)
@@ -10,19 +10,17 @@ import Data.Typeable
 
 import MatchEffect
 import Term
-import Var
-
 
 -- This file is how we break the circular depnedence between Lang and Semantics
 -- Semantics are defined relative to a language, but
 
-class (Typeable l, Eq (CompFunc l), ForallOC Eq (RedState l)) => LangBase l where
-  type RedState l :: OpenClosed -> *
+class (Typeable l, Eq (CompFunc l), Eq (RedState l)) => LangBase l where
+  type RedState l :: *
 
   -- TODO: Funcs/sideconds need to be able to depend on state
   data CompFunc l
   compFuncName :: CompFunc l -> ByteString
-  runCompFunc  :: CompFunc l -> [Term l Closed] -> MatchEffect (Term l Closed)
+  runCompFunc  :: CompFunc l -> [Term l] -> MatchEffect (Term l)
 
 instance LangBase l => Show (CompFunc l) where
   show = BS.unpack . compFuncName

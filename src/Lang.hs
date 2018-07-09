@@ -1,10 +1,10 @@
-{-# LANGUAGE DataKinds, FlexibleContexts, TypeFamilies #-}
+{-# LANGUAGE FlexibleContexts, TypeFamilies #-}
 
 module Lang (
     module LangBase
 
   , Lang(..)
-  , Configuration(..)
+  , Configuration
 
   , evaluationSequenceL
   , checkTermL
@@ -15,16 +15,15 @@ import LangBase
 import Matching
 import Semantics.SOS
 import Term
-import Var
 
 class (LangBase l, Matchable (Configuration l)) => Lang l where
   signature :: Signature l
   rules :: IO (NamedRules l)
 
-  initConf :: Term l v -> Configuration l v
+  initConf :: Term l -> Configuration l
 
-evaluationSequenceL :: (Lang l) => Configuration l Closed -> IO [Configuration l Closed]
+evaluationSequenceL :: (Lang l) => Configuration l -> IO [Configuration l]
 evaluationSequenceL conf = rules >>= \rs -> evaluationSequence rs conf
 
-checkTermL :: (Lang l) => Term l v -> ()
+checkTermL :: (Lang l) => Term l -> ()
 checkTermL = checkTerm signature

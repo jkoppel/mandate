@@ -1,21 +1,28 @@
-{-# LANGUAGE DataKinds, FlexibleContexts #-}
+{-# LANGUAGE FlexibleContexts #-}
 
 module Semantics.General (
-    MConf
-  , ExtComp
+    ExtComp
   , runExtComp
+  , fillMatchExtComp
+  , matchExtComp
   ) where
 
-import Configuration
+import Control.Monad ( guard )
+
 import LangBase
 import Matching
 import Term
-import Var
 
--- Match configuration
-type MConf l = Configuration l Open
+type ExtComp l = (CompFunc l, [Term l])
 
-type ExtComp l v = (CompFunc l, [Term l v])
-
-runExtComp :: (LangBase l) => ExtComp l Open -> Match Closed (Term l Closed)
+runExtComp :: (LangBase l) => ExtComp l -> Match (Term l)
 runExtComp (f, ts) = mapM fillMatch ts >>= runMatchEffect . runCompFunc f
+
+fillMatchExtComp :: (LangBase l, MonadMatchable m) => ExtComp l -> m (ExtComp l)
+fillMatchExtComp (f, ts) = mapM fillMatch ts >>= \ts' -> return (f, ts')
+
+matchExtComp :: (LangBase l, MonadMatchable m) => Pattern (ExtComp l) -> Matchee (ExtComp l) -> m ()
+matchExtComp (Pattern (f1, ts1)) (Matchee (f2, ts2)) = do
+  guard (f1 == f2)
+  guard (length ts1 == length ts2)
+  matchList (Pattern ts1) (Matchee ts2)

@@ -1,4 +1,4 @@
-{-# LANGUAGE ConstraintKinds, DataKinds, FlexibleContexts, FlexibleInstances, GADTs, KindSignatures, PatternSynonyms, ScopedTypeVariables, StandaloneDeriving, TypeApplications, TypeFamilies, ViewPatterns #-}
+{-# LANGUAGE FlexibleContexts, FlexibleInstances, GADTs, PatternSynonyms, ScopedTypeVariables, StandaloneDeriving, TypeApplications, TypeFamilies, ViewPatterns #-}
 
 module Configuration (
     GConfiguration(..)
@@ -29,100 +29,81 @@ import Var
 
 ------------------------------------------------------------------------------------------------------------------
 
-data GConfiguration l s v where
-  Conf :: Typeable s => Term l v -> s v -> GConfiguration l s v
+data GConfiguration l s where
+  Conf :: Typeable s => Term l -> s -> GConfiguration l s
 
-deriving instance (Eq (Term l v), Eq (s v)) => Eq (GConfiguration l s v)
-deriving instance (Ord (Term l v), Ord (s v)) => Ord (GConfiguration l s v)
+deriving instance (Eq (Term l), Eq s) => Eq (GConfiguration l s)
+deriving instance (Ord (Term l), Ord s) => Ord (GConfiguration l s)
 
-confTerm :: GConfiguration l s v -> Term l v
+confTerm :: GConfiguration l s -> Term l
 confTerm (Conf t _) = t
 
-confState :: GConfiguration l s v -> s v
+confState :: GConfiguration l s -> s
 confState (Conf _ s) = s
 
 type Configuration l = GConfiguration l (RedState l)
 
-data EmptyState (v :: OpenClosed) = EmptyState
+data EmptyState = EmptyState
   deriving ( Eq, Ord, Show )
 
 
 -- Look ma! No overlapping instances.
 -- Unfortunately, this is not quite enough to avoid the need to use StandaloneDeriving all over.
 -- Need more dedicated OO techniques for that.
-instance (Show (s v)) => Show (GConfiguration l s v) where
+instance (Show s) => Show (GConfiguration l s) where
   showsPrec d (Conf t s) = case eqT @s @EmptyState of
                              Just _  -> showsPrec d t
                              Nothing -> showString "(" . showsPrec d t . showString "; " . showsPrec d s . showString ")"
-
-instance HasVars EmptyState where
-  assumeClosed EmptyState = EmptyState
-  asOpen       EmptyState = EmptyState
-
-instance (HasVars s) => HasVars (GConfiguration l s) where
-  assumeClosed (Conf t s) = Conf (assumeClosed t) (assumeClosed s)
-  asOpen       (Conf t s) = Conf (asOpen       t) (asOpen       s)
 
 
 -- Strictly speaking, a real ACI map should be designed in a way so that you could match Gamma1, Gamma2 against an env,
 -- and it would try all possible decompositions. However, that seems slow, plus I haven't written it in a way
 -- where you could do backtracking on matches (though the API supports it). Really, I don't think you want to be
 -- running things where that's necessary
-data SimpEnv a b v where
-  SimpEnvRest :: (ForallOC Ord a, ForallOC Eq b, Typeable a, Typeable b) => MetaVar -> SimpEnvMap a b Open -> SimpEnv a b Open -- Gamma, bindings
-  JustSimpMap :: (ForallOC Ord a, ForallOC Eq b, Typeable a, Typeable b) => SimpEnvMap a b v -> SimpEnv a b v
+data SimpEnv a b where
+  SimpEnvRest :: (Ord a, Eq b, Typeable a, Typeable b) => MetaVar -> SimpEnvMap a b -> SimpEnv a b -- Gamma, bindings
+  JustSimpMap :: (Ord a, Eq b, Typeable a, Typeable b) => SimpEnvMap a b -> SimpEnv a b
 
-deriving instance (Eq (a v), Eq (b v)) => Eq (SimpEnv a b v)
+deriving instance (Eq a, Eq b) => Eq (SimpEnv a b)
 
-data SimpEnvMap a b (v :: OpenClosed) where
-  SimpEnvMap :: (ForallOC Ord a, ForallOC Eq b) => Map (a v) (b v) -> SimpEnvMap a b v
+data SimpEnvMap a b where
+  SimpEnvMap :: (Ord a, Eq b) => Map a b -> SimpEnvMap a b
 
-deriving instance (Eq (a v), Eq (b v)) => Eq (SimpEnvMap a b v)
+deriving instance (Eq a, Eq b) => Eq (SimpEnvMap a b)
 
-getSimpEnvMap :: SimpEnvMap a b v -> Map (a v) (b v)
+getSimpEnvMap :: SimpEnvMap a b -> Map a b
 getSimpEnvMap (SimpEnvMap m) = m
 
-pattern EmptySimpMap :: () => (ForallOC Ord a, ForallOC Eq b) => SimpEnvMap a b v
+pattern EmptySimpMap :: () => (Ord a, Eq b) => SimpEnvMap a b
 pattern EmptySimpMap <- SimpEnvMap (Map.null -> True) where
   EmptySimpMap = SimpEnvMap Map.empty
 
-pattern SingletonSimpMap :: () => (ForallOC Ord a, ForallOC Eq b) => a v -> b v -> SimpEnvMap a b v
+pattern SingletonSimpMap :: () => (Ord a, Eq b) => a -> b -> SimpEnvMap a b
 pattern SingletonSimpMap a b <- SimpEnvMap (Map.toList -> [(a,b)]) where
   SingletonSimpMap a b = SimpEnvMap (Map.singleton a b)
 
-pattern EmptySimpEnv :: () => (ForallOC Ord a, ForallOC Eq b, Typeable a, Typeable b) => SimpEnv a b v
+pattern EmptySimpEnv :: () => (Ord a, Eq b, Typeable a, Typeable b) => SimpEnv a b
 pattern EmptySimpEnv = JustSimpMap EmptySimpMap
 
-pattern WholeSimpEnv :: () => (ForallOC Ord a, ForallOC Eq b, Typeable a, Typeable b) => MetaVar -> SimpEnv a b Open
+pattern WholeSimpEnv :: () => (Ord a, Eq b, Typeable a, Typeable b) => MetaVar -> SimpEnv a b
 pattern WholeSimpEnv v = SimpEnvRest v EmptySimpMap
 
-pattern AssocOneVal :: () => (ForallOC Ord a, ForallOC Eq b, Typeable a, Typeable b) => MetaVar -> a Open -> b Open -> SimpEnv a b Open
+pattern AssocOneVal :: () => (Ord a, Eq b, Typeable a, Typeable b) => MetaVar -> a -> b -> SimpEnv a b
 pattern AssocOneVal v a b = SimpEnvRest v (SingletonSimpMap a b)
 
 -- TODO: Intern
 
 
-instance (Show (a v), Show (b v)) => Show (SimpEnvMap a b v) where
+instance (Show a, Show b) => Show (SimpEnvMap a b) where
   showsPrec d EmptySimpMap   = id
   showsPrec d (SimpEnvMap m) = let (first:rest) = Map.toList m in
                                foldr (\kv s -> s . showString ", " . showAssoc kv) (showAssoc first) rest
     where
       showAssoc (k, v) = showsPrec (d+1) k . showString ": " . showsPrec (d+1) v
 
-instance (Show (a v), Show (b v)) => Show (SimpEnv a b v) where
+instance (Show a, Show b) => Show (SimpEnv a b) where
   showsPrec d (SimpEnvRest v m) = if Map.null (getSimpEnvMap m) then
                                     showsPrec d v
                                   else
                                     showsPrec d v . showString ", " . showsPrec d m
   showsPrec d (JustSimpMap m)   = showsPrec d m
-
-instance (HasVars a, HasVars b) => HasVars (SimpEnvMap a b) where
-  assumeClosed (SimpEnvMap m) = SimpEnvMap $ Map.mapKeys assumeClosed $ Map.map assumeClosed m
-  asOpen       (SimpEnvMap m) = SimpEnvMap $ Map.mapKeys asOpen       $ Map.map asOpen       m
-
-instance (HasVars a, HasVars b) => HasVars (SimpEnv a b) where
-  assumeClosed (SimpEnvRest v _) = error ("Assuming SimpEnv is closed, but has rest variable " ++ show v)
-  assumeClosed (JustSimpMap   m) = JustSimpMap $ assumeClosed m
-
-  asOpen       (SimpEnvRest v m) = SimpEnvRest v (asOpen m)
-  asOpen       (JustSimpMap   m) = JustSimpMap $ asOpen m

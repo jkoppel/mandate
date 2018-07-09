@@ -72,70 +72,70 @@ impLangSig = Signature [ NodeSig ":=" ["Var", "Exp"] "Stmt"
                        , NodeSig "<" ["Exp", "Exp"] "Exp"
                        ]
 
-pattern Assign :: Term ImpLang v -> Term ImpLang v -> Term ImpLang v
+pattern Assign :: Term ImpLang -> Term ImpLang -> Term ImpLang
 pattern Assign x y = Node ":=" [x, y]
 
-pattern Skip :: Term ImpLang v
+pattern Skip :: Term ImpLang
 pattern Skip = Val "Skip" []
 
-pattern Seq :: Term ImpLang v -> Term ImpLang v -> Term ImpLang v
+pattern Seq :: Term ImpLang -> Term ImpLang -> Term ImpLang
 pattern Seq x y = Node "Seq" [x, y]
 
-pattern If :: Term ImpLang v -> Term ImpLang v -> Term ImpLang v -> Term ImpLang v
+pattern If :: Term ImpLang -> Term ImpLang -> Term ImpLang -> Term ImpLang
 pattern If x y z = Node "If" [x,y,z]
 
-pattern While :: Term ImpLang v -> Term ImpLang v -> Term ImpLang v
+pattern While :: Term ImpLang -> Term ImpLang -> Term ImpLang
 pattern While x y = Node "While" [x, y]
 
-pattern ReadInt :: Term ImpLang v
+pattern ReadInt :: Term ImpLang
 pattern ReadInt = Node "ReadInt" []
 
-pattern WriteInt :: Term ImpLang v -> Term ImpLang v
+pattern WriteInt :: Term ImpLang -> Term ImpLang
 pattern WriteInt x = Node "WriteInt" [x]
 
-pattern Var :: Term ImpLang v -> Term ImpLang v
+pattern Var :: Term ImpLang -> Term ImpLang
 pattern Var x = Node "Var" [x]
 
-pattern VarName :: InternedByteString -> Term ImpLang v
+pattern VarName :: InternedByteString -> Term ImpLang
 pattern VarName v = StrNode "VarName" v
 
-pattern VarExp :: Term ImpLang v -> Term ImpLang v
+pattern VarExp :: Term ImpLang -> Term ImpLang
 pattern VarExp v = Node "VarExp" [v]
 
-pattern True :: Term ImpLang v
+pattern True :: Term ImpLang
 pattern True = Val "true" []
 
-pattern False :: Term ImpLang v
+pattern False :: Term ImpLang
 pattern False = Val "false" []
 
-pattern EVal :: Term ImpLang v -> Term ImpLang v
+pattern EVal :: Term ImpLang -> Term ImpLang
 pattern EVal n = Node "EVal" [n]
 
-pattern Const :: Integer -> Term ImpLang v
+pattern Const :: Integer -> Term ImpLang
 pattern Const n = IntNode "Const" n
 
-pattern Plus :: Term ImpLang v -> Term ImpLang v -> Term ImpLang v
+pattern Plus :: Term ImpLang -> Term ImpLang -> Term ImpLang
 pattern Plus x y = Node "+" [x, y]
 
-pattern LT :: Term ImpLang v -> Term ImpLang v -> Term ImpLang v
+pattern LT :: Term ImpLang -> Term ImpLang -> Term ImpLang
 pattern LT x y = Node "<" [x, y]
 
-varExp :: InternedByteString -> Term ImpLang v
+varExp :: InternedByteString -> Term ImpLang
 varExp s = VarExp $ Var $ VarName s
 
-pattern (:=) :: InternedByteString -> Term ImpLang v -> Term ImpLang v
+pattern (:=) :: InternedByteString -> Term ImpLang -> Term ImpLang
 pattern (:=) var t = Assign (Var (VarName var)) t
 
-pattern (:<) :: Term ImpLang v -> Term ImpLang v -> Term ImpLang v
+pattern (:<) :: Term ImpLang -> Term ImpLang -> Term ImpLang
 pattern (:<) l r = LT l r
 
-intConst :: Integer -> Term ImpLang v
+intConst :: Integer -> Term ImpLang
 intConst n = EVal $ Const n
 
-conf :: Term ImpLang Open -> MetaVar -> Configuration ImpLang Open
+conf :: Term ImpLang -> MetaVar -> Configuration ImpLang
 conf t v = Conf t (WholeSimpEnv v)
 
-mv :: MetaVar -> Term ImpLang Open
+mv :: MetaVar -> Term ImpLang
 mv = MetaVar
 
 -- NOTE: Current rules assume that store does not change
@@ -277,16 +277,16 @@ impLangRules = sequence [
 
 ------------------------------------------------------------------------------------------------------------------
 
-term1 :: Term ImpLang Closed
+term1 :: Term ImpLang
 term1 =       ("x" := intConst 1)
         `Seq` ("y" := intConst 2)
         `Seq` ("z" := Plus (varExp "x") (varExp "y"))
 
 
-conf2 :: Configuration ImpLang Closed
+conf2 :: Configuration ImpLang
 conf2 = Conf (varExp "x") (JustSimpMap $ SingletonSimpMap (VarName "x") (Const 1))
 
-term3 :: Term ImpLang Closed
+term3 :: Term ImpLang
 term3 =       ("u" := ReadInt)
         `Seq` ("i" := intConst 0)
         `Seq` ("s" := intConst 0)

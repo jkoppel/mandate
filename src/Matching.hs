@@ -1,12 +1,17 @@
-{-# LANGUAGE DataKinds, EmptyDataDecls, FlexibleContexts, FlexibleInstances, FunctionalDependencies, GADTs, InstanceSigs, KindSignatures, MultiParamTypeClasses, ScopedTypeVariables, TupleSections, TypeApplications, UndecidableInstances, ViewPatterns #-}
+{-# LANGUAGE EmptyDataDecls, FlexibleContexts, FlexibleInstances, GADTs, ScopedTypeVariables, TupleSections, TypeApplications, UndecidableInstances, ViewPatterns #-}
 
 module Matching (
     MonadMatchable(..)
   , getVars
+  , refreshVar
   , Match
   , runMatch
 
+  , Pattern(..)
+  , Matchee(..)
+
   , Matchable(..)
+  , matchList
   , module MatchEffect
   , runMatchEffect
 
@@ -25,42 +30,40 @@ import Data.Typeable ( Typeable )
 
 import Configuration
 import Debug
+import LangBase
 import MatchEffect
 import Term
 import Var
 
-data MatchState (v :: OpenClosed) where
-  MatchState :: Typeable v => Map MetaVar Dynamic -> MatchState v
+data MatchState = MatchState (Map MetaVar Dynamic)
 
-getMatchState :: MatchState v -> Map MetaVar Dynamic
+getMatchState :: MatchState -> Map MetaVar Dynamic
 getMatchState (MatchState m) = m
 
-modMatchState :: (Map MetaVar Dynamic -> Map MetaVar Dynamic) -> MatchState v -> MatchState v
+modMatchState :: (Map MetaVar Dynamic -> Map MetaVar Dynamic) -> MatchState -> MatchState
 modMatchState f (MatchState m) = MatchState $ f m
 
 
 -- Maybe is on inside; means state will reset on backtrack
-type Match v = StateT (MatchState v) (MaybeT IO)
+type Match = StateT MatchState (MaybeT IO)
 
-runMatch :: (Typeable v) => Match v a -> IO (Maybe a)
+runMatch :: Match a -> IO (Maybe a)
 runMatch m = runMaybeT $ evalStateT m (MatchState Map.empty)
 
-runMatchEffect :: MatchEffect a -> Match v a
+runMatchEffect :: MatchEffect a -> Match a
 runMatchEffect (MatchEffect x) = liftIO x
 
--- TODO: Now that I've generalized this to not only take closed stuff,
--- I don't know what I get by restricting entries to "a v" instead of arbitrary Dynamic's
-class (MonadPlus m, MonadIO m, Typeable v) => MonadMatchable (v :: OpenClosed) m | m -> v where
-  putVar :: (Typeable a, Eq (a v)) => MetaVar -> a v -> m ()
-  getVarMaybe :: Typeable a => MetaVar -> (a v -> m b) -> m b -> m b
-  getVarDefault :: Typeable a => MetaVar -> m (a v) -> m (a v)
-  getVar :: Typeable a => MetaVar -> m (a v)
+class (MonadPlus m, MonadIO m) => MonadMatchable m where
+  putVar :: (Typeable a, Eq a) => MetaVar -> a -> m ()
+  getVarMaybe :: Typeable a => MetaVar -> (a -> m b) -> m b -> m b
+  getVarDefault :: Typeable a => MetaVar -> m a -> m a
+  getVar :: Typeable a => MetaVar -> m a
   withFreshCtx :: m x -> m x
 
   getVarDefault v = getVarMaybe v return
   getVar var = getVarDefault var mzero
 
-instance (MonadState (MatchState v) m, MonadIO m, MonadPlus m, Typeable v) => MonadMatchable v m where
+instance {-# OVERLAPPABLE #-} (MonadState MatchState m, MonadIO m, MonadPlus m) => MonadMatchable m where
   putVar var val = do curVal <- getVarMaybe var (return.Just) (return Nothing)
                       case curVal of
                         Nothing   -> do debugStepM $ "Setting var " ++ show var
@@ -78,11 +81,30 @@ instance (MonadState (MatchState v) m, MonadIO m, MonadPlus m, Typeable v) => Mo
                       put old
                       return res
 
+-- Hack to prevent eagerly matching the above instance
+data UnusedMonad a
+instance {-# OVERLAPPING #-} (MonadPlus UnusedMonad, MonadIO UnusedMonad) => MonadMatchable UnusedMonad where
+  putVar = error "Using UnusedMonad"
+  getVarMaybe = error "Using UnusedMonad"
+  withFreshCtx = error "Using UnusedMonad"
 
-getVars :: (MonadMatchable v m, Typeable (Term l)) => [MetaVar] -> m [Term l v]
+getVars :: (MonadMatchable m, LangBase l) => [MetaVar] -> m [Term l]
 getVars = mapM getVar
 
-class (HasVars f, ForallOC Show f) => Matchable f where
+refreshVar :: (MonadMatchable m) => MetaVar -> m MetaVar
+refreshVar v = do v' <- liftIO nextVar
+                  putVar v v'
+                  return v'
+
+-- These exist to make arguments more clear now that we're not putting Open/Closed in the types
+-- We do have the option of giving these a smart constructor which checks closed-ness for a more sophisticated definition
+-- of closedness which includes binders
+-- TODO: "Matchee?" There is a standard name for this, right?
+newtype Matchee f = Matchee f
+newtype Pattern f = Pattern f
+
+class (Show f) => Matchable f where
+  -- TODO: Review these preconditions; I think some no longer hold
   -- Extra precondition:
   -- Variables in an open term may be in "template" or "pattern" position. This distinction is not made syntactially.
   -- Currently, the only example of a template variable is the LHSs of bindings in SimpEnvMap.
@@ -94,64 +116,56 @@ class (HasVars f, ForallOC Show f) => Matchable f where
   -- While you can call (match t1 t2) where t2 is open, if you do, all variables in t2 will be considered closed,
   -- i.e.: distinctly numbered variables will be assumed to stand for distinct terms. In other words,
   -- the term f(x,y) will not match the pattern f(z,z).
-  match :: (MonadMatchable v m) => f Open -> f v -> m ()
+  match :: (MonadMatchable m) => Pattern f -> Matchee f -> m ()
+  refreshVars :: (MonadMatchable m) => f -> m f
+  fillMatch :: (MonadMatchable m) => f -> m f
 
-  refreshVars :: (MonadMatchable Open m) => f Open -> m (f Open)
-
-  partiallyFillMatch :: (MonadMatchable v m) => f Open -> m (f Open)
-  fillMatch :: (MonadMatchable Closed m)  => f Open -> m (f Closed)
+matchList :: (Matchable f, MonadMatchable m) => Pattern [f] -> Matchee [f] -> m ()
+matchList (Pattern xs1) (Matchee xs2) = sequence_ $ zipWith match (map Pattern xs1) (map Matchee xs2)
 
 
-fillMatchTermGen :: (MonadMatchable v' m, Typeable (Term l)) => (MetaVar -> m (Term l v)) -> Term l Open -> m (Term l v)
+fillMatchTermGen :: (MonadMatchable m, LangBase l) => (MetaVar -> m (Term l)) -> Term l -> m (Term l)
 fillMatchTermGen f (Node s ts)   = Node s <$> (mapM (fillMatchTermGen f) ts)
 fillMatchTermGen f (Val  s ts)   = Val s <$> (mapM (fillMatchTermGen f) ts)
 fillMatchTermGen f (IntNode s i) = return (IntNode s i) -- This could just be unsafeCoerce....or hopefully just coerce
+fillMatchTermGen f (StrNode s x) = return (StrNode s x) -- This could just be unsafeCoerce....or hopefully just coerce
 fillMatchTermGen f (MetaVar v)   = f v
 
-instance (Typeable (Term l)) => Matchable (Term l) where
-  match (Node s1 ts1)   (Node s2 ts2)
-    | (s1 == s2)                        = sequence_ $ zipWith match ts1 ts2
-  match (Val  s1 ts1)   (Val  s2 ts2)
-    | (s1 == s2)                        = sequence_ $ zipWith match ts1 ts2
-  match (IntNode s1 i1) (IntNode s2 i2)
-    | (s1 == s2) && (i1 == i2)          = return ()
-  match (MetaVar v)     t               = putVar v t
-  match _               _               = mzero
+instance (LangBase l) => Matchable (Term l) where
+  match (Pattern (Node s1 ts1))   (Matchee (Node s2 ts2))
+    | (s1 == s2)                              = matchList (Pattern ts1) (Matchee ts2)
+  match (Pattern (Val  s1 ts1))   (Matchee (Val  s2 ts2))
+    | (s1 == s2)                              = matchList (Pattern ts1) (Matchee ts2)
+  match (Pattern (IntNode s1 i1)) (Matchee (IntNode s2 i2))
+    | (s1 == s2) && (i1 == i2)                = return ()
+  match (Pattern (MetaVar v))     (Matchee t) = putVar v t
+  match _               _                     = mzero
 
   refreshVars = fillMatchTermGen (\v -> getVarMaybe v return (refresh v))
     where
-      refresh :: (MonadMatchable Open m) => MetaVar -> m (Term l Open)
-      refresh v = do v' <- liftIO nextVar
-                     let mv = MetaVar v'
-                     putVar v mv
-                     return mv
-
-  partiallyFillMatch = fillMatchTermGen (\v -> getVarMaybe v (return . asOpen) (return $ MetaVar v))
-  fillMatch = fillMatchTermGen getVar
+      refresh :: (MonadMatchable m) => MetaVar -> m (Term l)
+      refresh v = MetaVar <$> refreshVar v
+  fillMatch = fillMatchTermGen (\v -> getVarMaybe v return (return $ MetaVar v))
 
 
 instance {-# OVERLAPPABLE #-} (Matchable (Term l), Matchable s) => Matchable (GConfiguration l s) where
-  match (Conf t1 s1) (Conf t2 s2) = do match t1 t2
-                                       s1' <- partiallyFillMatch s1
-                                       debugStepM $ "Partially filled state: " ++ show s1'
-                                       match s1' s2
+  match (Pattern (Conf t1 s1)) (Matchee (Conf t2 s2)) = do
+      match (Pattern t1) (Matchee t2)
+      match (Pattern s1) (Matchee s2)
 
-  refreshVars        (Conf t s) = Conf <$>        refreshVars t <*>        refreshVars s
-  partiallyFillMatch (Conf t s) = Conf <$> partiallyFillMatch t <*> partiallyFillMatch s
-  fillMatch          (Conf t s) = Conf <$>          fillMatch t <*>          fillMatch s
+  refreshVars (Conf t s) = Conf <$> refreshVars t <*> refreshVars s
+  fillMatch   (Conf t s) = Conf <$> fillMatch   t <*> fillMatch   s
 
 -- Hack to prevent over-eagerly expanding (Matchable (Configuration l)) constraints
 data UnusedLanguage
-instance {-# OVERLAPPING #-} (HasVars s, ForallOC Show s) => Matchable (GConfiguration UnusedLanguage s) where
+instance {-# OVERLAPPING #-} (Show s) => Matchable (GConfiguration UnusedLanguage s) where
   match = error "Matching UnusedLanguage"
   refreshVars = error "Matching UnusedLanguage"
-  partiallyFillMatch = error "Matching UnusedLanguage"
   fillMatch = error "Matching UnusedLanguage"
 
 instance Matchable EmptyState where
   match _ _ = return ()
   refreshVars EmptyState = return EmptyState
-  partiallyFillMatch EmptyState = return EmptyState
   fillMatch EmptyState = return EmptyState
 
 -- Description: We implemented a restricted version of ACI
@@ -186,59 +200,44 @@ mapKeysM f mp = Map.fromList <$> traverse (\(k,v) -> (,v) <$> f k) (Map.toList m
 -- If you fail to close all keys before matching, then you'll get weird behavior
 
 instance (Matchable a, Matchable b) => Matchable (SimpEnvMap a b) where
-  -- TODO: Can drop this sig (and the InstanceSigs and ScopedTypeVariables extensions) after
-  -- getting quantified class constraints
-  match :: forall v m. (MonadMatchable v m) => SimpEnvMap a b Open -> SimpEnvMap a b v -> m ()
-  match (SimpEnvMap m1) (SimpEnvMap m2) =
-    -- TODO: After we get quantified constraints, can drop the asOpenList
-    if asOpenList (Map.keys m1) /= asOpenList (Map.keys m2) then
+  match (Pattern (SimpEnvMap m1)) (Matchee (SimpEnvMap m2)) = do
+    m1' <- mapKeysM fillMatch m1
+    if Map.keys m1' /= Map.keys m2 then
       mzero
     else
       -- Use (!) because guaranteed has key
-      -- TODO: After we get quantified constraints, not needed
-      case testOpenClosed @v of
-        IsOpen   -> sequence_ $ Map.mapWithKey (\k v -> match v (m2 ! k)) (keysAsOC m1)
-        IsClosed -> sequence_ $ Map.mapWithKey (\k v -> match v (m2 ! k)) (keysAsOC m1)
+      sequence_ $ Map.mapWithKey (\k v -> match (Pattern v) (Matchee (m2 ! k))) m1'
 
-  refreshVars        (SimpEnvMap m) = SimpEnvMap <$> (mapKeysM refreshVars        =<< mapM refreshVars        m)
-  partiallyFillMatch (SimpEnvMap m) = SimpEnvMap <$> (mapKeysM partiallyFillMatch =<< mapM partiallyFillMatch m)
-  fillMatch          (SimpEnvMap m) = SimpEnvMap <$> (mapKeysM fillMatch          =<< mapM fillMatch          m)
-
-matchSimpEnvOpen :: (Matchable a, Matchable b, MonadMatchable Open m) => SimpEnv a b Open -> SimpEnv a b Open -> m ()
-matchSimpEnvOpen (SimpEnvRest v m1) (JustSimpMap m2) = do
-  let (mp1, mp2) = (keysAsOC (getSimpEnvMap m1), getSimpEnvMap m2)
-  let diff = Map.difference mp2 mp1
-  debugStepM $ "Matching maps " ++ show mp1 ++ " and " ++ show mp2
-  debugStepM $ "Binding var " ++ show v ++ " to " ++ show diff
-  putVar v (SimpEnvMap diff)
-  match m1 (SimpEnvMap $ Map.intersection mp2 mp1)
-
-matchSimpEnvClosed :: (Matchable a, Matchable b, MonadMatchable Closed m) => SimpEnv a b Open -> SimpEnv a b Closed -> m ()
-matchSimpEnvClosed (SimpEnvRest v m1) (JustSimpMap m2) = do
-  let (mp1, mp2) = (keysAsOC (getSimpEnvMap m1), getSimpEnvMap m2)
-  let diff = Map.difference mp2 mp1
-  debugStepM $ "Matching maps " ++ show mp1 ++ " and " ++ show mp2
-  debugStepM $ "Binding var " ++ show v ++ " to " ++ show diff
-  putVar v (SimpEnvMap diff)
-  match m1 (SimpEnvMap $ Map.intersection mp2 mp1)
-
-instance (Matchable a, Matchable b) => Matchable (SimpEnv a b) where
-  -- TODO: Can drop this sig (and the InstanceSigs and ScopedTypeVariables extensions) after
-  -- getting quantified class constraints
-  match :: forall v m. (MonadMatchable v m) => SimpEnv a b Open -> SimpEnv a b v -> m ()
-  match e1@(SimpEnvRest v m1) e2@(JustSimpMap m2) =
-    case testOpenClosed @v of
-      IsOpen   -> matchSimpEnvOpen   e1 e2
-      IsClosed -> matchSimpEnvClosed e1 e2
-  match (JustSimpMap m1) (JustSimpMap m2) = match m1 m2
-  --match (SimpEnvRest v1 m1) (SimpEnvRest v2 m2) = putVar v1 (MetaVar v2) >> match m1 m2
-
-  refreshVars (JustSimpMap m)   = JustSimpMap   <$> refreshVars m
-  refreshVars (SimpEnvRest v m) = SimpEnvRest v <$> refreshVars m
+  refreshVars (SimpEnvMap m) = SimpEnvMap <$> (mapKeysM refreshVars =<< mapM refreshVars m)
+  fillMatch   (SimpEnvMap m) = SimpEnvMap <$> (mapKeysM fillMatch   =<< mapM fillMatch   m)
 
 
-  partiallyFillMatch (SimpEnvRest v m) = SimpEnvRest v <$> partiallyFillMatch m
-  partiallyFillMatch (JustSimpMap m)   = JustSimpMap   <$> partiallyFillMatch m
+declareTypesEq :: (Monad m) => a -> a -> m ()
+declareTypesEq _ _ = return ()
+
+instance (Matchable a, Matchable b, Typeable a) => Matchable (SimpEnv a b) where
+  match (Pattern p@(SimpEnvRest v m1)) (Matchee m@(JustSimpMap m2)) = do
+    vFilled <- getVarMaybe v (return.Just) (return Nothing)
+    case vFilled of
+      Just (SimpEnvMap vm) -> do declareTypesEq (SimpEnvMap vm) m1
+                                 p' <- fillMatch p
+                                 match (Pattern p') (Matchee m)
+      Nothing -> do
+        m1' <- fillMatch m1
+        let (mp1, mp2) = (getSimpEnvMap m1', getSimpEnvMap m2)
+        let diff = Map.difference mp2 mp1
+        debugStepM $ "Matching maps " ++ show mp1 ++ " and " ++ show mp2
+        debugStepM $ "Binding var " ++ show v ++ " to " ++ show diff
+        putVar v (SimpEnvMap diff)
+        match (Pattern m1) (Matchee (SimpEnvMap $ Map.intersection mp2 mp1))
+
+  match (Pattern (JustSimpMap m1)) (Matchee (JustSimpMap m2)) = match (Pattern m1) (Matchee m2)
+  match (Pattern (SimpEnvRest v1 m1)) (Matchee (SimpEnvRest v2 m2)) = putVar v1 v2 >> match (Pattern m1) (Matchee m2)
+
+  -- TODO: Do we need a case for matching SimpMap with EnvRest? (Beware infinite recursion if so)
+
+  refreshVars (JustSimpMap m)   = JustSimpMap <$> refreshVars m
+  refreshVars (SimpEnvRest v m) = SimpEnvRest <$> refreshVar v <*> refreshVars m
 
   fillMatch (SimpEnvRest v m1) = do m2 <- getVar v
                                     m1' <- fillMatch m1

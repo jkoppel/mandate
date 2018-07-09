@@ -36,19 +36,19 @@ addLangSig = Signature [ NodeSig "+" ["Exp", "Exp"] "Exp"
                        , ValSig "EVal" ["Const"] "Exp"
                        , IntSig "Const" "Const"]
 
-pattern Plus :: Term AddLang v -> Term AddLang v -> Term AddLang v
+pattern Plus :: Term AddLang -> Term AddLang -> Term AddLang
 pattern Plus x y = Node "+" [x, y]
 
-pattern EVal :: Term AddLang v -> Term AddLang v
+pattern EVal :: Term AddLang -> Term AddLang
 pattern EVal n = Val "Val" [n]
 
-pattern Const :: Integer -> Term AddLang v
+pattern Const :: Integer -> Term AddLang
 pattern Const n = IntNode "Const" n
 
-mv :: MetaVar -> Term AddLang Open
+mv :: MetaVar -> Term AddLang
 mv = MetaVar
 
-conf :: Term AddLang v -> Configuration AddLang v
+conf :: Term AddLang -> Configuration AddLang
 conf t = Conf t EmptyState
 
 addLangRules :: IO (NamedRules AddLang)
@@ -78,5 +78,5 @@ addLangRules = sequence [
 
 -----------
 
-term1 :: Term AddLang Closed
+term1 :: Term AddLang
 term1 = Plus (Plus (EVal $ Const 1) (EVal $ Const 2)) (Plus (EVal $ Const 3) (EVal $ Const 4))

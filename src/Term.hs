@@ -1,5 +1,5 @@
 {-# LANGUAGE FlexibleInstances, TypeSynonymInstances #-}
-{-# LANGUAGE DataKinds, DeriveGeneric, EmptyDataDecls, GADTs, PatternSynonyms, StandaloneDeriving, TypeFamilies #-}
+{-# LANGUAGE DeriveGeneric, EmptyDataDecls, PatternSynonyms, TypeFamilies #-}
 
 module Term (
   Sort(..)
@@ -96,14 +96,13 @@ data AnyLanguage
 -- * The Abstract Machine Generator will never create a rule that has a non-root
 --   Val on the LHS.
 
-data Term a v where
-    TNode    :: !Id -> !Symbol  -> [Term a v]          -> Term a v
-    TVal     :: !Id -> !Symbol  -> [Term a v]          -> Term a v
-    TIntNode :: !Id -> !Symbol  -> !Integer            -> Term a v
-    TStrNode :: !Id -> !Symbol  -> !InternedByteString -> Term a v
-    TMetaVar :: !Id -> !MetaVar ->                        Term a Open
+data Term a = TNode    !Id !Symbol [Term a]
+            | TVal     !Id !Symbol [Term a]
+            | TIntNode !Id !Symbol !Integer
+            | TStrNode !Id !Symbol !InternedByteString
+            | TMetaVar !Id !MetaVar
 
-instance Show (Term a v) where
+instance Show (Term a) where
   showsPrec d (TNode _ s ts) = showsPrec (d+1) s . showList ts
   showsPrec d (TVal  _ s ts) = showsPrec (d+1) s . showList ts
   showsPrec d (TIntNode _ s n) = showsPrec (d+1) s . showString "(" . showsPrec (d+1) n . showString ")"
@@ -112,38 +111,37 @@ instance Show (Term a v) where
 
   showList ts = showString "(" . foldr (.) id (intersperse (showString ", ") (map (showsPrec 0) ts)) . showString ")"
 
-getId :: Term a v -> Id
+getId :: Term a -> Id
 getId (TNode    i _ _) = i
 getId (TVal     i _ _) = i
 getId (TIntNode i _ _) = i
 getId (TStrNode i _ _) = i
 getId (TMetaVar i _)   = i
 
-type GenericTerm = Term AnyLanguage Open
+type GenericTerm = Term AnyLanguage
 
 -- I tried to get safe coercions working, but couldn't
 -- Did not find good tutorials. Maybe it only works with newtypes ATM?
-toGeneric :: Term a v -> GenericTerm
+toGeneric :: Term a -> GenericTerm
 toGeneric = unsafeCoerce
 
-fromGeneric :: GenericTerm -> Term a v
+fromGeneric :: GenericTerm -> Term a
 fromGeneric = unsafeCoerce
 
 
-data UninternedTerm v a where
- BNode :: Symbol -> [Term a v] -> UninternedTerm a v
- BVal  :: Symbol -> [Term a v] -> UninternedTerm a v
- BIntNode :: Symbol -> Integer -> UninternedTerm a v
- BStrNode :: Symbol -> InternedByteString -> UninternedTerm a v
- BMetaVar :: MetaVar -> UninternedTerm a Open
+data UninternedTerm a = BNode Symbol [Term a]
+                      | BVal  Symbol [Term a]
+                      | BIntNode Symbol Integer
+                      | BStrNode Symbol InternedByteString
+                      | BMetaVar MetaVar
 
-type GenericUninternedTerm = UninternedTerm AnyLanguage Open
+type GenericUninternedTerm = UninternedTerm AnyLanguage
 
 
-toUGeneric :: UninternedTerm a v -> GenericUninternedTerm
+toUGeneric :: UninternedTerm a -> GenericUninternedTerm
 toUGeneric = unsafeCoerce
 
-fromUGeneric :: GenericUninternedTerm -> UninternedTerm a v
+fromUGeneric :: GenericUninternedTerm -> UninternedTerm a
 fromUGeneric = unsafeCoerce
 
 instance Interned GenericTerm where
@@ -173,10 +171,10 @@ instance Interned GenericTerm where
 instance Hashable (Description GenericTerm)
 
 
-instance Eq (Term a v) where
+instance Eq (Term a) where
   (==) = (==) `on` getId
 
-instance Ord (Term a v) where
+instance Ord (Term a) where
   compare = compare `on` getId
 
 termCache :: Cache GenericTerm
@@ -184,35 +182,25 @@ termCache = mkCache
 {-# NOINLINE termCache #-}
 
 
-pattern Node :: Symbol -> [Term a v] -> Term a v
+pattern Node :: Symbol -> [Term a] -> Term a
 pattern Node s ts <- (TNode _ s ts) where
   Node s ts = fromGeneric $ intern $ toUGeneric (BNode s ts)
 
-pattern Val :: Symbol -> [Term a v] -> Term a v
+pattern Val :: Symbol -> [Term a] -> Term a
 pattern Val s ts <- (TVal _ s ts) where
   Val s ts = fromGeneric $ intern $ toUGeneric (BVal s ts)
 
-pattern IntNode :: Symbol -> Integer -> Term a v
+pattern IntNode :: Symbol -> Integer -> Term a
 pattern IntNode s n <- (TIntNode _ s n) where
   IntNode s n = fromGeneric $ intern $ toUGeneric (BIntNode s n)
 
-pattern StrNode :: Symbol -> InternedByteString -> Term a v
+pattern StrNode :: Symbol -> InternedByteString -> Term a
 pattern StrNode s str <- (TStrNode _ s str) where
   StrNode s str = fromGeneric $ intern $ toUGeneric (BStrNode s str)
 
-pattern MetaVar :: () => (v ~ Open) => MetaVar -> Term a v
+pattern MetaVar :: MetaVar -> Term a
 pattern MetaVar v <- (TMetaVar _ v) where
   MetaVar v = fromGeneric $ intern $ toUGeneric (BMetaVar v)
-
-
-instance HasVars (Term l) where
-  assumeClosed (Node s ts)     = Node s (map assumeClosed ts)
-  assumeClosed (Val  s ts)     = Val  s (map assumeClosed ts)
-  assumeClosed (IntNode s i)   = IntNode s i -- Could save epsilon time using unsafeCoerce
-  assumeClosed (StrNode s str) = StrNode s str
-  assumeClosed (MetaVar v)     = error ("Assuming term closed, but has var " ++ show v)
-
-  asOpen = fromGeneric . toGeneric
 
 ------------------------------------------------------------------------------------
 
@@ -226,14 +214,14 @@ sortForSym :: Signature l -> Symbol -> Sort
 sortForSym sig s = sigNodeSort $ getInSig sig s
 
 -- Metavars are currently unsorted / can have any sort
-sortOfTerm :: Signature l -> Term l v -> Maybe Sort
+sortOfTerm :: Signature l -> Term l -> Maybe Sort
 sortOfTerm sig (Node    sym _) = Just $ sortForSym sig sym
 sortOfTerm sig (Val     sym _) = Just $ sortForSym sig sym
 sortOfTerm sig (IntNode sym _) = Just $ sortForSym sig sym
 sortOfTerm sig (StrNode sym _) = Just $ sortForSym sig sym
 sortOfTerm sig (MetaVar _)     = Nothing
 
-sortCheckTerm :: Signature l -> Term l v -> Sort -> ()
+sortCheckTerm :: Signature l -> Term l -> Sort -> ()
 sortCheckTerm sig t sort =
   case sortOfTerm sig t of
     Just sort' -> if sort' == sort then
@@ -244,7 +232,7 @@ sortCheckTerm sig t sort =
 
 
 -- This here is boxing at its finest.
-checkInternalNode :: Signature l -> Term l v -> [Sort] -> [Term l v] -> ()
+checkInternalNode :: Signature l -> Term l -> [Sort] -> [Term l] -> ()
 checkInternalNode sig t ss ts = if length ss /= length ts then
                                   error ("Invalid number of arguments in " ++ show t)
                                 else
@@ -254,7 +242,7 @@ checkInternalNode sig t ss ts = if length ss /= length ts then
 
 -- This version is for debugging only, and will halt execution on failure
 -- Bad terms should never be created
-checkTerm :: Signature l -> Term l v -> ()
+checkTerm :: Signature l -> Term l -> ()
 checkTerm sig t@(Node s ts)   = case getInSig sig s of
                                   NodeSig _ ss _ -> checkInternalNode sig t ss ts
                                   sym            -> error ("In Term " ++ show t ++ ", symbol " ++ show sym ++ " used as node: " ++ show s)

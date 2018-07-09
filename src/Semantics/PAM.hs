@@ -1,4 +1,4 @@
-{-# LANGUAGE DataKinds, FlexibleContexts, GADTs, OverloadedStrings, StandaloneDeriving, UndecidableInstances #-}
+{-# LANGUAGE FlexibleContexts, GADTs, OverloadedStrings, StandaloneDeriving, UndecidableInstances #-}
 
 -- | Implementation of "phased abstract machines," a transition system corresponding
 --   to reduction (Felleisen-Hieb) semantics
@@ -8,6 +8,7 @@
 
 module Semantics.PAM (
     PAMRule(..)
+  , NamedPAMRule(..)
   , sosToPAM
   ) where
 
@@ -29,22 +30,23 @@ import Var
 data Phase = Up | Down
   deriving (Eq, Ord, Show)
 
-data AMRhs payload l = AMLetComputation MetaVar (ExtComp l Open) (AMRhs payload l)
+data AMRhs payload l = AMLetComputation MetaVar (ExtComp l) (AMRhs payload l)
                      | AMRhs (payload l)
   deriving ( Show )
 
 
-data PAMState l = PAMState { pamConf :: MConf l
-                           , pamK     ::Context l Open
+data PAMState l = PAMState { pamConf  :: Configuration l
+                           , pamK     :: Context l
                            , pamPhase :: Phase
                            }
 
-deriving instance (Show (MConf l), Show (Context l Open)) => Show (PAMState l)
+deriving instance (Show (Configuration l), Show (Context l)) => Show (PAMState l)
 
 type PAMRhs = AMRhs PAMState
 
 data PAMRule l = PAM { pamBefore :: PAMState l
-                     , pamAfter  :: PAMRhs l}
+                     , pamAfter  :: PAMRhs l
+                     }
 
 deriving instance (Show (PAMRhs l), Show (PAMState l)) => Show (PAMRule l)
 
@@ -64,12 +66,12 @@ type InfNameStream = [ByteString]
 infNameStream :: ByteString -> InfNameStream
 infNameStream nam = map (\i -> mconcat [nam, "-", BS.pack $ show i]) [1..]
 
-splitFrame :: (Lang l) => PosFrame l Open -> Context l Open -> IO (PAMRhs l, Context l Open, Maybe (Configuration l Open, PosFrame l Open))
+splitFrame :: (Lang l) => PosFrame l -> Context l -> IO (PAMRhs l, Context l, Maybe (Configuration l, PosFrame l))
 splitFrame (KBuild c) k = return (AMRhs $ PAMState c k Up, k, Nothing)
 -- TODO: Why is this so ugly?
 splitFrame (KStepTo c f@(KInp i pf)) k = fromJust <$> (runMatch $ do
                                          i' <- refreshVars i
-                                         pf' <- partiallyFillMatch pf
+                                         pf' <- fillMatch pf
                                          let f' = KInp i' pf'
                                          let cont = KPush f k
                                          let cont' = KPush (KInp i' pf') k
@@ -77,7 +79,7 @@ splitFrame (KStepTo c f@(KInp i pf)) k = fromJust <$> (runMatch $ do
 splitFrame (KComputation comp (KInp (Conf (MetaVar mv) _) pf)) k = do (subRhs, ctx, rest) <- splitFrame pf k
                                                                       return (AMLetComputation mv comp subRhs, ctx, rest)
 
-sosRuleToPAM' :: (Lang l) => InfNameStream -> PAMState l -> Context l Open -> PosFrame l Open -> IO [NamedPAMRule l]
+sosRuleToPAM' :: (Lang l) => InfNameStream -> PAMState l -> Context l -> PosFrame l -> IO [NamedPAMRule l]
 sosRuleToPAM' (nm:nms) st k fr = do
     (rhs, k', frRest) <- splitFrame fr k
     restRules <- case frRest of
