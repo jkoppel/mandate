@@ -2,7 +2,6 @@
 
 module Matching (
     MonadMatchable(..)
-  , getVars
   , refreshVar
   , Match
   , runMatch
@@ -26,8 +25,11 @@ import Control.Monad.State ( MonadState(..), StateT, evalStateT, modify )
 import Control.Monad.Trans.Maybe ( MaybeT(..) )
 
 import Data.Dynamic ( Dynamic, toDyn, fromDynamic)
+import Data.Foldable ( fold )
 import Data.Map ( Map, (!) )
 import qualified Data.Map as Map
+import Data.Set ( Set )
+import qualified Data.Set as Set
 import Data.Typeable ( Typeable )
 
 import Configuration
@@ -58,11 +60,14 @@ runMatchEffect (MatchEffect x) = liftIO x
 class (MonadPlus m, MonadIO m) => MonadMatchable m where
   hasVar :: MetaVar -> m Bool
   putVar :: (Typeable a, Eq a) => MetaVar -> a -> m ()
+  clearVar :: MetaVar -> m ()
+  overrideVar :: (Typeable a, Eq a) => MetaVar -> a -> m ()
   getVarMaybe :: Typeable a => MetaVar -> (a -> m b) -> m b -> m b
   getVarDefault :: Typeable a => MetaVar -> m a -> m a
   getVar :: Typeable a => MetaVar -> m a
   withFreshCtx :: m x -> m x
 
+  overrideVar m x = clearVar m >> putVar m x
   getVarDefault v = getVarMaybe v return
   getVar var = getVarDefault var mzero
 
@@ -73,6 +78,8 @@ instance {-# OVERLAPPABLE #-} (MonadState MatchState m, MonadIO m, MonadPlus m) 
                         Nothing   -> do debugStepM $ "Setting var " ++ show var
                                         modify (modMatchState $ Map.insert var (toDyn val))
                         Just val' -> guard (val == val')
+
+  clearVar var = modify (modMatchState $ Map.delete var)
 
   getVarMaybe var f def = do maybeDyn <- Map.lookup var <$> getMatchState <$> get
                              case (maybeDyn :: Maybe Dynamic) of
@@ -88,12 +95,11 @@ instance {-# OVERLAPPABLE #-} (MonadState MatchState m, MonadIO m, MonadPlus m) 
 -- Hack to prevent eagerly matching the above instance
 data UnusedMonad a
 instance {-# OVERLAPPING #-} (MonadPlus UnusedMonad, MonadIO UnusedMonad) => MonadMatchable UnusedMonad where
+  hasVar = error "Using UnusedMonad"
   putVar = error "Using UnusedMonad"
+  clearVar = error "Using UnusedMonad"
   getVarMaybe = error "Using UnusedMonad"
   withFreshCtx = error "Using UnusedMonad"
-
-getVars :: (MonadMatchable m, LangBase l) => [MetaVar] -> m [Term l]
-getVars = mapM getVar
 
 refreshVar :: (MonadMatchable m, Typeable a, Eq a) => (MetaVar -> a) -> MetaVar -> m MetaVar
 refreshVar f v = do v' <- liftIO nextVar
@@ -107,7 +113,10 @@ refreshVar f v = do v' <- liftIO nextVar
 newtype Matchee f = Matchee f
 newtype Pattern f = Pattern f
 
+-- NOTE: I think I need to write SYB/Uniplate infrastructure for vars-containing terms
 class (Show f) => Matchable f where
+  getVars :: f -> Set MetaVar
+
   -- TODO: Review these preconditions; I think some no longer hold
   -- Extra precondition:
   -- Variables in an open term may be in "template" or "pattern" position. This distinction is not made syntactially.
@@ -121,6 +130,7 @@ class (Show f) => Matchable f where
   -- i.e.: distinctly numbered variables will be assumed to stand for distinct terms. In other words,
   -- the term f(x,y) will not match the pattern f(z,z).
   match :: (MonadMatchable m) => Pattern f -> Matchee f -> m ()
+
   refreshVars :: (MonadMatchable m) => f -> m f
   fillMatch :: (MonadMatchable m) => f -> m f
 
@@ -142,12 +152,18 @@ fillMatchTermGen f (StrNode s x) = return (StrNode s x) -- This could just be un
 fillMatchTermGen f (MetaVar v)   = f v
 
 instance (LangBase l) => Matchable (Term l) where
+  getVars (Node _ ts) = fold $ map getVars ts
+  getVars (Val _ ts)  = fold $ map getVars ts
+  getVars (MetaVar v) = Set.singleton v
+
   match (Pattern (Node s1 ts1))   (Matchee (Node s2 ts2))
     | (s1 == s2)                              = matchList (Pattern ts1) (Matchee ts2)
   match (Pattern (Val  s1 ts1))   (Matchee (Val  s2 ts2))
     | (s1 == s2)                              = matchList (Pattern ts1) (Matchee ts2)
   match (Pattern (IntNode s1 i1)) (Matchee (IntNode s2 i2))
     | (s1 == s2) && (i1 == i2)                = return ()
+  match (Pattern (StrNode s1 x1)) (Matchee (StrNode s2 x2))
+    | (s1 == s2) && (x1 == x2)                = return ()
   match (Pattern (MetaVar v))     (Matchee t) = putVar v t
   match _               _                     = mzero
 
@@ -159,6 +175,8 @@ instance (LangBase l) => Matchable (Term l) where
 
 
 instance {-# OVERLAPPABLE #-} (Matchable (Term l), Matchable s) => Matchable (GConfiguration l s) where
+  getVars (Conf t s) = getVars t `Set.union` getVars s
+
   match (Pattern (Conf t1 s1)) (Matchee (Conf t2 s2)) = do
       match (Pattern t1) (Matchee t2)
       match (Pattern s1) (Matchee s2)
@@ -174,6 +192,7 @@ instance {-# OVERLAPPING #-} (Show s) => Matchable (GConfiguration UnusedLanguag
   fillMatch = error "Matching UnusedLanguage"
 
 instance Matchable EmptyState where
+  getVars EmptyState = Set.empty
   match _ _ = return ()
   refreshVars EmptyState = return EmptyState
   fillMatch EmptyState = return EmptyState
@@ -210,6 +229,10 @@ mapKeysM f mp = Map.fromList <$> traverse (\(k,v) -> (,v) <$> f k) (Map.toList m
 -- If you fail to close all keys before matching, then you'll get weird behavior
 
 instance (Matchable a, Matchable b) => Matchable (SimpEnvMap a b) where
+  getVars (SimpEnvMap m) = fold (map getVars keys) `Set.union` fold (map getVars vals)
+    where
+      (keys, vals) = unzip (Map.toList m)
+
   match (Pattern (SimpEnvMap m1)) (Matchee (SimpEnvMap m2)) = do
     m1' <- mapKeysM fillMatch m1
     if Map.keys m1' /= Map.keys m2 then
@@ -226,6 +249,9 @@ declareTypesEq :: (Monad m) => a -> a -> m ()
 declareTypesEq _ _ = return ()
 
 instance (Matchable a, Matchable b, Typeable a) => Matchable (SimpEnv a b) where
+  getVars (SimpEnvRest v m) = Set.insert v (getVars m)
+  getVars (JustSimpMap m) = getVars m
+
   match (Pattern p@(SimpEnvRest v m1)) (Matchee m@(JustSimpMap m2)) = do
     vFilled <- getVarMaybe v (return.Just) (return Nothing)
     case vFilled of

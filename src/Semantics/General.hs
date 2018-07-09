@@ -1,6 +1,7 @@
 module Semantics.General (
     ExtComp
   , runExtComp
+  , getVarsExtComp
   , matchExtComp
   , refreshVarsExtComp
   , fillMatchExtComp
@@ -10,21 +11,30 @@ module Semantics.General (
   ) where
 
 import Control.Monad ( guard )
+import Data.Foldable ( fold )
 import Data.List ( intersperse )
 
 import Data.ByteString.Char8 ( ByteString )
 import qualified Data.ByteString.Char8 as BS
+import Data.Set ( Set )
+import qualified Data.Set as Set
 
 import Configuration
 import LangBase
 import Matching
 import Term
+import Var
+
+-- TODO: This should just be a real data structure which implements Matchable already
 
 type ExtComp l = (CompFunc l, [Term l])
 
 runExtComp :: (LangBase l) => ExtComp l -> Match (Configuration l)
 runExtComp (f, ts) = do ts' <- fillMatchList ts
                         runMatchEffect $ runCompFunc f ts'
+
+getVarsExtComp :: (LangBase l) => ExtComp l -> Set MetaVar
+getVarsExtComp (f, ts) = fold (map getVars ts)
 
 matchExtComp :: (LangBase l, MonadMatchable m) => Pattern (ExtComp l) -> Matchee (ExtComp l) -> m ()
 matchExtComp (Pattern (f1, ts1)) (Matchee (f2, ts2)) = do

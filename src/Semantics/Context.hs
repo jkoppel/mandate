@@ -7,7 +7,9 @@ module Semantics.Context (
   , rhsToFrame
   ) where
 
-import Control.Monad ( mzero )
+import Control.Monad ( mzero, forM_ )
+import Data.Set ( Set )
+import qualified Data.Set as Set
 
 import Configuration
 import LangBase
@@ -58,6 +60,10 @@ rhsToFrame (LetStepTo out arg rhs')      = KStepTo arg (KInp out (rhsToFrame rhs
 rhsToFrame (LetComputation out comp rhs) = KComputation comp (KInp out (rhsToFrame rhs))
 
 instance (LangBase l, Matchable (Configuration l)) => Matchable (PosFrame l) where
+  getVars (KBuild       c  ) = getVars c
+  getVars (KStepTo      c f) = getVars c `Set.union` getVars f
+  getVars (KComputation c f) = getVarsExtComp c `Set.union` getVars f
+
   match (Pattern (KBuild       c1   )) (Matchee (KBuild       c2   )) = match (Pattern c1) (Matchee c2)
   match (Pattern (KStepTo      c1 f1)) (Matchee (KStepTo      c2 f2)) = match (Pattern c1) (Matchee c2) >> match (Pattern f1) (Matchee f2)
   match (Pattern (KComputation c1 f1)) (Matchee (KComputation c2 f2)) =    matchExtComp (Pattern c1) (Matchee c2)
@@ -73,14 +79,25 @@ instance (LangBase l, Matchable (Configuration l)) => Matchable (PosFrame l) whe
   fillMatch (KComputation c f) = KComputation <$> fillMatchExtComp c <*> fillMatch f
 
 instance (LangBase l, Matchable (Configuration l)) => Matchable (Frame l) where
-  match (Pattern (KInp c1 pf1)) (Matchee (KInp c2 pf2)) = match (Pattern c1) (Matchee c2) >> match (Pattern pf1) (Matchee pf2)
+  getVars (KInp c pf) = getVars c `Set.union` getVars pf
+
+  -- The vars in the input are bound. Note that we clear them!
+  match (Pattern (KInp c1 pf1)) (Matchee (KInp c2 pf2)) = do
+    match (Pattern c1) (Matchee c2)
+    match (Pattern pf1) (Matchee pf2)
+    forM_ (Set.toList $ getVars c1) $ \v -> clearVar v
+
   refreshVars (KInp c pf) = KInp <$> refreshVars c <*> refreshVars pf
   fillMatch   (KInp c pf) = KInp <$> fillMatch   c <*> fillMatch   pf
 
 instance (LangBase l, Matchable (Configuration l)) => Matchable (Context l) where
+  getVars KHalt       = Set.empty
+  getVars (KPush f c) = getVars f `Set.union` getVars c
+  getVars (KVar v)    = Set.singleton v
+
   match (Pattern  KHalt)        (Matchee  KHalt)        = return ()
   match (Pattern (KPush f1 c1)) (Matchee (KPush f2 c2)) = match (Pattern f1) (Matchee f2) >> match (Pattern c1) (Matchee c2)
-  match (Pattern (KVar v1))     (Matchee (KVar v2))     = putVar v1 v2
+  match (Pattern (KVar v))      (Matchee x)             = putVar v x
   match _ _ = mzero
 
   refreshVars KHalt       = return KHalt
@@ -89,4 +106,4 @@ instance (LangBase l, Matchable (Configuration l)) => Matchable (Context l) wher
 
   fillMatch KHalt       = return KHalt
   fillMatch (KPush f c) = KPush <$> fillMatch f <*> fillMatch c
-  fillMatch (KVar v)    = getVarMaybe v (return . KVar) (return $ KVar v)
+  fillMatch (KVar v)    = getVarMaybe v return (return $ KVar v)
