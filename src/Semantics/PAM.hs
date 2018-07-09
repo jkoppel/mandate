@@ -29,8 +29,7 @@ import Var
 data Phase = Up | Down
   deriving (Eq, Ord, Show)
 
-data AMRhs payload l = AMSideCondition  (ExtCond l Open) (AMRhs payload l)
-                     | AMLetComputation MetaVar (ExtComp l Open) (AMRhs payload l)
+data AMRhs payload l = AMLetComputation MetaVar (ExtComp l Open) (AMRhs payload l)
                      | AMRhs (payload l)
   deriving ( Show )
 
@@ -67,8 +66,6 @@ infNameStream nam = map (\i -> mconcat [nam, "-", BS.pack $ show i]) [1..]
 
 splitFrame :: (Lang l) => PosFrame l Open -> Context l Open -> IO (PAMRhs l, Context l Open, Maybe (Configuration l Open, PosFrame l Open))
 splitFrame (KBuild c) k = return (AMRhs $ PAMState c k Up, k, Nothing)
-splitFrame (KSideCond cond pf) k = do (subRhs, ctx, rest) <- splitFrame pf k
-                                      return (AMSideCondition cond subRhs, ctx, rest)
 -- TODO: Why is this so ugly?
 splitFrame (KStepTo c f@(KInp i pf)) k = fromJust <$> (runMatch $ do
                                          i' <- refreshVars i

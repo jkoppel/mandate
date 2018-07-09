@@ -1,4 +1,4 @@
-{-# LANGUAGE DataKinds, EmptyDataDecls, EmptyCase, FlexibleInstances, OverloadedStrings, PatternSynonyms, StandaloneDeriving, TypeFamilies #-}
+{-# LANGUAGE DataKinds, EmptyDataDecls, EmptyCase, FlexibleInstances, OverloadedStrings, PatternSynonyms, TypeFamilies #-}
 
 
 module Languages.Imp (
@@ -42,13 +42,6 @@ instance LangBase ImpLang where
   runCompFunc RunLT      [Const n1, Const n2] = if n1 < n2 then return True else return False
   runCompFunc DoReadInt  []                   = Const <$> read <$> BS.unpack <$> matchEffectInput
   runCompFunc DoWriteInt [Const n]            = matchEffectOutput (BS.pack $ show n) >> return Skip
-
-  data SideCond ImpLang
-
-  sideCondName x   = case x of {}
-  runSideCond  x _ = case x of {}
-
-deriving instance Eq (SideCond ImpLang)
 
 instance Lang ImpLang where
   signature = impLangSig

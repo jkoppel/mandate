@@ -1,4 +1,4 @@
-{-# LANGUAGE DataKinds, EmptyCase, EmptyDataDecls, FlexibleInstances, OverloadedStrings, PatternSynonyms, StandaloneDeriving, TypeFamilies #-}
+{-# LANGUAGE DataKinds, EmptyCase, EmptyDataDecls, FlexibleInstances, OverloadedStrings, PatternSynonyms, TypeFamilies #-}
 
 module Languages.Add (
     AddLang
@@ -24,13 +24,6 @@ instance LangBase AddLang where
 
   compFuncName RunAdd = "runAdd"
   runCompFunc RunAdd [Const n1, Const n2] = return $ Const (n1+n2)
-
-  data SideCond AddLang
-
-  sideCondName x   = case x of {}
-  runSideCond  x _ = case x of {}
-
-deriving instance Eq (SideCond AddLang)
 
 instance Lang AddLang where
   signature = addLangSig

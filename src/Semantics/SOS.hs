@@ -48,7 +48,6 @@ data StepTo l where
 data NamedRule l = NamedRule {ruleName :: ByteString, getRule :: StepTo l}
 
 data Rhs l = Build (MConf l)
-           | SideCondition (ExtCond l Open) (Rhs l)
            | LetStepTo (MConf l) (MConf l) (Rhs l) -- let (x,mu) = stepto(T,mu) in R
            | LetComputation MetaVar (ExtComp l Open) (Rhs l) -- let x = f(T) in R
 
@@ -69,7 +68,6 @@ instance (Show (MConf l), LangBase l) => Show (StepTo l) where
 
 instance (Show (MConf l), LangBase l) => Show (Rhs l) where
   showsPrec d (Build t) = showsPrec (d+1) t
-  showsPrec d (SideCondition (c, vs) r) = showString "guard " . showString (BS.unpack $ sideCondName c) . showsPrec (d+1) vs . showString ")" . showsPrec d r
   showsPrec d (LetStepTo x e r) = showString "let " . showsPrec (d+1) x .
                                   showString " = step(" . showsPrec (d+1) e .
                                   showString ") in " .
@@ -92,8 +90,6 @@ instance (Show (MConf l), LangBase l) => Show (NamedRule l) where
 
 runRhs :: (Matchable (Configuration l), LangBase l) => NamedRules l -> Rhs l -> Match Closed (Configuration l Closed)
 runRhs rs (Build c) = fillMatch c
-runRhs rs (SideCondition f r) = do guard =<< runExtCond f
-                                   runRhs rs r
 runRhs rs (LetStepTo c1 c2 r) = do c2Filled <- fillMatch c2
                                    debugStepM $ "Filled match succeeded: " ++ show (confTerm c2Filled)
                                    c2' <- withFreshCtx $ stepTerm rs c2Filled
@@ -162,7 +158,6 @@ mkRule6 f = f <$> nextVar <*> nextVar <*> nextVar <*> nextVar <*> nextVar <*> ne
 
 checkRhs :: Signature l -> Rhs l -> ()
 checkRhs sig (Build conf) = checkTerm sig (confTerm conf)
-checkRhs sig (SideCondition _ r) = checkRhs sig r
 checkRhs sig (LetStepTo c1 c2 r) = checkTerm sig (confTerm c1) `seq` checkTerm sig (confTerm c2) `seq` checkRhs sig r
 checkRhs sig (LetComputation _ _ r) = checkRhs sig r
 
