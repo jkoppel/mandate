@@ -24,21 +24,33 @@ data PosFrame l = KBuild  !(Configuration l)
                 | KComputation !(ExtComp l) !(Frame l)
 
 deriving instance (Eq   (Configuration l), LangBase l) => Eq   (PosFrame l)
-deriving instance (Show (Configuration l), LangBase l) => Show (PosFrame l)
 
 -- Rule for frames: all PosFrame's may have no free variables except those bound by a surrounding KInp
 data Frame l = KInp !(Configuration l) !(PosFrame l)
 
 deriving instance (Eq   (Configuration l), LangBase l) => Eq   (Frame l)
-deriving instance (Show (Configuration l), LangBase l) => Show (Frame l)
 
 data Context l = KHalt
                | KPush !(Frame l) !(Context l)
                | KVar !MetaVar
 
 deriving instance (Eq   (Configuration l), LangBase l) => Eq   (Context l)
-deriving instance (Show (Configuration l), LangBase l) => Show (Context l)
 
+instance (Show (Configuration l), LangBase l) => Show (PosFrame l) where
+  showsPrec d (KBuild t) = showsPrec (d+1) t
+  showsPrec d (KStepTo c f) = showString "step(" . showsPrec (d+1) c .
+                                showString ") => " .
+                                showsPrec d f
+  showsPrec d (KComputation c r) = showsPrecExtComp d c . showString " => " . showsPrec d r
+
+
+instance (Show (Configuration l), LangBase l) => Show (Frame l) where
+  showsPrec d (KInp c pf) = showString "[\\" . showsPrec d c . showString " -> " . showsPrec d pf . showString "]"
+
+instance (Show (Configuration l), LangBase l) => Show (Context l) where
+  showsPrec d KHalt = showString "[]"
+  showsPrec d (KPush f c) = showsPrec d f . showString "." . showsPrec d c
+  showsPrec d (KVar v) = showsPrec d v
 
 rhsToFrame :: (LangBase l) => Rhs l -> PosFrame l
 rhsToFrame (Build c)                     = KBuild c
@@ -73,7 +85,7 @@ instance (LangBase l, Matchable (Configuration l)) => Matchable (Context l) wher
 
   refreshVars KHalt       = return KHalt
   refreshVars (KPush f c) = KPush <$> refreshVars f <*> refreshVars c
-  refreshVars (KVar v)    = KVar  <$> refreshVar v
+  refreshVars (KVar v)    = KVar  <$> refreshVar id v
 
   fillMatch KHalt       = return KHalt
   fillMatch (KPush f c) = KPush <$> fillMatch f <*> fillMatch c

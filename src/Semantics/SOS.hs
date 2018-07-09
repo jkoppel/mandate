@@ -20,7 +20,6 @@ module Semantics.SOS (
   ) where
 
 import Control.Monad ( MonadPlus(..) )
-import Data.List ( intersperse )
 import Data.Typeable ( Typeable )
 
 import Data.ByteString.Char8 ( ByteString )
@@ -58,10 +57,7 @@ type NamedRules l = [NamedRule l]
 
 instance (Show (Configuration l), LangBase l) => Show (StepTo l) where
   showsPrec d (StepTo t r) = showString "step(" . showsPrec (d+1) t . showString ") = " . showsPrec (d+1) r
-
-  showList rs = showString "Begin Rules:\n\n" .
-                foldr (.) id (intersperse (showString "\n\n") $ map (showsPrec 0) rs) .
-                showString "\n\nEnd Rules"
+  showList rs = showRules rs
 
 instance (Show (Configuration l), LangBase l) => Show (Rhs l) where
   showsPrec d (Build t) = showsPrec (d+1) t
@@ -69,16 +65,13 @@ instance (Show (Configuration l), LangBase l) => Show (Rhs l) where
                                   showString " = step(" . showsPrec (d+1) e .
                                   showString ") in " .
                                   showsPrec d r
-  showsPrec d (LetComputation x (f, ms) r) = showString "let " . showsPrec (d+1) x . showString " = " .
-                                             showString (BS.unpack $ compFuncName f) . showString "(" . showsPrec (d+1) ms .
-                                             showString ") in " . showsPrec d r
+  showsPrec d (LetComputation x c r) = showString "let " . showsPrec (d+1) x . showString " = " .
+                                       showsPrecExtComp d c . showString " in " . showsPrec d r
 
 
 instance (Show (Configuration l), LangBase l) => Show (NamedRule l) where
   showsPrec d (NamedRule nm r) = showString (BS.unpack nm) . showString ":\n" . showsPrec (d+1) r
-  showList rs = showString "Begin Rules:\n\n" .
-                foldr (.) id (intersperse (showString "\n\n") $ map (showsPrec 0) rs) .
-                showString "\nEnd Rules"
+  showList rs = showRules rs
 
 
 

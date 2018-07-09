@@ -4,9 +4,16 @@ module Semantics.General (
   , matchExtComp
   , refreshVarsExtComp
   , fillMatchExtComp
+
+  , showsPrecExtComp
+  , showRules
   ) where
 
 import Control.Monad ( guard )
+import Data.List ( intersperse )
+
+import Data.ByteString.Char8 ( ByteString )
+import qualified Data.ByteString.Char8 as BS
 
 import Configuration
 import LangBase
@@ -30,3 +37,14 @@ fillMatchExtComp (f, ts) = mapM fillMatch ts >>= \ts' -> return (f, ts')
 
 refreshVarsExtComp :: (LangBase l, MonadMatchable m) => ExtComp l -> m (ExtComp l)
 refreshVarsExtComp (f, ts) = refreshVarsList ts >>= \ts' -> return (f, ts')
+
+showsPrecExtComp :: (LangBase l) => Int -> ExtComp l -> ShowS
+showsPrecExtComp d (f, ts) = showString (BS.unpack $ compFuncName f) . showsPrec (d+1) ts
+
+
+---------------------------------------------------------------------
+
+showRules :: (Show a) => [a] -> ShowS
+showRules rs = showString "Begin Rules:\n\n" .
+               foldr (.) id (intersperse (showString "\n\n") $ map (showsPrec 0) rs) .
+               showString "\nEnd Rules"

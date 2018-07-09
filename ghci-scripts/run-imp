@@ -3,5 +3,7 @@
 :l Languages.Imp
 import Control.DeepSeq
 import Configuration
+import Semantics.PAM
 import Term
+rules <- impLangRules
 putStrLn "Try this: evaluationSequenceL (Conf term1 EmptySimpEnv) >>= mapM_ (putStrLn.show)"

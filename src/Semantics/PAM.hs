@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts, OverloadedStrings, StandaloneDeriving, UndecidableInstances #-}
+{-# LANGUAGE FlexibleContexts, OverloadedStrings, UndecidableInstances #-}
 
 -- | Implementation of "phased abstract machines," a transition system corresponding
 --   to reduction (Felleisen-Hieb) semantics
@@ -28,12 +28,20 @@ import Term
 import Var
 
 data Phase = Up | Down
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Ord)
+
+instance Show Phase where
+  showsPrec _ Up   = showString "up"
+  showsPrec _ Down = showString "down"
 
 data AMRhs payload l = AMLetComputation (Configuration l) (ExtComp l) (AMRhs payload l)
                      | AMRhs (payload l)
 
-deriving instance (Show (Configuration l), Show (payload l), LangBase l) => Show (AMRhs payload l)
+instance (Show (Configuration l), Show (payload l), LangBase l) => Show (AMRhs payload l) where
+  showsPrec d (AMLetComputation conf c r) = showString "let " . showsPrec d conf .
+                                            showString " = " . showsPrecExtComp d c . showString " in " .
+                                            showsPrec d r
+  showsPrec d (AMRhs x) = showsPrec d x
 
 
 data PAMState l = PAMState { pamConf  :: Configuration l
@@ -41,7 +49,9 @@ data PAMState l = PAMState { pamConf  :: Configuration l
                            , pamPhase :: Phase
                            }
 
-deriving instance (Show (Configuration l), Show (Context l)) => Show (PAMState l)
+instance (Show (Configuration l), Show (Context l)) => Show (PAMState l) where
+  showsPrec d (PAMState c k phase) = showString "<" . showsPrec d c . showString ", " .
+                                     showsPrec d k . showString "> " . showsPrec d phase
 
 type PAMRhs = AMRhs PAMState
 
@@ -49,13 +59,16 @@ data PAMRule l = PAM { pamBefore :: PAMState l
                      , pamAfter  :: PAMRhs l
                      }
 
-deriving instance (Show (PAMRhs l), Show (PAMState l)) => Show (PAMRule l)
+instance (Show (Configuration l), LangBase l) => Show (PAMRule l) where
+  showsPrec d (PAM before after) = showsPrec d before . showString "  ---->  " . showsPrec d after
 
 data NamedPAMRule l = NamedPAMRule { pamRuleName :: ByteString
                                    , getPamRule  :: PAMRule l
                                    }
 
-deriving instance (Show (PAMRule l)) => Show (NamedPAMRule l)
+instance (Show (Configuration l), LangBase l) => Show (NamedPAMRule l) where
+  showsPrec d (NamedPAMRule nm r) = showString (BS.unpack nm) . showString ":\n" . showsPrec (d+1) r
+  showList rs = showRules rs
 
 namePAMRule :: ByteString -> PAMRule l -> NamedPAMRule l
 namePAMRule = NamedPAMRule

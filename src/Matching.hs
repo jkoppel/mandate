@@ -1,4 +1,4 @@
-{-# LANGUAGE EmptyDataDecls, FlexibleContexts, FlexibleInstances, GADTs, TupleSections, UndecidableInstances #-}
+{-# LANGUAGE EmptyDataDecls, FlexibleContexts, FlexibleInstances, GADTs, ScopedTypeVariables, TupleSections, TypeApplications, UndecidableInstances #-}
 
 module Matching (
     MonadMatchable(..)
@@ -56,6 +56,7 @@ runMatchEffect :: MatchEffect a -> Match a
 runMatchEffect (MatchEffect x) = liftIO x
 
 class (MonadPlus m, MonadIO m) => MonadMatchable m where
+  hasVar :: MetaVar -> m Bool
   putVar :: (Typeable a, Eq a) => MetaVar -> a -> m ()
   getVarMaybe :: Typeable a => MetaVar -> (a -> m b) -> m b -> m b
   getVarDefault :: Typeable a => MetaVar -> m a -> m a
@@ -66,6 +67,7 @@ class (MonadPlus m, MonadIO m) => MonadMatchable m where
   getVar var = getVarDefault var mzero
 
 instance {-# OVERLAPPABLE #-} (MonadState MatchState m, MonadIO m, MonadPlus m) => MonadMatchable m where
+  hasVar var = Map.member var <$> getMatchState <$> get
   putVar var val = do curVal <- getVarMaybe var (return.Just) (return Nothing)
                       case curVal of
                         Nothing   -> do debugStepM $ "Setting var " ++ show var
@@ -93,10 +95,10 @@ instance {-# OVERLAPPING #-} (MonadPlus UnusedMonad, MonadIO UnusedMonad) => Mon
 getVars :: (MonadMatchable m, LangBase l) => [MetaVar] -> m [Term l]
 getVars = mapM getVar
 
-refreshVar :: (MonadMatchable m) => MetaVar -> m MetaVar
-refreshVar v = do v' <- liftIO nextVar
-                  putVar v v'
-                  return v'
+refreshVar :: (MonadMatchable m, Typeable a, Eq a) => (MetaVar -> a) -> MetaVar -> m MetaVar
+refreshVar f v = do v' <- liftIO nextVar
+                    putVar v (f v')
+                    return v'
 
 -- These exist to make arguments more clear now that we're not putting Open/Closed in the types
 -- We do have the option of giving these a smart constructor which checks closed-ness for a more sophisticated definition
@@ -151,8 +153,8 @@ instance (LangBase l) => Matchable (Term l) where
 
   refreshVars = fillMatchTermGen (\v -> getVarMaybe v return (refresh v))
     where
-      refresh :: (MonadMatchable m) => MetaVar -> m (Term l)
-      refresh v = MetaVar <$> refreshVar v
+      refresh :: (MonadMatchable m, LangBase l) => MetaVar -> m (Term l)
+      refresh v = MetaVar <$> refreshVar (MetaVar @l) v
   fillMatch = fillMatchTermGen (\v -> getVarMaybe v return (return $ MetaVar v))
 
 
@@ -230,7 +232,7 @@ instance (Matchable a, Matchable b, Typeable a) => Matchable (SimpEnv a b) where
       Just (SimpEnvMap vm) -> do declareTypesEq (SimpEnvMap vm) m1
                                  p' <- fillMatch p
                                  match (Pattern p') (Matchee m)
-      Nothing -> do
+      _ -> do
         m1' <- fillMatch m1
         let (mp1, mp2) = (getSimpEnvMap m1', getSimpEnvMap m2)
         let diff = Map.difference mp2 mp1
@@ -245,14 +247,23 @@ instance (Matchable a, Matchable b, Typeable a) => Matchable (SimpEnv a b) where
   -- TODO: Do we need a case for matching SimpMap with EnvRest? (Beware infinite recursion if so)
 
   refreshVars (JustSimpMap m)   = JustSimpMap <$> refreshVars m
-  refreshVars (SimpEnvRest v m) = SimpEnvRest <$> refreshVar v <*> refreshVars m
+  refreshVars (SimpEnvRest v m) = SimpEnvRest <$> refreshVar id v <*> refreshVars m
 
-  fillMatch (SimpEnvRest v m1) = do m2 <- getVar v
-                                    m1' <- fillMatch m1
+  fillMatch (SimpEnvRest v m1) = do
+    mapped <- hasVar v
+    if mapped then do
+      filledVar <- getVarMaybe v (return.Just) (return Nothing)
+      filledMap <- getVarMaybe v (return.Just) (return Nothing)
 
-                                    -- Order of Map.union is important.
-                                    -- When there is conflict, will prefer the explicitly given keys
-                                    return $ JustSimpMap $ SimpEnvMap (Map.union (getSimpEnvMap m1') (getSimpEnvMap m2))
+      case (filledVar, filledMap) of
+        (Just v', Nothing) -> SimpEnvRest v' <$> fillMatch m1
+        (Nothing, Just m2) -> do m1' <- fillMatch m1
+
+                                 -- Order of Map.union is important.
+                                 -- When there is conflict, will prefer the explicitly given keys
+                                 return $ JustSimpMap $ SimpEnvMap (Map.union (getSimpEnvMap m1') (getSimpEnvMap m2))
+     else
+      SimpEnvRest v <$> fillMatch m1
 
   fillMatch (JustSimpMap m) = JustSimpMap <$> fillMatch m
 

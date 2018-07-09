@@ -138,9 +138,6 @@ conf t v = Conf t (WholeSimpEnv v)
 mv :: MetaVar -> Term ImpLang
 mv = MetaVar
 
--- NOTE: Current rules assume that store does not change
--- when evaluating exps. This is currently true.
-
 impLangRules :: IO (NamedRules ImpLang)
 impLangRules = sequence [
 
