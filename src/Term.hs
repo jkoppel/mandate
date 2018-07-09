@@ -81,7 +81,7 @@ sigNodeSort (ValSig  _ _ s) = s
 sigNodeSort (IntSig _ s)    = s
 sigNodeSort (StrSig _ s)    = s
 
-data Signature a = Signature [SigNode]
+data Signature l = Signature [SigNode]
   deriving ( Eq, Ord, Show, Generic )
 
 -- Need a single Interned instance for all terms. This implies
@@ -96,13 +96,13 @@ data AnyLanguage
 -- * The Abstract Machine Generator will never create a rule that has a non-root
 --   Val on the LHS.
 
-data Term a = TNode    !Id !Symbol [Term a]
-            | TVal     !Id !Symbol [Term a]
+data Term l = TNode    !Id !Symbol [Term l]
+            | TVal     !Id !Symbol [Term l]
             | TIntNode !Id !Symbol !Integer
             | TStrNode !Id !Symbol !InternedByteString
             | TMetaVar !Id !MetaVar
 
-instance Show (Term a) where
+instance Show (Term l) where
   showsPrec d (TNode _ s ts) = showsPrec (d+1) s . showList ts
   showsPrec d (TVal  _ s ts) = showsPrec (d+1) s . showList ts
   showsPrec d (TIntNode _ s n) = showsPrec (d+1) s . showString "(" . showsPrec (d+1) n . showString ")"
@@ -111,7 +111,7 @@ instance Show (Term a) where
 
   showList ts = showString "(" . foldr (.) id (intersperse (showString ", ") (map (showsPrec 0) ts)) . showString ")"
 
-getId :: Term a -> Id
+getId :: Term l -> Id
 getId (TNode    i _ _) = i
 getId (TVal     i _ _) = i
 getId (TIntNode i _ _) = i
@@ -122,15 +122,15 @@ type GenericTerm = Term AnyLanguage
 
 -- I tried to get safe coercions working, but couldn't
 -- Did not find good tutorials. Maybe it only works with newtypes ATM?
-toGeneric :: Term a -> GenericTerm
+toGeneric :: Term l -> GenericTerm
 toGeneric = unsafeCoerce
 
-fromGeneric :: GenericTerm -> Term a
+fromGeneric :: GenericTerm -> Term l
 fromGeneric = unsafeCoerce
 
 
-data UninternedTerm a = BNode Symbol [Term a]
-                      | BVal  Symbol [Term a]
+data UninternedTerm l = BNode Symbol [Term l]
+                      | BVal  Symbol [Term l]
                       | BIntNode Symbol Integer
                       | BStrNode Symbol InternedByteString
                       | BMetaVar MetaVar
@@ -138,10 +138,10 @@ data UninternedTerm a = BNode Symbol [Term a]
 type GenericUninternedTerm = UninternedTerm AnyLanguage
 
 
-toUGeneric :: UninternedTerm a -> GenericUninternedTerm
+toUGeneric :: UninternedTerm l -> GenericUninternedTerm
 toUGeneric = unsafeCoerce
 
-fromUGeneric :: GenericUninternedTerm -> UninternedTerm a
+fromUGeneric :: GenericUninternedTerm -> UninternedTerm l
 fromUGeneric = unsafeCoerce
 
 instance Interned GenericTerm where
@@ -171,10 +171,10 @@ instance Interned GenericTerm where
 instance Hashable (Description GenericTerm)
 
 
-instance Eq (Term a) where
+instance Eq (Term l) where
   (==) = (==) `on` getId
 
-instance Ord (Term a) where
+instance Ord (Term l) where
   compare = compare `on` getId
 
 termCache :: Cache GenericTerm
@@ -182,23 +182,23 @@ termCache = mkCache
 {-# NOINLINE termCache #-}
 
 
-pattern Node :: Symbol -> [Term a] -> Term a
+pattern Node :: Symbol -> [Term l] -> Term l
 pattern Node s ts <- (TNode _ s ts) where
   Node s ts = fromGeneric $ intern $ toUGeneric (BNode s ts)
 
-pattern Val :: Symbol -> [Term a] -> Term a
+pattern Val :: Symbol -> [Term l] -> Term l
 pattern Val s ts <- (TVal _ s ts) where
   Val s ts = fromGeneric $ intern $ toUGeneric (BVal s ts)
 
-pattern IntNode :: Symbol -> Integer -> Term a
+pattern IntNode :: Symbol -> Integer -> Term l
 pattern IntNode s n <- (TIntNode _ s n) where
   IntNode s n = fromGeneric $ intern $ toUGeneric (BIntNode s n)
 
-pattern StrNode :: Symbol -> InternedByteString -> Term a
+pattern StrNode :: Symbol -> InternedByteString -> Term l
 pattern StrNode s str <- (TStrNode _ s str) where
   StrNode s str = fromGeneric $ intern $ toUGeneric (BStrNode s str)
 
-pattern MetaVar :: MetaVar -> Term a
+pattern MetaVar :: MetaVar -> Term l
 pattern MetaVar v <- (TMetaVar _ v) where
   MetaVar v = fromGeneric $ intern $ toUGeneric (BMetaVar v)
 
