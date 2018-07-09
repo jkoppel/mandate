@@ -1,4 +1,4 @@
-{-# LANGUAGE DataKinds, EmptyDataDecls, EmptyCase, OverloadedStrings, PatternSynonyms, TypeFamilies #-}
+{-# LANGUAGE DataKinds, EmptyDataDecls, EmptyCase, FlexibleInstances, OverloadedStrings, PatternSynonyms, StandaloneDeriving, TypeFamilies #-}
 
 
 module Languages.Imp (
@@ -14,6 +14,7 @@ import Data.Interned.ByteString ( InternedByteString(..) )
 import Configuration
 import Lang
 import Matching
+import Semantics.PAM
 import Semantics.SOS
 import Term
 import Var
@@ -23,11 +24,14 @@ data ImpLang
 -- Why are the keys of this map terms?
 -- Because my infrastructure, namely ExtFunc's, currently assumes metavars are only bound to
 -- terms (and maps), so it must be a term.
+--
+-- Also, now may actually need to operate on states with metavariable keys
 
 instance LangBase ImpLang where
   type RedState ImpLang = SimpEnv (Term ImpLang) (Term ImpLang)
 
   data CompFunc ImpLang = RunAdd | RunLT | DoReadInt | DoWriteInt
+    deriving ( Eq )
 
   compFuncName RunAdd   = "runAdd"
   compFuncName RunLT    = "runLT"
@@ -40,8 +44,11 @@ instance LangBase ImpLang where
   runCompFunc DoWriteInt [Const n]            = matchEffectOutput (BS.pack $ show n) >> return Skip
 
   data SideCond ImpLang
+
   sideCondName x   = case x of {}
   runSideCond  x _ = case x of {}
+
+deriving instance Eq (SideCond ImpLang)
 
 instance Lang ImpLang where
   signature = impLangSig

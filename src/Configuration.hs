@@ -1,7 +1,9 @@
-{-# LANGUAGE ConstraintKinds, DataKinds, FlexibleInstances, GADTs, KindSignatures, PatternSynonyms, StandaloneDeriving, TypeFamilies, ViewPatterns #-}
+{-# LANGUAGE ConstraintKinds, DataKinds, FlexibleContexts, FlexibleInstances, GADTs, KindSignatures, PatternSynonyms, ScopedTypeVariables, StandaloneDeriving, TypeApplications, TypeFamilies, ViewPatterns #-}
 
 module Configuration (
     GConfiguration(..)
+  , confTerm
+  , confState
   , Configuration
 
   , EmptyState(..)
@@ -19,7 +21,7 @@ module Configuration (
 import Data.Map ( Map )
 import qualified Data.Map as Map
 
-import Data.Typeable ( Typeable )
+import Data.Typeable ( Typeable, eqT )
 
 import LangBase
 import Term
@@ -27,19 +29,31 @@ import Var
 
 ------------------------------------------------------------------------------------------------------------------
 
-data GConfiguration l s v = Conf { confTerm :: Term l v, confState :: s v}
-  deriving (Eq, Ord)
+data GConfiguration l s v where
+  Conf :: Typeable s => Term l v -> s v -> GConfiguration l s v
+
+deriving instance (Eq (Term l v), Eq (s v)) => Eq (GConfiguration l s v)
+deriving instance (Ord (Term l v), Ord (s v)) => Ord (GConfiguration l s v)
+
+confTerm :: GConfiguration l s v -> Term l v
+confTerm (Conf t _) = t
+
+confState :: GConfiguration l s v -> s v
+confState (Conf _ s) = s
 
 type Configuration l = GConfiguration l (RedState l)
 
 data EmptyState (v :: OpenClosed) = EmptyState
   deriving ( Eq, Ord, Show )
 
-instance {-# OVERLAPPABLE #-} (Show (s v)) => Show (GConfiguration l s v) where
-  showsPrec d (Conf t s) = showString "(" . showsPrec d t . showString "; " . showsPrec d s . showString ")"
 
-instance {-# OVERLAPPING #-} Show (GConfiguration l EmptyState v) where
-  showsPrec d (Conf t _) = showsPrec d t
+-- Look ma! No overlapping instances.
+-- Unfortunately, this is not quite enough to avoid the need to use StandaloneDeriving all over.
+-- Need more dedicated OO techniques for that.
+instance (Show (s v)) => Show (GConfiguration l s v) where
+  showsPrec d (Conf t s) = case eqT @s @EmptyState of
+                             Just _  -> showsPrec d t
+                             Nothing -> showString "(" . showsPrec d t . showString "; " . showsPrec d s . showString ")"
 
 instance HasVars EmptyState where
   assumeClosed EmptyState = EmptyState

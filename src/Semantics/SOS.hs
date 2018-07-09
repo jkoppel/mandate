@@ -90,7 +90,7 @@ instance (Show (MConf l), LangBase l) => Show (NamedRule l) where
 
 -------------------------------- Execution ------------------------------
 
-runRhs :: (Matchable (Configuration l), LangBase l) => NamedRules l -> Rhs l -> Match (Configuration l Closed)
+runRhs :: (Matchable (Configuration l), LangBase l) => NamedRules l -> Rhs l -> Match Closed (Configuration l Closed)
 runRhs rs (Build c) = fillMatch c
 runRhs rs (SideCondition f r) = do guard =<< runExtCond f
                                    runRhs rs r
@@ -104,7 +104,7 @@ runRhs rs (LetComputation v f r) = do putVar v =<< runExtComp f
                                       runRhs rs r
 
 
-useRule :: (Matchable (Configuration l), LangBase l) => NamedRules l -> NamedRule l -> Configuration l Closed -> Match (Configuration l Closed)
+useRule :: (Matchable (Configuration l), LangBase l) => NamedRules l -> NamedRule l -> Configuration l Closed -> Match Closed (Configuration l Closed)
 useRule rs (NamedRule nm (StepTo c1 r)) c2 = do
     debugStepM $ "Trying rule " ++ BS.unpack nm ++ " for term " ++ show (confTerm c2)
     match c1 c2
@@ -113,7 +113,7 @@ useRule rs (NamedRule nm (StepTo c1 r)) c2 = do
     debugStepM $ "Rule succeeeded:" ++ BS.unpack nm
     return ret
 
-stepTerm :: (Matchable (Configuration l), LangBase l) => NamedRules l -> Configuration l Closed -> Match (Configuration l Closed)
+stepTerm :: (Matchable (Configuration l), LangBase l) => NamedRules l -> Configuration l Closed -> Match Closed (Configuration l Closed)
 stepTerm allRs t = go allRs
   where
     go []     = mzero

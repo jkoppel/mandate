@@ -16,7 +16,7 @@ import Var
 -- This file is how we break the circular depnedence between Lang and Semantics
 -- Semantics are defined relative to a language, but
 
-class (Typeable l) => LangBase l where
+class (Typeable l, Eq (CompFunc l), Eq (SideCond l), ForallOC Eq (RedState l)) => LangBase l where
   type RedState l :: OpenClosed -> *
 
   -- TODO: Funcs/sideconds need to be able to depend on state
