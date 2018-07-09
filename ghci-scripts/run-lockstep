@@ -3,6 +3,7 @@
 :l Languages.Lockstep
 import Control.DeepSeq
 import Configuration
+import Rose
 import Semantics.PAM
 import Term
 rules <- lockstepRules

@@ -18,8 +18,6 @@ module Semantics.PAM (
   , pamEvaluationTreeDepth'
   , pamEvaluationTreeDepth
   , pamEvaluationTree
-
-  , happyPath -- TODO: Move
   ) where
 
 import Control.Monad ( MonadPlus(..) )
@@ -35,6 +33,7 @@ import Configuration
 import Debug
 import Lang
 import Matching
+import Rose
 import Semantics.Context
 import Semantics.General
 import Semantics.SOS
@@ -208,24 +207,6 @@ pamEvaluationSequence' rules st = go st
 
 pamEvaluationSequence :: (Lang l) => NamedPAMRules l -> Term l -> IO [PAMState l]
 pamEvaluationSequence rules t = pamEvaluationSequence' rules (initPamState t)
-
-
-data Rose a = Rose { roseGetElt :: a, roseGetChildren ::  [Rose a] }
-
-addDepth :: Rose a -> Rose (a, Int)
-addDepth (Rose a rs) = Rose (a, 1 + maximum ([-1] ++ map (snd.roseGetElt) rs')) rs'
-  where
-    rs' = map addDepth rs
-
-happyPath :: Rose a -> [a]
-happyPath rose = go (addDepth rose)
-  where
-    go (Rose (a, 0) []) = [a]
-    go (Rose (a, d) rs) = a : (go $ head $ filter (\t -> (snd $ roseGetElt t) == d-1) rs)
-
-instance Show a => Show (Rose a) where
-  showsPrec d (Rose a rs) = showString (concat $ replicate d "--") . showsPrec 0 a . showString "\n" .
-                            foldr (.) id (map (showsPrec (d+1)) rs)
 
 pamEvaluationTreeDepth' :: (Lang l, Num a, Eq a) => a ->  NamedPAMRules l -> PAMState l -> IO (Rose (PAMState l))
 pamEvaluationTreeDepth' 0     _     state = return (Rose state [])
