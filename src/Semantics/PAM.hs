@@ -15,7 +15,8 @@ module Semantics.PAM (
   , pamEvaluationSequence'
   , pamEvaluationSequence
 
-  , pamEvaluationTree'
+  , pamEvaluationTreeDepth'
+  , pamEvaluationTreeDepth
   , pamEvaluationTree
 
   , happyPath -- TODO: Move
@@ -226,13 +227,18 @@ instance Show a => Show (Rose a) where
   showsPrec d (Rose a rs) = showString (concat $ replicate d "--") . showsPrec 0 a . showString "\n" .
                             foldr (.) id (map (showsPrec (d+1)) rs)
 
-pamEvaluationTree' :: (Lang l) => Int ->  NamedPAMRules l -> PAMState l -> IO (Rose (PAMState l))
-pamEvaluationTree' 0     _     state = return (Rose state [])
-pamEvaluationTree' depth rules state = go state
+pamEvaluationTreeDepth' :: (Lang l, Num a, Eq a) => a ->  NamedPAMRules l -> PAMState l -> IO (Rose (PAMState l))
+pamEvaluationTreeDepth' 0     _     state = return (Rose state [])
+pamEvaluationTreeDepth' depth rules state = go state
   where
     go st = Rose st <$> do tries <- sequence $ map runMatch $ [useBaseRule st] ++ (map (flip usePamRule state) rules)
-                           mapM (pamEvaluationTree' (depth-1) rules) $ catMaybes tries
+                           mapM (pamEvaluationTreeDepth' (depth-1) rules) $ catMaybes tries
 
 
-pamEvaluationTree :: (Lang l) => Int -> NamedPAMRules l -> Term l -> IO (Rose (PAMState l))
-pamEvaluationTree depth rules t = pamEvaluationTree' depth rules (initPamState t)
+pamEvaluationTreeDepth :: (Lang l, Num a, Eq a) => a -> NamedPAMRules l -> Term l -> IO (Rose (PAMState l))
+pamEvaluationTreeDepth depth rules t = pamEvaluationTreeDepth' depth rules (initPamState t)
+
+pamEvaluationTree :: (Lang l) => NamedPAMRules l -> Term l -> IO (Rose (PAMState l))
+pamEvaluationTree = pamEvaluationTreeDepth infty
+  where
+    infty = read "Infinity" :: Float
