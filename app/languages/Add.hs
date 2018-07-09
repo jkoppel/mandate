@@ -23,7 +23,7 @@ instance LangBase AddLang where
     deriving ( Eq )
 
   compFuncName RunAdd = "runAdd"
-  runCompFunc RunAdd [Const n1, Const n2] = return $ Const (n1+n2)
+  runCompFunc RunAdd [Const n1, Const n2] = return $ initConf $ Const (n1+n2)
 
 instance Lang AddLang where
   signature = addLangSig
@@ -72,7 +72,7 @@ addLangRules = sequence [
                    mkRule3 $ \v1 v2 v' ->
                              let (mv1, mv2, mv') = (mv v1, mv v2, mv v') in
                              StepTo (conf $ Plus (EVal mv1) (EVal mv2))
-                               (LetComputation v' (RunAdd, [mv1, mv2])
+                               (LetComputation (conf $ MetaVar v') (RunAdd, [mv1, mv2])
                                (Build $ conf $ EVal mv'))
                ]
 

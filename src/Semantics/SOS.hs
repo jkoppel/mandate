@@ -46,7 +46,7 @@ data NamedRule l = NamedRule {ruleName :: ByteString, getRule :: StepTo l}
 
 data Rhs l = Build (Configuration l)
            | LetStepTo (Configuration l) (Configuration l) (Rhs l) -- let (x,mu) = stepto(T,mu) in R
-           | LetComputation MetaVar (ExtComp l) (Rhs l) -- let x = f(T) in R
+           | LetComputation (Configuration l) (ExtComp l) (Rhs l) -- let x = f(T) in R
 
 type Rules l = [StepTo l]
 type NamedRules l = [NamedRule l]
@@ -93,7 +93,8 @@ runRhs rs (LetStepTo c1 c2 r) = do c2Filled <- fillMatch c2
                                    debugStepM $ "Recursive step suceeded. Result: " ++ show (confTerm c2')
                                    match (Pattern c1) (Matchee c2')
                                    runRhs rs r
-runRhs rs (LetComputation v f r) = do putVar v =<< runExtComp f
+runRhs rs (LetComputation c f r) = do res <- runExtComp f
+                                      match (Pattern c) (Matchee res)
                                       runRhs rs r
 
 

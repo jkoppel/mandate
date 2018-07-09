@@ -12,6 +12,8 @@ module Matching (
 
   , Matchable(..)
   , matchList
+  , refreshVarsList
+  , fillMatchList
   , module MatchEffect
   , runMatchEffect
 
@@ -122,6 +124,12 @@ class (Show f) => Matchable f where
 
 matchList :: (Matchable f, MonadMatchable m) => Pattern [f] -> Matchee [f] -> m ()
 matchList (Pattern xs1) (Matchee xs2) = sequence_ $ zipWith match (map Pattern xs1) (map Matchee xs2)
+
+refreshVarsList :: (Matchable f, MonadMatchable m) => [f] -> m [f]
+refreshVarsList = mapM refreshVars
+
+fillMatchList :: (Matchable f, MonadMatchable m) => [f] -> m [f]
+fillMatchList = mapM fillMatch
 
 
 fillMatchTermGen :: (MonadMatchable m, LangBase l) => (MetaVar -> m (Term l)) -> Term l -> m (Term l)

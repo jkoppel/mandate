@@ -30,9 +30,10 @@ import Var
 data Phase = Up | Down
   deriving (Eq, Ord, Show)
 
-data AMRhs payload l = AMLetComputation MetaVar (ExtComp l) (AMRhs payload l)
+data AMRhs payload l = AMLetComputation (Configuration l) (ExtComp l) (AMRhs payload l)
                      | AMRhs (payload l)
-  deriving ( Show )
+
+deriving instance (Show (Configuration l), Show (payload l), LangBase l) => Show (AMRhs payload l)
 
 
 data PAMState l = PAMState { pamConf  :: Configuration l
@@ -76,8 +77,8 @@ splitFrame (KStepTo c f@(KInp i pf)) k = fromJust <$> (runMatch $ do
                                          let cont = KPush f k
                                          let cont' = KPush (KInp i' pf') k
                                          return (AMRhs $ PAMState c cont Down, cont', Just (i, pf')))
-splitFrame (KComputation comp (KInp (Conf (MetaVar mv) _) pf)) k = do (subRhs, ctx, rest) <- splitFrame pf k
-                                                                      return (AMLetComputation mv comp subRhs, ctx, rest)
+splitFrame (KComputation comp (KInp c pf)) k = do (subRhs, ctx, rest) <- splitFrame pf k
+                                                  return (AMLetComputation c comp subRhs, ctx, rest)
 
 sosRuleToPAM' :: (Lang l) => InfNameStream -> PAMState l -> Context l -> PosFrame l -> IO [NamedPAMRule l]
 sosRuleToPAM' (nm:nms) st k fr = do

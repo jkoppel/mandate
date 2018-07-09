@@ -38,10 +38,10 @@ instance LangBase ImpLang where
   compFuncName DoReadInt  = "read"
   compFuncName DoWriteInt = "write"
 
-  runCompFunc RunAdd     [Const n1, Const n2] = return $ Const (n1+n2)
-  runCompFunc RunLT      [Const n1, Const n2] = if n1 < n2 then return True else return False
-  runCompFunc DoReadInt  []                   = Const <$> read <$> BS.unpack <$> matchEffectInput
-  runCompFunc DoWriteInt [Const n]            = matchEffectOutput (BS.pack $ show n) >> return Skip
+  runCompFunc RunAdd     [Const n1, Const n2] = return $ initConf $ Const (n1+n2)
+  runCompFunc RunLT      [Const n1, Const n2] = if n1 < n2 then return (initConf True) else return (initConf False)
+  runCompFunc DoReadInt  []                   = initConf <$> Const <$> read <$> BS.unpack <$> matchEffectInput
+  runCompFunc DoWriteInt [Const n]            = matchEffectOutput (BS.pack $ show n) >> return (initConf Skip)
 
 instance Lang ImpLang where
   signature = impLangSig
@@ -203,7 +203,7 @@ impLangRules = sequence [
                    mkRule2 $ \val mu ->
                              let (mval) = (mv val) in
                              StepTo (conf ReadInt mu)
-                               (LetComputation val (DoReadInt, [])
+                               (LetComputation (initConf $ MetaVar val) (DoReadInt, [])
                                (Build $ conf (EVal mval) mu))
 
                  , name "write-int-cong" $
@@ -217,7 +217,7 @@ impLangRules = sequence [
                    mkRule3 $ \arg val mu ->
                              let (marg) = (mv arg) in
                              StepTo (conf (WriteInt (EVal marg)) mu)
-                               (LetComputation val (DoWriteInt, [marg])
+                               (LetComputation (initConf $ MetaVar val) (DoWriteInt, [marg])
                                (Build $ conf Skip mu))
 
                  ------------------------ Vars  ---------------------------------------------
@@ -248,7 +248,7 @@ impLangRules = sequence [
                    mkRule4 $ \v1 v2 v' mu ->
                              let (mv1, mv2, mv') = (mv v1, mv v2, mv v') in
                              StepTo (conf (Plus (EVal mv1) (EVal mv2)) mu)
-                               (LetComputation v' (RunAdd, [mv1, mv2])
+                               (LetComputation (initConf $ MetaVar v') (RunAdd, [mv1, mv2])
                                (Build $ conf (EVal mv') mu))
 
 
@@ -270,7 +270,7 @@ impLangRules = sequence [
                    mkRule4 $ \v1 v2 v' mu ->
                              let (mv1, mv2, mv') = (mv v1, mv v2, mv v') in
                              StepTo (conf (LT (EVal mv1) (EVal mv2)) mu)
-                               (LetComputation v' (RunLT, [mv1, mv2])
+                               (LetComputation (initConf $ MetaVar v') (RunLT, [mv1, mv2])
                                (Build $ conf mv' mu))
 
                 ]

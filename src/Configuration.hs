@@ -1,6 +1,7 @@
 {-# LANGUAGE FlexibleContexts, FlexibleInstances, GADTs, PatternSynonyms, ScopedTypeVariables, StandaloneDeriving, TypeApplications, TypeFamilies, ViewPatterns #-}
 
 module Configuration (
+  -- These should be here, but are defined in LangBase. Re-exporting
     GConfiguration(..)
   , confTerm
   , confState
@@ -28,20 +29,6 @@ import Term
 import Var
 
 ------------------------------------------------------------------------------------------------------------------
-
-data GConfiguration l s where
-  Conf :: Typeable s => Term l -> s -> GConfiguration l s
-
-deriving instance (Eq (Term l), Eq s) => Eq (GConfiguration l s)
-deriving instance (Ord (Term l), Ord s) => Ord (GConfiguration l s)
-
-confTerm :: GConfiguration l s -> Term l
-confTerm (Conf t _) = t
-
-confState :: GConfiguration l s -> s
-confState (Conf _ s) = s
-
-type Configuration l = GConfiguration l (RedState l)
 
 data EmptyState = EmptyState
   deriving ( Eq, Ord, Show )
