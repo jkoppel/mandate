@@ -171,7 +171,7 @@ instance FromGeneric MITScript [M.RecordPair] where
   fromGeneric _ = Nothing
 
 
--- TODO: Make an actual tests dir, and set this up with QuickCheck
+-- TODO: Make an actual tests dir, and set this up with QuickCheck. And don't forget to run checkTerm on the output
 checkRoundTrip :: M.Stmt -> ()
 checkRoundTrip b = if fromJust (fromGeneric (toGeneric b :: Term MITScript)) == b then () else error ("Failed checkRoundTrip: " ++ show b)
 
