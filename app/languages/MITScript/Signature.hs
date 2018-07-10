@@ -1,21 +1,21 @@
-{-# LANGUAGE EmptyDataDecls, OverloadedStrings #-}
+{-# LANGUAGE EmptyDataDecls, OverloadedStrings, PatternSynonyms #-}
 
-module Languages.MITScript.Signature (
-    mitScriptSig
-  ) where
+module Languages.MITScript.Signature where
 
 import Control.Exception
+
+import Data.Interned.ByteString ( InternedByteString )
 
 import Term
 
 data MITScript
 
-sorts :: [Sort]
-sorts = [ "Name",  "NameList", "Stmt", "StmtList"
-        , "BinOp", "UnOp", "Expr", "ExprList"
-        , "RecordPair", "RecordPairList"
-        , "Bool", "ConstInt", "ConstStr"
-        ]
+mitScriptSorts :: [Sort]
+mitScriptSorts = [ "Name",  "NameList", "Stmt", "StmtList"
+               , "BinOp", "UnOp", "Expr", "ExprList"
+               , "RecordPair", "RecordPairList"
+               , "Bool", "ConstInt", "ConstStr"
+               ]
 
 
 -- TODO: More nodes needed to implement runtime values
@@ -75,3 +75,142 @@ mitScriptSig = Signature [ StrSig "Name" "Name"
                          , IntSig "ConstInt" "ConstInt"
                          , StrSig "ConstStr" "ConstStr"
              ]
+
+--------------------------------------------------------------------------------------------------------------------
+
+-- Generated using "patSymForSigNode" in Term.hs; fixed by hand
+
+
+pattern Name :: InternedByteString ->Term MITScript
+pattern Name s = StrNode "Name" s
+
+pattern NilName :: Term MITScript
+pattern NilName = Val "NilName" []
+
+pattern ConsName :: Term MITScript -> Term MITScript -> Term MITScript
+pattern ConsName a b = Val "ConsName" [a, b]
+
+pattern Global :: Term MITScript -> Term MITScript
+pattern Global a = Node "Global" [a]
+
+pattern Assign :: Term MITScript -> Term MITScript -> Term MITScript
+pattern Assign a b = Node "Assign" [a, b]
+
+pattern ExpStmt :: Term MITScript -> Term MITScript
+pattern ExpStmt a = Node "ExpStmt" [a]
+
+pattern If :: Term MITScript -> Term MITScript -> Term MITScript -> Term MITScript
+pattern If a b c = Node "If" [a, b, c]
+
+pattern While :: Term MITScript -> Term MITScript -> Term MITScript
+pattern While a b = Node "While" [a, b]
+
+pattern Return :: Term MITScript -> Term MITScript
+pattern Return a = Node "Return" [a]
+
+pattern Block :: Term MITScript -> Term MITScript
+pattern Block a = Node "Block" [a]
+
+pattern NilStmt :: Term MITScript
+pattern NilStmt = Val "NilStmt" []
+
+pattern ConsStmt :: Term MITScript -> Term MITScript -> Term MITScript
+pattern ConsStmt a b = Node "ConsStmt" [a, b]
+
+pattern PLUS :: Term MITScript
+pattern PLUS = Node "PLUS" []
+
+pattern MINUS :: Term MITScript
+pattern MINUS = Node "MINUS" []
+
+pattern TIMES :: Term MITScript
+pattern TIMES = Node "TIMES" []
+
+pattern DIV :: Term MITScript
+pattern DIV = Node "DIV" []
+
+pattern AND :: Term MITScript
+pattern AND = Node "AND" []
+
+pattern OR :: Term MITScript
+pattern OR = Node "OR" []
+
+pattern GT :: Term MITScript
+pattern GT = Node "GT" []
+
+pattern GTE :: Term MITScript
+pattern GTE = Node "GTE" []
+
+pattern EQ :: Term MITScript
+pattern EQ = Node "EQ" []
+
+pattern UMINUS :: Term MITScript
+pattern UMINUS = Node "UMINUS" []
+
+pattern NOT :: Term MITScript
+pattern NOT = Node "NOT" []
+
+pattern BinExp :: Term MITScript -> Term MITScript -> Term MITScript -> Term MITScript
+pattern BinExp a b c = Node "BinExp" [a, b, c]
+
+pattern UnExp :: Term MITScript -> Term MITScript -> Term MITScript
+pattern UnExp a b = Node "UnExp" [a, b]
+
+pattern NumConst :: Term MITScript -> Term MITScript
+pattern NumConst a = Val "NumConst" [a]
+
+pattern BConst :: Term MITScript -> Term MITScript
+pattern BConst a = Val "BConst" [a]
+
+pattern None :: Term MITScript
+pattern None = Val "None" []
+
+pattern Str :: Term MITScript -> Term MITScript
+pattern Str a = Val "Str" [a]
+
+pattern Var :: Term MITScript -> Term MITScript
+pattern Var a = Node "Var" [a]
+
+pattern FunCall :: Term MITScript -> Term MITScript -> Term MITScript
+pattern FunCall a b = Node "FunCall" [a, b]
+
+pattern FunDecl :: Term MITScript -> Term MITScript -> Term MITScript
+pattern FunDecl a b = Node "FunDecl" [a, b]
+
+pattern Index :: Term MITScript -> Term MITScript -> Term MITScript
+pattern Index a b = Node "Index" [a, b]
+
+pattern FieldAccess :: Term MITScript -> Term MITScript -> Term MITScript
+pattern FieldAccess a b = Node "FieldAccess" [a, b]
+
+pattern Record :: Term MITScript -> Term MITScript
+pattern Record a = Node "Record" [a]
+
+pattern NilExpr :: Term MITScript
+pattern NilExpr = Node "NilExpr" []
+
+pattern ConsExpr :: Term MITScript -> Term MITScript -> Term MITScript
+pattern ConsExpr a b = Node "ConsExpr" [a, b]
+
+pattern RecordPair :: Term MITScript -> Term MITScript -> Term MITScript
+pattern RecordPair a b = Node "RecordPair" [a, b]
+
+pattern NilRecordPair :: Term MITScript
+pattern NilRecordPair = Node "NilRecordPair" []
+
+pattern ConsRecordPair :: Term MITScript -> Term MITScript -> Term MITScript
+pattern ConsRecordPair a b = Node "ConsRecordPair" [a, b]
+
+pattern True :: Term MITScript
+pattern True = Val "True" []
+
+pattern False :: Term MITScript
+pattern False = Val "False" []
+
+pattern ConstInt :: Integer -> Term MITScript
+pattern ConstInt n = IntNode "ConstInt" n
+
+pattern ConstStr :: InternedByteString -> Term MITScript
+pattern ConstStr s = StrNode "ConstStr" s
+
+--------------------------------------------------------------------------------------------------------------------

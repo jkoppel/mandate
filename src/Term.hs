@@ -7,6 +7,7 @@ module Term (
 , SigNode(..)
 , sigNodeSymbol
 , sigNodeSort
+, sigNodeArity
 , Signature(..)
 
 , Term
@@ -81,6 +82,12 @@ sigNodeSort (NodeSig _ _ s) = s
 sigNodeSort (ValSig  _ _ s) = s
 sigNodeSort (IntSig _ s)    = s
 sigNodeSort (StrSig _ s)    = s
+
+sigNodeArity :: SigNode -> Int
+sigNodeArity (NodeSig _ ts _) = length ts
+sigNodeArity (ValSig  _ ts _) = length ts
+sigNodeArity (IntSig  _ _   ) = 0
+sigNodeArity (StrSig  _ _   ) = 0
 
 data Signature l = Signature [SigNode]
   deriving ( Eq, Ord, Show, Generic )
@@ -274,3 +281,38 @@ checkTerm sig t@(StrNode s i) = case getInSig sig s of
                                   StrSig _ _    -> ()
                                   sym            -> error ("In Term " ++ show t ++ ", symbol " ++ show sym ++ " used as StrNode: " ++ show s)
 checkTerm _   (MetaVar _)   = (())
+
+
+-----------------------------------------------------------------------------------------------------
+
+charToString :: Char -> String
+charToString = (:[])
+
+-- I want to have a bunch of manually-specified pattern synonyms that can be changed by hand (and not a TH block),
+-- but I don't want to write the initial ones by hand. Hence, this function, to be invoked from GHCI
+--
+-- Perhaps I'll change my mind about that
+--
+-- Yes, this currently generates incorrect decls for int/str nodes.
+-- TODO: Move this somewhere out of the way
+patSymForSigNode :: String -> SigNode -> String
+patSymForSigNode lang sn = decl ++ "\n" ++ defn
+  where
+    decl = "pattern " ++ show (sigNodeSymbol sn) ++ " :: " ++ concat (intersperse " -> " $ replicate (1 + sigNodeArity sn) ("Term " ++ lang))
+    defn = "pattern " ++ show (sigNodeSymbol sn) ++ " " ++ intersperse ' ' (varnames ++ "=") ++ " " ++ concat (intersperse " " ([renderNode sn] ++ ["\"" ++ show (sigNodeSymbol sn) ++ "\""] ++ args))
+
+    renderNode (ValSig _ _ _) = "Val"
+    renderNode (NodeSig _ _ _) = "Node"
+    renderNode (IntSig _ _) = "IntNode"
+    renderNode (StrSig _ _) = "StrNode"
+
+    argList = "[" ++ concat (intersperse ", " (map charToString varnames)) ++ "]"
+
+    args = case sn of
+             (NodeSig _ _ _ ) -> [argList]
+             (ValSig _ _ _) -> [argList]
+             (IntSig _ _) -> []
+             (StrSig _ _) -> []
+
+    -- Using (!!) for fail-fast
+    varnames = map (['a'..'z'] !!) ([0..(sigNodeArity sn - 1)])
