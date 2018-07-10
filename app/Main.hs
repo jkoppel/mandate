@@ -9,6 +9,8 @@ import Semantics.SOS
 
 import Languages.Add
 import Languages.Lockstep
+import Languages.MITScript.Parse
+import Languages.MITScript.Signature
 import Languages.MITScript.Syntax
 import Languages.Imp
 

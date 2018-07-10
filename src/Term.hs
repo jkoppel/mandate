@@ -16,6 +16,7 @@ module Term (
 , pattern StrNode
 , pattern MetaVar
 
+, checkSig
 , checkTerm
 ) where
 
@@ -203,6 +204,23 @@ pattern MetaVar v <- (TMetaVar _ v) where
   MetaVar v = fromGeneric $ intern $ toUGeneric (BMetaVar v)
 
 ------------------------------------------------------------------------------------
+
+-- I feel like a hypocrite using string constants in signature definitions.
+-- The reason is that I really don't want to give a non-capitalized name
+-- to any sort constant....but Haskell won't let me use capitalized names
+-- (unless I make them all pattern synonyms, with all the syntax that entails).
+--
+-- So....next best thing: Programmatic consistency check
+checkSig :: [Sort] -> Signature l -> ()
+checkSig sorts (Signature sigs) = map checkNodeSig sigs `deepseq` ()
+  where
+    checkSort s = if elem s sorts then () else error $ "Signature contains illegal sort " ++ show s
+
+    checkNodeSig (NodeSig _ ss s) = map checkSort ss `deepseq` checkSort s `deepseq` ()
+    checkNodeSig (ValSig  _ ss s) = map checkSort ss `deepseq` checkSort s `deepseq` ()
+    checkNodeSig (IntSig  _    s) = checkSort s `deepseq` ()
+    checkNodeSig (StrSig  _    s) = checkSort s `deepseq` ()
+
 
 -- If want the language in error messages, can add Typeable constraints and show the TypeRep
 getInSig :: Signature l -> Symbol -> SigNode
