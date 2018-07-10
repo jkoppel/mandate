@@ -37,10 +37,10 @@ data Expr = BinExp Expr BinOp Expr
           | FunCall Expr [Expr]
           | FunDecl [Name] Stmt
           | Index Expr Expr
-          | FieldAccess Expr String
+          | FieldAccess Expr Name
           | Record [RecordPair]
   deriving ( Eq, Ord, Show, Read )
 
-data RecordPair = RecordPair String Expr
+data RecordPair = RecordPair Name Expr
   deriving ( Eq, Ord, Show, Read )
 

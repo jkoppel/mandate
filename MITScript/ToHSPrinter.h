@@ -106,9 +106,9 @@ public:
     void visit(eField& exp) {
         cout << ("(FieldAccess ");
         doNode(exp.base());
-        cout << " \"";
+        cout << " (Name \"";
         cout << exp.field();
-        cout << "\")";
+        cout << "\"))";
     }
     void visit(sBlock& exp) {
         cout << "(Block [";
@@ -160,7 +160,7 @@ public:
             if (it != exp.begin())
                 cout << ", ";
 
-            cout << "(RecordPair \"" << it->first << "\" ";
+            cout << "(RecordPair (Name \"" << it->first << "\") ";
             it->second->accept(*this);
             cout << ")";
         }
