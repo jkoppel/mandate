@@ -12,10 +12,10 @@ data MITScript
 
 mitScriptSorts :: [Sort]
 mitScriptSorts = [ "Name",  "NameList", "Stmt", "StmtList"
-               , "BinOp", "UnOp", "Expr", "ExprList"
-               , "RecordPair", "RecordPairList"
-               , "Bool", "ConstInt", "ConstStr"
-               ]
+                , "BinOp", "UnOp", "Expr", "ExprList"
+                , "RecordPair", "RecordPairList"
+                , "Bool", "ConstInt", "ConstStr"
+                ]
 
 
 -- TODO: More nodes needed to implement runtime values
