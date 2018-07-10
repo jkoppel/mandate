@@ -112,7 +112,7 @@ evaluationSequence :: (Matchable (Configuration l), LangBase l) => NamedRules l 
 evaluationSequence rules conf = transitionSequence step conf
   where
     step = runMatch . stepConf rules
-    
+
 -------------------------------- Helpers for creating rules ------------------------------
 
 name :: (Monad m) => ByteString -> m (StepTo l) -> m (NamedRule l)

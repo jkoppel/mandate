@@ -192,12 +192,6 @@ stepPam1 allRs st = useBaseRule st `mplus` go allRs
     go []     = mzero
     go (r:rs) = usePamRule r st `mplus` go rs
 
-stepPam :: (Lang l) => NamedPAMRules l -> PAMState l -> IO [PAMState l]
-stepPam allRs st = (++) <$> (maybeToList <$> runMatch (useBaseRule st)) <*> go allRs
-  where
-    go []     = return []
-    go (r:rs) = (++) <$> (maybeToList <$> runMatch (usePamRule r st)) <*> go rs
-
 
 initPamState :: (Lang l) => Term l -> PAMState l
 initPamState t = PAMState (initConf t) KHalt Down
@@ -210,6 +204,13 @@ pamEvaluationSequence' rules st = transitionSequence step st
 
 pamEvaluationSequence :: (Lang l) => NamedPAMRules l -> Term l -> IO [PAMState l]
 pamEvaluationSequence rules t = pamEvaluationSequence' rules (initPamState t)
+
+
+stepPam :: (Lang l) => NamedPAMRules l -> PAMState l -> IO [PAMState l]
+stepPam allRs st = (++) <$> (maybeToList <$> runMatch (useBaseRule st)) <*> go allRs
+  where
+    go []     = return []
+    go (r:rs) = (++) <$> (maybeToList <$> runMatch (usePamRule r st)) <*> go rs
 
 pamEvaluationTreeDepth' :: (Lang l, Num a, Eq a) => a ->  NamedPAMRules l -> PAMState l -> IO (Rose (PAMState l))
 pamEvaluationTreeDepth' depth rules state = transitionTreeDepth (stepPam rules) depth state
