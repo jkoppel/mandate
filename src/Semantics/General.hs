@@ -16,6 +16,10 @@ import qualified Data.ByteString.Char8 as BS
 import Data.Set ( Set )
 import qualified Data.Set as Set
 
+
+import Data.Hashable ( Hashable(..) )
+import Data.Interned ( Interned(..), intern, unintern, Id, Cache, mkCache )
+
 import Configuration
 import LangBase
 import Matching

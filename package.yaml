@@ -39,6 +39,7 @@ library:
   - intern
   - mtl
   - transformers
+  - unordered-containers
 
 executables:
   derive-cfg:

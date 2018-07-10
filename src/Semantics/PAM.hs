@@ -21,7 +21,7 @@ module Semantics.PAM (
   ) where
 
 import Control.Monad ( MonadPlus(..) )
-import Data.Maybe ( fromJust, catMaybes )
+import Data.Maybe ( fromJust, maybeToList )
 import Data.Monoid ( Monoid(..), )
 import Data.Set ( Set )
 import qualified Data.Set as Set
@@ -38,6 +38,7 @@ import Semantics.Context
 import Semantics.General
 import Semantics.SOS
 import Term
+import TransitionSystem
 import Var
 
 data Phase = Up | Down
@@ -185,11 +186,17 @@ useBaseRule (PAMState conf KHalt Up) = do debugStepM "Step completed; moving to 
 --                                                        return (PAMState c k Up)
 useBaseRule _ = mzero
 
-stepPam :: (Lang l) => NamedPAMRules l -> PAMState l -> Match (PAMState l)
-stepPam allRs st = useBaseRule st `mplus` go allRs
+stepPam1 :: (Lang l) => NamedPAMRules l -> PAMState l -> Match (PAMState l)
+stepPam1 allRs st = useBaseRule st `mplus` go allRs
   where
     go []     = mzero
     go (r:rs) = usePamRule r st `mplus` go rs
+
+stepPam :: (Lang l) => NamedPAMRules l -> PAMState l -> IO [PAMState l]
+stepPam allRs st = (++) <$> (maybeToList <$> runMatch (useBaseRule st)) <*> go allRs
+  where
+    go []     = return []
+    go (r:rs) = (++) <$> (maybeToList <$> runMatch (usePamRule r st)) <*> go rs
 
 
 initPamState :: (Lang l) => Term l -> PAMState l
@@ -198,7 +205,7 @@ initPamState t = PAMState (initConf t) KHalt Down
 pamEvaluationSequence' :: (Lang l) => NamedPAMRules l -> PAMState l -> IO [PAMState l]
 pamEvaluationSequence' rules st = go st
   where
-    go st = (st :) <$> do mst' <- runMatch $ stepPam rules st
+    go st = (st :) <$> do mst' <- runMatch $ stepPam1 rules st
                           case mst' of
                             Nothing  -> return []
                             Just st'@(PAMState (Conf (Val _ _) _) KHalt Up) -> return [st']
@@ -209,17 +216,10 @@ pamEvaluationSequence :: (Lang l) => NamedPAMRules l -> Term l -> IO [PAMState l
 pamEvaluationSequence rules t = pamEvaluationSequence' rules (initPamState t)
 
 pamEvaluationTreeDepth' :: (Lang l, Num a, Eq a) => a ->  NamedPAMRules l -> PAMState l -> IO (Rose (PAMState l))
-pamEvaluationTreeDepth' 0     _     state = return (Rose state [])
-pamEvaluationTreeDepth' depth rules state = go state
-  where
-    go st = Rose st <$> do tries <- sequence $ map runMatch $ [useBaseRule st] ++ (map (flip usePamRule state) rules)
-                           mapM (pamEvaluationTreeDepth' (depth-1) rules) $ catMaybes tries
-
+pamEvaluationTreeDepth' depth rules state = transitionTreeDepth (stepPam rules) depth state
 
 pamEvaluationTreeDepth :: (Lang l, Num a, Eq a) => a -> NamedPAMRules l -> Term l -> IO (Rose (PAMState l))
-pamEvaluationTreeDepth depth rules t = pamEvaluationTreeDepth' depth rules (initPamState t)
+pamEvaluationTreeDepth depth rules t = transitionTreeDepth (stepPam rules) depth (initPamState t)
 
 pamEvaluationTree :: (Lang l) => NamedPAMRules l -> Term l -> IO (Rose (PAMState l))
-pamEvaluationTree = pamEvaluationTreeDepth infty
-  where
-    infty = read "Infinity" :: Float
+pamEvaluationTree rules t = transitionTree (stepPam rules) (initPamState t)
