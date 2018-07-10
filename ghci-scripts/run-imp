@@ -8,4 +8,4 @@ import Semantics.PAM
 import Term
 rules <- impLangRules
 pamRules <- sosToPam rules
-putStrLn "Try this: evaluationSequenceL (Conf term1 EmptySimpEnv) >>= mapM_ (putStrLn.show)"
+putStrLn "Try this: evaluationSequenceL (initConf term1) >>= mapM_ (putStrLn.show)"

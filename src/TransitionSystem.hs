@@ -4,6 +4,7 @@ module TransitionSystem (
     transitionGraph
   , transitionTreeDepth
   , transitionTree
+  , transitionSequence
   ) where
 
 import Control.Monad ( forM_, (=<<) )
@@ -37,3 +38,7 @@ transitionTree :: (Monad m) => (a -> m [a]) -> a -> m (Rose a)
 transitionTree step st = transitionTreeDepth step infty st
   where
     infty = read "Infinity" :: Float
+
+
+transitionSequence :: (Monad m) => (a -> m (Maybe a)) -> a -> m [a]
+transitionSequence step st = (st :) <$> (maybe (return []) (transitionSequence step) =<< (step st))

@@ -20,7 +20,7 @@ module Semantics.PAM (
   , pamEvaluationTree
   ) where
 
-import Control.Monad ( MonadPlus(..) )
+import Control.Monad ( MonadPlus(..), liftM )
 import Data.Maybe ( fromJust, maybeToList )
 import Data.Monoid ( Monoid(..), )
 import Data.Set ( Set )
@@ -203,14 +203,10 @@ initPamState :: (Lang l) => Term l -> PAMState l
 initPamState t = PAMState (initConf t) KHalt Down
 
 pamEvaluationSequence' :: (Lang l) => NamedPAMRules l -> PAMState l -> IO [PAMState l]
-pamEvaluationSequence' rules st = go st
+pamEvaluationSequence' rules st = transitionSequence step st
   where
-    go st = (st :) <$> do mst' <- runMatch $ stepPam1 rules st
-                          case mst' of
-                            Nothing  -> return []
-                            Just st'@(PAMState (Conf (Val _ _) _) KHalt Up) -> return [st']
-                            Just st' -> pamEvaluationSequence' rules st'
-
+    step = liftM guardDone . runMatch . stepPam1 rules
+    guardDone (Just (PAMState (Conf (Val _ _) _) KHalt Up)) = Nothing
 
 pamEvaluationSequence :: (Lang l) => NamedPAMRules l -> Term l -> IO [PAMState l]
 pamEvaluationSequence rules t = pamEvaluationSequence' rules (initPamState t)

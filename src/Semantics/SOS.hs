@@ -7,7 +7,7 @@ module Semantics.SOS (
   , Rules
   , NamedRules
 
-  , stepTerm
+  , stepConf
   , evaluationSequence
 
   , name
@@ -31,6 +31,7 @@ import LangBase
 import Matching
 import Semantics.General
 import Term
+import TransitionSystem
 import Var
 
 ------------------------------------------------------------------------------------------------------------------
@@ -82,7 +83,7 @@ runRhs :: (Matchable (Configuration l), LangBase l) => NamedRules l -> Rhs l -> 
 runRhs rs (Build c) = fillMatch c
 runRhs rs (LetStepTo c1 c2 r) = do c2Filled <- fillMatch c2
                                    debugStepM $ "Filled match succeeded: " ++ show (confTerm c2Filled)
-                                   c2' <- withFreshCtx $ stepTerm rs c2Filled
+                                   c2' <- withFreshCtx $ stepConf rs c2Filled
                                    debugStepM $ "Recursive step suceeded. Result: " ++ show (confTerm c2')
                                    match (Pattern c1) (Matchee c2')
                                    runRhs rs r
@@ -100,21 +101,18 @@ useRule rs (NamedRule nm (StepTo c1 r)) c2 = do
     debugStepM $ "Rule succeeeded:" ++ BS.unpack nm
     return ret
 
-stepTerm :: (Matchable (Configuration l), LangBase l) => NamedRules l -> Configuration l -> Match (Configuration l)
-stepTerm allRs t = go allRs
+stepConf :: (Matchable (Configuration l), LangBase l) => NamedRules l -> Configuration l -> Match (Configuration l)
+stepConf allRs t = go allRs
   where
     go []     = mzero
     go (r:rs) = useRule allRs r t `mplus` go rs
 
 
 evaluationSequence :: (Matchable (Configuration l), LangBase l) => NamedRules l -> Configuration l -> IO [Configuration l]
-evaluationSequence rules conf = go conf
+evaluationSequence rules conf = transitionSequence step conf
   where
-    go c = (c :) <$> do mc' <- runMatch $ stepTerm rules c
-                        case mc' of
-                          Nothing -> return []
-                          Just c' -> evaluationSequence rules c'
-
+    step = runMatch . stepConf rules
+    
 -------------------------------- Helpers for creating rules ------------------------------
 
 name :: (Monad m) => ByteString -> m (StepTo l) -> m (NamedRule l)
