@@ -23,7 +23,7 @@ inline string hsStr(BinaryOperator op) {
     }
 }
 
-inline string hsSTr(UnaryOperator op) {
+inline string hsStr(UnaryOperator op) {
     switch (op) {
         case UMINUS: return "UMINUS";
         case NOT: return "NOT";
@@ -40,14 +40,14 @@ public:
         cout << "(BinExp ";
         doNode(exp.left());
         cout << " ";
-        cout << str(exp.op());
+        cout << hsStr(exp.op());
         cout << " ";
         doNode(exp.right());
         cout << ")";
     }
     void visit(eUnary& exp) {
         cout << "(UnExp ";
-        cout << str(exp.op());
+        cout << hsStr(exp.op());
         cout << " ";
         doNode(exp.operand());
         cout << ")";
@@ -66,9 +66,9 @@ public:
         cout << ")";
     }
     void visit(eVar& exp) {
-        cout << "(Var (Name ";
+        cout << "(Var (Name \"";
         cout << exp.name();
-        cout << "))";
+        cout << "\"))";
     }
     void visit(eFuncall& exp) {
         cout << "(FunCall ";
@@ -104,11 +104,11 @@ public:
     }
 
     void visit(eField& exp) {
-        cout << ("(Field ");
+        cout << ("(FieldAccess ");
         doNode(exp.base());
-        cout << " ";
+        cout << " \"";
         cout << exp.field();
-        cout << ")";
+        cout << "\")";
     }
     void visit(sBlock& exp) {
         cout << "(Block [";
@@ -177,6 +177,6 @@ public:
         cout << ")";
     }
     void visit(sGlobal& stmt) {
-        cout << "(Global (Name " << stmt.name() << "))";
+        cout << "(Global (Name \"" << stmt.name() << "\"))";
     }
 };

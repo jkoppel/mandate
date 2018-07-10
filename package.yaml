@@ -53,6 +53,7 @@ executables:
     - deepseq
     - derive-cfg
     - intern
+    - process
 
 tests:
   derive-cfg-test:
