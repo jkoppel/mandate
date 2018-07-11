@@ -1,4 +1,4 @@
-{-# LANGUAGE EmptyDataDecls, FlexibleInstances, OverloadedStrings, PatternSynonyms, TypeFamilies #-}
+{-# LANGUAGE DeriveGeneric, EmptyDataDecls, FlexibleInstances, OverloadedStrings, PatternSynonyms, TypeFamilies #-}
 
 
 module Languages.Imp (
@@ -7,9 +7,12 @@ module Languages.Imp (
 
 import Prelude hiding ( True, False, LT )
 
+import GHC.Generics ( Generic )
+
 import Data.ByteString.Char8 ( ByteString )
 import qualified Data.ByteString.Char8 as BS
 import Data.Interned.ByteString ( InternedByteString(..) )
+import Data.Hashable ( Hashable )
 
 import Configuration
 import Lang
@@ -32,7 +35,7 @@ instance LangBase ImpLang where
   type RedState ImpLang = SimpEnv (Term ImpLang) (Term ImpLang)
 
   data CompFunc ImpLang = RunAdd | RunLT | DoReadInt | DoWriteInt
-    deriving ( Eq )
+    deriving ( Eq, Generic )
 
   compFuncName RunAdd   = "runAdd"
   compFuncName RunLT    = "runLT"
@@ -43,6 +46,8 @@ instance LangBase ImpLang where
   runCompFunc RunLT      [Const n1, Const n2] = if n1 < n2 then return (initConf True) else return (initConf False)
   runCompFunc DoReadInt  []                   = initConf <$> Const <$> read <$> BS.unpack <$> matchEffectInput
   runCompFunc DoWriteInt [Const n]            = matchEffectOutput (BS.pack $ show n) >> return (initConf Skip)
+
+instance Hashable (CompFunc ImpLang)
 
 instance Lang ImpLang where
   signature = impLangSig

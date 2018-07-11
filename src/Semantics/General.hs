@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts, StandaloneDeriving #-}
+{-# LANGUAGE DeriveGeneric, FlexibleContexts, StandaloneDeriving #-}
 
 module Semantics.General (
     ExtComp(..)
@@ -10,25 +10,26 @@ module Semantics.General (
 import Control.Monad ( guard )
 import Data.Foldable ( fold )
 import Data.List ( intersperse )
-
-import Data.ByteString.Char8 ( ByteString )
-import qualified Data.ByteString.Char8 as BS
 import Data.Set ( Set )
 import qualified Data.Set as Set
 
+import GHC.Generics ( Generic )
 
-import Data.Hashable ( Hashable(..) )
-import Data.Interned ( Interned(..), intern, unintern, Id, Cache, mkCache )
+import Data.ByteString.Char8 ( ByteString )
+import qualified Data.ByteString.Char8 as BS
+import Data.Hashable ( Hashable )
 
 import Configuration
 import LangBase
 import Matching
 import Term
-import Var
 
 data ExtComp l = ExtComp (CompFunc l) [Term l]
+  deriving ( Generic )
 
 deriving instance (LangBase l) => Eq (ExtComp l)
+
+instance (LangBase l) => Hashable (ExtComp l)
 
 runExtComp :: (LangBase l) => ExtComp l -> Match (Configuration l)
 runExtComp (ExtComp f ts) = do ts' <- fillMatchList ts

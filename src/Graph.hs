@@ -15,7 +15,15 @@ import Data.Hashable ( Hashable(..) )
 
 newtype Graph a = Graph { getGraph :: HashMap a (HashSet a) }
 
-data Present = Present | NotPresent
+instance Show a => Show (Graph a) where
+  showsPrec d (Graph edgeMap) = M.foldrWithKey showsPrecNode id edgeMap
+    where
+      showsPrecNode n es s = showString "Node: " . showsPrec d n . showString "\n" .
+                             showString "Edges: \n" . S.foldr showsTarg id es .
+                             showString "\n\n" . s
+
+      showsTarg e s = showString "--" . showsPrec d e . showString "\n" . s
+
 
 empty :: Graph a
 empty = Graph M.empty

@@ -1,8 +1,12 @@
-{-# LANGUAGE EmptyDataDecls, FlexibleInstances, OverloadedStrings, PatternSynonyms, TypeFamilies #-}
+{-# LANGUAGE DeriveGeneric, EmptyDataDecls, FlexibleInstances, OverloadedStrings, PatternSynonyms, TypeFamilies #-}
 
 module Languages.Lockstep (
     LockstepLang
   ) where
+
+import GHC.Generics ( Generic )
+
+import Data.Hashable ( Hashable )
 
 import Configuration
 import Lang
@@ -21,10 +25,12 @@ instance LangBase LockstepLang where
   type RedState LockstepLang = EmptyState
 
   data CompFunc LockstepLang = RunAdd
-    deriving ( Eq )
+    deriving ( Eq, Generic )
 
   compFuncName RunAdd = "runAdd"
   runCompFunc RunAdd [Const n1, Const n2] = return $ initConf $ Const (n1+n2)
+
+instance Hashable (CompFunc LockstepLang)
 
 instance Lang LockstepLang where
   signature = lockstepSig

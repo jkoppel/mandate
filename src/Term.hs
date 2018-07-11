@@ -10,18 +10,35 @@ module Term (
 , sigNodeArity
 , Signature(..)
 
+, MatchType(..)
+, matchTypeCompat
+
 , Term
 , pattern Node
 , pattern Val
 , pattern IntNode
 , pattern StrNode
+
+, pattern ValVar
+, pattern NonvalVar
 , pattern MetaVar
+, pattern GMetaVar
+
+, pattern ValStar
+, pattern NonvalStar
+, pattern Star
+, pattern GStar
+
+, mapTerm
+, traverseTerm
 
 , checkSig
 , checkTerm
 ) where
 
 import Control.DeepSeq ( deepseq )
+import Control.Monad ( (=<<) )
+import Control.Monad.Identity ( Identity(..) )
 
 import Data.Function ( on )
 import Data.List ( intersperse, find )
@@ -104,18 +121,36 @@ data AnyLanguage
 -- * The Abstract Machine Generator will never create a rule that has a non-root
 --   Val on the LHS.
 
+data MatchType = ValueOnly | NonvalOnly | TermOrValue
+  deriving ( Eq, Ord, Show, Generic )
+
+instance Hashable MatchType
+
+matchTypeCompat :: MatchType -> MatchType -> Bool
+matchTypeCompat ValueOnly  NonvalOnly = False
+matchTypeCompat NonvalOnly ValueOnly  = False
+matchTypeCompat _          _          = True
+
 data Term l = TNode    !Id !Symbol [Term l]
             | TVal     !Id !Symbol [Term l]
             | TIntNode !Id !Symbol !Integer
             | TStrNode !Id !Symbol !InternedByteString
-            | TMetaVar !Id !MetaVar
+            | TMetaVar !Id !MetaVar !MatchType
+            | TStar    !Id !MatchType
 
 instance Show (Term l) where
   showsPrec d (TNode _ s ts) = showsPrec (d+1) s . showList ts
   showsPrec d (TVal  _ s ts) = showsPrec (d+1) s . showList ts
   showsPrec d (TIntNode _ s n) = showsPrec (d+1) s . showString "(" . showsPrec (d+1) n . showString ")"
   showsPrec d (TStrNode _ s str) = showsPrec (d+1) s . showString "(" . showsPrec (d+1) str . showString ")"
-  showsPrec d (TMetaVar _ v) = showsPrec d v
+
+  showsPrec d (TMetaVar _ v ValueOnly) = showsPrec d v . showString "v"
+  showsPrec d (TMetaVar _ v NonvalOnly) = showsPrec d v . showString "t"
+  showsPrec d (TMetaVar _ v TermOrValue) = showsPrec d v
+
+  showsPrec d (TStar _ ValueOnly)   = showString "*v"
+  showsPrec d (TStar _ NonvalOnly)  = showString "*t"
+  showsPrec d (TStar _ TermOrValue) = showString "*"
 
   showList ts = showString "(" . foldr (.) id (intersperse (showString ", ") (map (showsPrec 0) ts)) . showString ")"
 
@@ -124,7 +159,8 @@ getId (TNode    i _ _) = i
 getId (TVal     i _ _) = i
 getId (TIntNode i _ _) = i
 getId (TStrNode i _ _) = i
-getId (TMetaVar i _)   = i
+getId (TMetaVar i _ _) = i
+getId (TStar    i _)   = i
 
 type GenericTerm = Term AnyLanguage
 
@@ -141,7 +177,8 @@ data UninternedTerm l = BNode Symbol [Term l]
                       | BVal  Symbol [Term l]
                       | BIntNode Symbol Integer
                       | BStrNode Symbol InternedByteString
-                      | BMetaVar MetaVar
+                      | BMetaVar MetaVar MatchType
+                      | BStar MatchType
 
 type GenericUninternedTerm = UninternedTerm AnyLanguage
 
@@ -158,25 +195,31 @@ instance Interned GenericTerm where
                                | DVal  Symbol [Id]
                                | DIntNode Symbol Integer
                                | DStrNode Symbol Id
-                               | DMetaVar MetaVar
+                               | DMetaVar MetaVar MatchType
+                               | DStar MatchType
     deriving ( Eq, Ord, Generic )
 
   describe (BNode s ts)     = DNode s (map getId ts)
   describe (BVal  s ts)     = DVal  s (map getId ts)
   describe (BIntNode s n)   = DIntNode s n
   describe (BStrNode s str) = DStrNode s (internedByteStringId str)
-  describe (BMetaVar m)     = DMetaVar m
+  describe (BMetaVar m mt)  = DMetaVar m mt
+  describe (BStar mt)       = DStar mt
 
   identify i = go where
     go (BNode s ts)     = TNode i s ts
     go (BVal  s ts)     = TVal  i s ts
     go (BIntNode s n)   = TIntNode i s n
     go (BStrNode s str) = TStrNode i s str
-    go (BMetaVar m)    = TMetaVar i m
+    go (BMetaVar m mt)  = TMetaVar i m mt
+    go (BStar mt)       = TStar i mt
 
   cache = termCache
 
 instance Hashable (Description GenericTerm)
+
+instance Hashable (Term l) where
+  hashWithSalt s t = s `hashWithSalt` getId t
 
 
 instance Eq (Term l) where
@@ -206,9 +249,52 @@ pattern StrNode :: Symbol -> InternedByteString -> Term l
 pattern StrNode s str <- (TStrNode _ s str) where
   StrNode s str = fromGeneric $ intern $ toUGeneric (BStrNode s str)
 
+pattern ValVar :: MetaVar -> Term l
+pattern ValVar v <- (TMetaVar _ v ValueOnly) where
+  ValVar v = fromGeneric $ intern $ toUGeneric (BMetaVar v ValueOnly)
+
+pattern NonvalVar :: MetaVar -> Term l
+pattern NonvalVar v <- (TMetaVar _ v NonvalOnly) where
+  NonvalVar v = fromGeneric $ intern $ toUGeneric (BMetaVar v NonvalOnly)
+
 pattern MetaVar :: MetaVar -> Term l
-pattern MetaVar v <- (TMetaVar _ v) where
-  MetaVar v = fromGeneric $ intern $ toUGeneric (BMetaVar v)
+pattern MetaVar v <- (TMetaVar _ v TermOrValue) where
+  MetaVar v = fromGeneric $ intern $ toUGeneric (BMetaVar v TermOrValue)
+
+pattern GMetaVar :: MetaVar -> MatchType -> Term l
+pattern GMetaVar v mt <- (TMetaVar _ v mt) where
+  GMetaVar v mt = fromGeneric $ intern $ toUGeneric (BMetaVar v mt)
+
+pattern ValStar :: Term l
+pattern ValStar <- (TStar _ ValueOnly) where
+  ValStar = fromGeneric $ intern $ toUGeneric (BStar ValueOnly)
+
+pattern NonvalStar :: Term l
+pattern NonvalStar <- (TStar _ ValueOnly) where
+  NonvalStar = fromGeneric $ intern $ toUGeneric (BStar NonvalOnly)
+
+pattern Star :: Term l
+pattern Star <- (TStar _ TermOrValue) where
+  Star = fromGeneric $ intern $ toUGeneric (BStar TermOrValue)
+
+
+pattern GStar :: MatchType -> Term l
+pattern GStar mt <- (TStar _ mt) where
+  GStar mt  = fromGeneric $ intern $ toUGeneric (BStar mt)
+
+
+------------------------------------------------------------------------------------
+
+traverseTerm :: Monad m => (Term l -> m (Term l)) -> Term l -> m (Term l)
+traverseTerm f (Node s ts)      = f =<< (Node s <$> mapM (traverseTerm f) ts)
+traverseTerm f (Val  s ts)      = f =<< (Val  s <$> mapM (traverseTerm f) ts)
+traverseTerm f t@(IntNode _ _)  = f t
+traverseTerm f t@(StrNode _ _)  = f t
+traverseTerm f t@(GMetaVar _ _) = f t
+traverseTerm f t@(GStar _)      = f t
+
+mapTerm :: (Term l -> Term l) -> Term l -> Term l
+mapTerm f t = runIdentity (traverseTerm (Identity . f) t)
 
 ------------------------------------------------------------------------------------
 
@@ -238,13 +324,14 @@ getInSig (Signature sig) s = case find (\n -> sigNodeSymbol n == s) sig of
 sortForSym :: Signature l -> Symbol -> Sort
 sortForSym sig s = sigNodeSort $ getInSig sig s
 
--- Metavars are currently unsorted / can have any sort
+-- Metavars/stars are currently unsorted / can have any sort
 sortOfTerm :: Signature l -> Term l -> Maybe Sort
 sortOfTerm sig (Node    sym _) = Just $ sortForSym sig sym
 sortOfTerm sig (Val     sym _) = Just $ sortForSym sig sym
 sortOfTerm sig (IntNode sym _) = Just $ sortForSym sig sym
 sortOfTerm sig (StrNode sym _) = Just $ sortForSym sig sym
-sortOfTerm sig (MetaVar _)     = Nothing
+sortOfTerm sig (GMetaVar _ _)  = Nothing
+sortOfTerm sig (GStar _)       = Nothing
 
 sortCheckTerm :: Signature l -> Term l -> Sort -> ()
 sortCheckTerm sig t sort =
@@ -280,7 +367,8 @@ checkTerm sig t@(IntNode s i) = case getInSig sig s of
 checkTerm sig t@(StrNode s i) = case getInSig sig s of
                                   StrSig _ _    -> ()
                                   sym            -> error ("In Term " ++ show t ++ ", symbol " ++ show sym ++ " used as StrNode: " ++ show s)
-checkTerm _   (MetaVar _)   = (())
+checkTerm sig (GStar _)       = ()
+checkTerm _   (GMetaVar _ _)  = ()
 
 
 -----------------------------------------------------------------------------------------------------

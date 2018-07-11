@@ -10,13 +10,15 @@ module Lang (
   , checkTermL
   ) where
 
+import Data.Hashable ( Hashable )
+
 import Configuration
 import LangBase
 import Matching
 import Semantics.SOS
 import Term
 
-class (LangBase l, Matchable (Configuration l)) => Lang l where
+class (LangBase l, Hashable (Configuration l), Matchable (Configuration l)) => Lang l where
   signature :: Signature l
   rules :: IO (NamedRules l)
 

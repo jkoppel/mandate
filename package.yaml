@@ -54,6 +54,7 @@ executables:
     - bytestring
     - deepseq
     - derive-cfg
+    - hashable
     - intern
     - process
 

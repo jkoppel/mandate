@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts, StandaloneDeriving, UndecidableInstances #-}
+{-# LANGUAGE DeriveGeneric, FlexibleContexts, StandaloneDeriving, UndecidableInstances #-}
 
 module Semantics.Context (
     PosFrame(..)
@@ -10,6 +10,10 @@ module Semantics.Context (
 import Control.Monad ( mzero, forM_ )
 import Data.Set ( Set )
 import qualified Data.Set as Set
+
+import GHC.Generics ( Generic )
+
+import Data.Hashable ( Hashable )
 
 import Configuration
 import LangBase
@@ -24,19 +28,26 @@ import Var
 data PosFrame l = KBuild  !(Configuration l)
                 | KStepTo !(Configuration l) !(Frame l)
                 | KComputation !(ExtComp l) !(Frame l)
+  deriving ( Generic )
 
-deriving instance (Eq   (Configuration l), LangBase l) => Eq   (PosFrame l)
+deriving instance (Eq (Configuration l), LangBase l) => Eq (PosFrame l)
 
 -- Rule for frames: all PosFrame's may have no free variables except those bound by a surrounding KInp
 data Frame l = KInp !(Configuration l) !(PosFrame l)
+  deriving ( Generic )
 
-deriving instance (Eq   (Configuration l), LangBase l) => Eq   (Frame l)
+deriving instance (Eq (Configuration l), LangBase l) => Eq (Frame l)
 
 data Context l = KHalt
                | KPush !(Frame l) !(Context l)
                | KVar !MetaVar
+  deriving ( Generic )
 
-deriving instance (Eq   (Configuration l), LangBase l) => Eq   (Context l)
+deriving instance (Eq (Configuration l), LangBase l) => Eq (Context l)
+
+instance (Hashable (Configuration l), LangBase l) => Hashable (PosFrame l)
+instance (Hashable (Configuration l), LangBase l) => Hashable (Frame l)
+instance (Hashable (Configuration l), LangBase l) => Hashable (Context l)
 
 instance (Show (Configuration l), LangBase l) => Show (PosFrame l) where
   showsPrec d (KBuild t) = showsPrec (d+1) t

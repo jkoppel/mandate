@@ -8,24 +8,29 @@ module TransitionSystem (
   ) where
 
 import Control.Monad ( forM_, (=<<) )
-import Control.Monad.State ( get, modify, evalStateT )
+import Control.Monad.State ( get, modify, execStateT )
 import Control.Monad.Trans ( lift )
 
 import Data.Hashable ( Hashable )
 
+import Debug
 import Graph ( Graph )
 import qualified Graph as Graph
 import Rose
 
 
 transitionGraph :: (Eq a, Hashable a, Monad m) => (a -> m [a]) -> a -> m (Graph a)
-transitionGraph step start = evalStateT (go [start]) Graph.empty
+transitionGraph step start = execStateT (go [start]) Graph.empty
   where
+    go []     = return ()
     go states = do nextStates <- concat <$> mapM expand states
                    go nextStates
 
-    expand st = do succs <- lift (step st)
+    expand st = do debugM "Doing step"
+                   succs <- lift (step st)
+                   debugM "Evalling succs"
                    forM_ succs (\succ -> modify (Graph.insert st succ))
+                   debugM "Inserted nexts succs"
                    curGraph <- get
                    return $ filter (\s -> not (Graph.member s curGraph)) succs
 

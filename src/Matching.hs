@@ -20,7 +20,7 @@ module Matching (
   , EmptyState(..)
   ) where
 
-import Control.Monad ( MonadPlus(..), guard )
+import Control.Monad ( MonadPlus(..), guard, forM_ )
 import Control.Monad.IO.Class ( MonadIO(..) )
 import Control.Monad.State ( MonadState(..), StateT, evalStateT, modify )
 
@@ -210,7 +210,7 @@ instance {-# OVERLAPPABLE #-} (MonadState MatchState m, MonadIO m, MonadPlus m) 
   hasVar var = Map.member var <$> getMatchState <$> get
   putVar var val = do curVal <- getVarMaybe var (return.Just) (return Nothing)
                       case curVal of
-                        Nothing   -> do debugStepM $ "Setting var " ++ show var
+                        Nothing   -> do debugM $ "Setting var " ++ show var
                                         modify (modMatchState $ Map.insert var (toDyn val))
                         Just val' -> guard (val == val')
 
@@ -279,17 +279,18 @@ fillMatchList :: (Matchable f, MonadMatchable m) => [f] -> m [f]
 fillMatchList = mapM fillMatch
 
 
-fillMatchTermGen :: (MonadMatchable m, LangBase l) => (MetaVar -> m (Term l)) -> Term l -> m (Term l)
-fillMatchTermGen f (Node s ts)   = Node s <$> (mapM (fillMatchTermGen f) ts)
-fillMatchTermGen f (Val  s ts)   = Val s <$> (mapM (fillMatchTermGen f) ts)
-fillMatchTermGen f (IntNode s i) = return (IntNode s i) -- This could just be unsafeCoerce....or hopefully just coerce
-fillMatchTermGen f (StrNode s x) = return (StrNode s x) -- This could just be unsafeCoerce....or hopefully just coerce
-fillMatchTermGen f (MetaVar v)   = f v
+fillMatchTermGen :: (MonadMatchable m, LangBase l) => (MetaVar -> MatchType -> m (Term l)) -> Term l -> m (Term l)
+fillMatchTermGen f (Node s ts)     = Node s <$> (mapM (fillMatchTermGen f) ts)
+fillMatchTermGen f (Val  s ts)     = Val s <$> (mapM (fillMatchTermGen f) ts)
+fillMatchTermGen f (IntNode s i)   = return (IntNode s i) -- This could just be unsafeCoerce....or hopefully just coerce
+fillMatchTermGen f (StrNode s x)   = return (StrNode s x) -- This could just be unsafeCoerce....or hopefully just coerce
+fillMatchTermGen f (GMetaVar v mt) = f v mt
+fillMatchTermGen f (GStar mt)      = return (GStar mt)
 
 instance (LangBase l) => Matchable (Term l) where
-  getVars (Node _ ts) = fold $ map getVars ts
-  getVars (Val _ ts)  = fold $ map getVars ts
-  getVars (MetaVar v) = Set.singleton v
+  getVars (Node _ ts)    = fold $ map getVars ts
+  getVars (Val _ ts)     = fold $ map getVars ts
+  getVars (GMetaVar v _) = Set.singleton v
 
   match (Pattern (Node s1 ts1))   (Matchee (Node s2 ts2))
     | (s1 == s2)                              = matchList (Pattern ts1) (Matchee ts2)
@@ -299,17 +300,37 @@ instance (LangBase l) => Matchable (Term l) where
     | (s1 == s2) && (i1 == i2)                = return ()
   match (Pattern (StrNode s1 x1)) (Matchee (StrNode s2 x2))
     | (s1 == s2) && (x1 == x2)                = return ()
-  match (Pattern (MetaVar v))     (Matchee t) = putVar v t
-  match _               _                     = mzero
 
-  refreshVars = fillMatchTermGen (\v -> getVarMaybe v return (refresh v))
+  -- TODO: There has to be a cleaner way than this
+  match (Pattern (ValVar v))       (Matchee t@(Val      _ _)) = putVar v t
+  match (Pattern (ValVar v))       (Matchee t@(ValVar   _  )) = putVar v t
+  match (Pattern (NonvalVar v))    (Matchee t@(Node     _ _)) = putVar v t
+  match (Pattern (NonvalVar v))    (Matchee t@(NonvalVar  _)) = putVar v t
+  match (Pattern (MetaVar v))      (Matchee t@(Val      _ _)) = putVar v t
+  match (Pattern (MetaVar v))      (Matchee t@(Node     _ _)) = putVar v t
+  match (Pattern (MetaVar v))      (Matchee t@(GMetaVar _ _)) = putVar v t
+  match (Pattern (GMetaVar _ _))   (Matchee t@(IntNode  _ _)) = mzero
+  match (Pattern (GMetaVar _ _))   (Matchee t@(StrNode  _ _)) = mzero
+  match (Pattern (GMetaVar v mt1)) (Matchee t@(GStar    mt2)) = guard (matchTypeCompat mt1 mt2) >> putVar v t
+
+  match (Pattern (Node _ _))      (Matchee ValStar   ) = mzero
+  match (Pattern (Node _ ts))     (Matchee (GStar mt)) = forM_ ts $ \ t -> match (Pattern t) (Matchee (GStar mt))
+  match (Pattern (Val _ _))       (Matchee NonvalStar) = mzero
+  match (Pattern (Val _ ts))      (Matchee (GStar mt)) = forM_ ts $ \ t -> match (Pattern t) (Matchee (GStar mt))
+  match (Pattern (IntNode _ _))   (Matchee (GStar _))  = return ()
+  match (Pattern (StrNode _ _))   (Matchee (GStar _))  = return ()
+
+  match (Pattern (GMetaVar _ _))  (Matchee (GMetaVar _ TermOrValue)) = error "TermOrValue metavars may never appear in a matchee"
+  match _                         _                                  = mzero
+
+  refreshVars = fillMatchTermGen (\v mt -> getVarMaybe v return (refresh v mt))
     where
-      refresh :: (MonadMatchable m, LangBase l) => MetaVar -> m (Term l)
-      refresh v = MetaVar <$> refreshVar (MetaVar @l) v
-  fillMatch = fillMatchTermGen (\v -> getVarMaybe v return (return $ MetaVar v))
+      refresh :: (MonadMatchable m, LangBase l) => MetaVar -> MatchType -> m (Term l)
+      refresh v mt = GMetaVar <$> refreshVar (\v' -> GMetaVar @l v' mt) v <*> pure mt
+  fillMatch = fillMatchTermGen (\v _ -> getVarMaybe v return (return $ MetaVar v))
 
 
-instance {-# OVERLAPPABLE #-} (Matchable (Term l), Matchable s) => Matchable (GConfiguration l s) where
+instance {-# OVERLAPPABLE #-} (Matchable (Term l), Matchable s) => Matchable (GConfiguration s l) where
   getVars (Conf t s) = getVars t `Set.union` getVars s
 
   match (Pattern (Conf t1 s1)) (Matchee (Conf t2 s2)) = do
@@ -321,7 +342,7 @@ instance {-# OVERLAPPABLE #-} (Matchable (Term l), Matchable s) => Matchable (GC
 
 -- Hack to prevent over-eagerly expanding (Matchable (Configuration l)) constraints
 data UnusedLanguage
-instance {-# OVERLAPPING #-} (Show s) => Matchable (GConfiguration UnusedLanguage s) where
+instance {-# OVERLAPPING #-} (Show s) => Matchable (GConfiguration s UnusedLanguage) where
   getVars = error "Matching UnusedLanguage"
   match = error "Matching UnusedLanguage"
   refreshVars = error "Matching UnusedLanguage"
@@ -398,8 +419,8 @@ instance (Matchable a, Matchable b, Typeable a) => Matchable (SimpEnv a b) where
         m1' <- fillMatch m1
         let (mp1, mp2) = (getSimpEnvMap m1', getSimpEnvMap m2)
         let diff = Map.difference mp2 mp1
-        debugStepM $ "Matching maps " ++ show mp1 ++ " and " ++ show mp2
-        debugStepM $ "Binding var " ++ show v ++ " to " ++ show diff
+        debugM $ "Matching maps " ++ show mp1 ++ " and " ++ show mp2
+        debugM $ "Binding var " ++ show v ++ " to " ++ show diff
         putVar v (SimpEnvMap diff)
         match (Pattern m1) (Matchee (SimpEnvMap $ Map.intersection mp2 mp1))
 

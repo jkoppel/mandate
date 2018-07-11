@@ -82,9 +82,9 @@ instance (Show (Configuration l), LangBase l) => Show (NamedRule l) where
 runRhs :: (Matchable (Configuration l), LangBase l) => NamedRules l -> Rhs l -> Match (Configuration l)
 runRhs rs (Build c) = fillMatch c
 runRhs rs (LetStepTo c1 c2 r) = do c2Filled <- fillMatch c2
-                                   debugStepM $ "Filled match succeeded: " ++ show (confTerm c2Filled)
+                                   debugM $ "Filled match succeeded: " ++ show (confTerm c2Filled)
                                    c2' <- withFreshCtx $ stepConf rs c2Filled
-                                   debugStepM $ "Recursive step suceeded. Result: " ++ show (confTerm c2')
+                                   debugM $ "Recursive step suceeded. Result: " ++ show (confTerm c2')
                                    match (Pattern c1) (Matchee c2')
                                    runRhs rs r
 runRhs rs (LetComputation c f r) = do res <- runExtComp f
@@ -94,11 +94,11 @@ runRhs rs (LetComputation c f r) = do res <- runExtComp f
 
 useRule :: (Matchable (Configuration l), LangBase l) => NamedRules l -> NamedRule l -> Configuration l -> Match (Configuration l)
 useRule rs (NamedRule nm (StepTo c1 r)) c2 = do
-    debugStepM $ "Trying rule " ++ BS.unpack nm ++ " for term " ++ show (confTerm c2)
+    debugM $ "Trying rule " ++ BS.unpack nm ++ " for term " ++ show (confTerm c2)
     match (Pattern c1) (Matchee c2)
-    debugStepM $ "LHS matched: " ++ BS.unpack nm
+    debugM $ "LHS matched: " ++ BS.unpack nm
     ret <- runRhs rs r
-    debugStepM $ "Rule succeeeded:" ++ BS.unpack nm
+    debugM $ "Rule succeeeded:" ++ BS.unpack nm
     return ret
 
 stepConf :: (Matchable (Configuration l), LangBase l) => NamedRules l -> Configuration l -> Match (Configuration l)

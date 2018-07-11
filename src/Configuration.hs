@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts, FlexibleInstances, GADTs, PatternSynonyms, ScopedTypeVariables, StandaloneDeriving, TypeApplications, TypeFamilies, ViewPatterns #-}
+{-# LANGUAGE DeriveGeneric, FlexibleContexts, FlexibleInstances, GADTs, PatternSynonyms, ScopedTypeVariables, StandaloneDeriving, TypeApplications, TypeFamilies, ViewPatterns #-}
 
 module Configuration (
   -- These should be here, but are defined in LangBase. Re-exporting
@@ -21,23 +21,26 @@ module Configuration (
 
 import Data.Map ( Map )
 import qualified Data.Map as Map
-
 import Data.Typeable ( Typeable, eqT )
 
+import GHC.Generics ( Generic )
+
+import Data.Hashable ( Hashable(..) )
+
 import LangBase
-import Term
 import Var
 
 ------------------------------------------------------------------------------------------------------------------
 
 data EmptyState = EmptyState
-  deriving ( Eq, Ord, Show )
+  deriving ( Eq, Ord, Show, Generic )
 
+instance Hashable EmptyState
 
 -- Look ma! No overlapping instances.
 -- Unfortunately, this is not quite enough to avoid the need to use StandaloneDeriving all over.
 -- Need more dedicated OO techniques for that.
-instance (Show s) => Show (GConfiguration l s) where
+instance (Show s) => Show (GConfiguration s l) where
   showsPrec d (Conf t s) = case eqT @s @EmptyState of
                              Just _  -> showsPrec d t
                              Nothing -> showString "(" . showsPrec d t . showString "; " . showsPrec d s . showString ")"
@@ -94,3 +97,11 @@ instance (Show a, Show b) => Show (SimpEnv a b) where
                                   else
                                     showsPrec d v . showString ", " . showsPrec d m
   showsPrec d (JustSimpMap m)   = showsPrec d m
+
+
+instance (Hashable a, Hashable b) => Hashable (SimpEnvMap a b) where
+  hashWithSalt s (SimpEnvMap m) = s `hashWithSalt` (Map.toList m)
+
+instance (Hashable a, Hashable b) => Hashable (SimpEnv a b) where
+  hashWithSalt s (SimpEnvRest v m) = s `hashWithSalt` v `hashWithSalt` m
+  hashWithSalt s (JustSimpMap m)   = s `hashWithSalt` m

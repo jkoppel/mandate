@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts, OverloadedStrings, UndecidableInstances #-}
+{-# LANGUAGE DeriveGeneric, FlexibleContexts, OverloadedStrings, UndecidableInstances #-}
 
 -- | Implementation of "phased abstract machines," a transition system corresponding
 --   to reduction (Felleisen-Hieb) semantics
@@ -18,6 +18,7 @@ module Semantics.PAM (
   , pamEvaluationTreeDepth'
   , pamEvaluationTreeDepth
   , pamEvaluationTree
+  , abstractPamCfg
   ) where
 
 import Control.Monad ( MonadPlus(..), liftM )
@@ -26,14 +27,19 @@ import Data.Monoid ( Monoid(..), )
 import Data.Set ( Set )
 import qualified Data.Set as Set
 
+import GHC.Generics ( Generic )
+
 import Data.ByteString.Char8 ( ByteString )
 import qualified Data.ByteString.Char8 as BS
+import Data.Hashable ( Hashable )
 
 import Configuration
 import Debug
+import Graph
 import Lang
 import Matching
 import Rose
+import Semantics.Abstraction
 import Semantics.Context
 import Semantics.General
 import Semantics.SOS
@@ -42,7 +48,9 @@ import TransitionSystem
 import Var
 
 data Phase = Up | Down
-  deriving (Eq, Ord)
+  deriving (Eq, Ord, Generic)
+
+instance Hashable Phase
 
 instance Show Phase where
   showsPrec _ Up   = showString "up"
@@ -77,6 +85,9 @@ data PAMState l = PAMState { pamConf  :: Configuration l
                            , pamK     :: Context l
                            , pamPhase :: Phase
                            }
+  deriving ( Eq, Generic )
+
+instance (Lang l) => Hashable (PAMState l)
 
 instance (Lang l) => Matchable (PAMState l) where
   getVars (PAMState c k p) = getVars c `Set.union` getVars k
@@ -171,18 +182,18 @@ usePamRule (NamedPAMRule nm (PAM left right)) st = do
     -- NOTE: I don't really know how to do higher-order matching, but I think what I did is reasonable
     ---- The trick is the special match rule for Frame, which clears bound variables from the context.
 
-    debugStepM $ "Trying rule " ++ BS.unpack nm ++ " for state " ++ show st
+    debugM $ "Trying rule " ++ BS.unpack nm ++ " for state " ++ show st
     match (Pattern left) (Matchee st)
     reduceFrame left
-    debugStepM $ "LHS matched: " ++ BS.unpack nm
+    debugM $ "LHS matched: " ++ BS.unpack nm
     ret <- runPamRhs right
-    debugStepM $ "Rule succeeeded:" ++ BS.unpack nm
+    debugM $ "Rule succeeeded:" ++ BS.unpack nm
     return ret
 
 useBaseRule :: (Lang l) => PAMState l -> Match (PAMState l)
-useBaseRule (PAMState conf KHalt Up) = do debugStepM "Step completed; moving to next Step"
+useBaseRule (PAMState conf KHalt Up) = do debugM "Step completed; moving to next Step"
                                           return (PAMState conf KHalt Down)
---useBaseRule (PAMState c@(Conf (Val _ _) _) k Down) = do debugStepM "Value reached; going up"
+--useBaseRule (PAMState c@(Conf (Val _ _) _) k Down) = do debugM "Value reached; going up"
 --                                                        return (PAMState c k Up)
 useBaseRule _ = mzero
 
@@ -222,3 +233,13 @@ pamEvaluationTreeDepth depth rules t = transitionTreeDepth (stepPam rules) depth
 
 pamEvaluationTree :: (Lang l) => NamedPAMRules l -> Term l -> IO (Rose (PAMState l))
 pamEvaluationTree rules t = transitionTree (stepPam rules) (initPamState t)
+
+----------------------------
+
+abstractPamCfg :: (Lang l) => Abstraction (PAMState l) -> NamedPAMRules l -> Term l -> IO (Graph (PAMState l))
+abstractPamCfg abs rules t = transitionGraph (liftM (map abs) . stepPam rules) (abs $ initPamState t)
+
+----------------------------
+
+instance (ValueIrrelevance (Configuration l)) => ValueIrrelevance (PAMState l) where
+  valueIrrelevance (PAMState conf ctx phase) = PAMState (valueIrrelevance conf) (valueIrrelevance ctx) phase
