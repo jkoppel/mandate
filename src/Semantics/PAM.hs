@@ -21,7 +21,7 @@ module Semantics.PAM (
   ) where
 
 import Control.Monad ( MonadPlus(..), liftM )
-import Data.Maybe ( fromJust, maybeToList )
+import Data.Maybe ( fromJust, listToMaybe )
 import Data.Monoid ( Monoid(..), )
 import Data.Set ( Set )
 import qualified Data.Set as Set
@@ -120,7 +120,7 @@ infNameStream nam = map (\i -> mconcat [nam, "-", BS.pack $ show i]) [1..]
 splitFrame :: (Lang l) => PosFrame l -> Context l -> IO (PAMRhs l, Context l, Maybe (Configuration l, PosFrame l))
 splitFrame (KBuild c) k = return (AMRhs $ PAMState c k Up, k, Nothing)
 -- TODO: Why is this so ugly?
-splitFrame (KStepTo c f@(KInp i pf)) k = fromJust <$> (runMatch $ do
+splitFrame (KStepTo c f@(KInp i pf)) k = fromJust <$> (runMatchUnique $ do
                                          i' <- refreshVars i
                                          pf' <- fillMatch pf
                                          let f' = KInp i' pf'
@@ -199,18 +199,20 @@ initPamState t = PAMState (initConf t) KHalt Down
 pamEvaluationSequence' :: (Lang l) => NamedPAMRules l -> PAMState l -> IO [PAMState l]
 pamEvaluationSequence' rules st = transitionSequence step st
   where
-    step = liftM guardDone . runMatch . stepPam1 rules
+    step = liftM (guardDone . listToMaybe) . runMatch . stepPam1 rules
+
     guardDone (Just (PAMState (Conf (Val _ _) _) KHalt Up)) = Nothing
+    guardDone x = x
 
 pamEvaluationSequence :: (Lang l) => NamedPAMRules l -> Term l -> IO [PAMState l]
 pamEvaluationSequence rules t = pamEvaluationSequence' rules (initPamState t)
 
 
 stepPam :: (Lang l) => NamedPAMRules l -> PAMState l -> IO [PAMState l]
-stepPam allRs st = (++) <$> (maybeToList <$> runMatch (useBaseRule st)) <*> go allRs
+stepPam allRs st = (++) <$> (runMatch (useBaseRule st)) <*> go allRs
   where
     go []     = return []
-    go (r:rs) = (++) <$> (maybeToList <$> runMatch (usePamRule r st)) <*> go rs
+    go (r:rs) = (++) <$> (runMatch (usePamRule r st)) <*> go rs
 
 pamEvaluationTreeDepth' :: (Lang l, Num a, Eq a) => a ->  NamedPAMRules l -> PAMState l -> IO (Rose (PAMState l))
 pamEvaluationTreeDepth' depth rules state = transitionTreeDepth (stepPam rules) depth state

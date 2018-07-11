@@ -111,7 +111,7 @@ stepConf allRs t = go allRs
 evaluationSequence :: (Matchable (Configuration l), LangBase l) => NamedRules l -> Configuration l -> IO [Configuration l]
 evaluationSequence rules conf = transitionSequence step conf
   where
-    step = runMatch . stepConf rules
+    step = runMatchUnique . stepConf rules
 
 -------------------------------- Helpers for creating rules ------------------------------
 

@@ -5,6 +5,7 @@ module Matching (
   , refreshVar
   , Match
   , runMatch
+  , runMatchUnique
 
   , Pattern(..)
   , Matchee(..)
@@ -22,7 +23,6 @@ module Matching (
 import Control.Monad ( MonadPlus(..), guard )
 import Control.Monad.IO.Class ( MonadIO(..) )
 import Control.Monad.State ( MonadState(..), StateT, evalStateT, modify )
-import Control.Monad.Trans.Maybe ( MaybeT(..) )
 
 import Data.Dynamic ( Dynamic, toDyn, fromDynamic)
 import Data.Foldable ( fold )
@@ -31,6 +31,8 @@ import qualified Data.Map as Map
 import Data.Set ( Set )
 import qualified Data.Set as Set
 import Data.Typeable ( Typeable )
+
+import Control.Monad.Logic ( LogicT(..), observeAllT )
 
 import Configuration
 import Debug
@@ -175,10 +177,17 @@ modMatchState f (MatchState m) = MatchState $ f m
 
 
 -- Maybe is on inside; means state will reset on backtrack
-type Match = StateT MatchState (MaybeT IO)
+type Match = StateT MatchState (LogicT IO)
 
-runMatch :: Match a -> IO (Maybe a)
-runMatch m = runMaybeT $ evalStateT m (MatchState Map.empty)
+runMatch :: Match a -> IO [a]
+runMatch m = observeAllT $ evalStateT m (MatchState Map.empty)
+
+runMatchUnique :: Match a -> IO (Maybe a)
+runMatchUnique m = do xs <- runMatch m
+                      case xs of
+                        []  -> return Nothing
+                        [a] -> return (Just a)
+                        _   -> error "Called runMatchUnique, but had many results"
 
 runMatchEffect :: MatchEffect a -> Match a
 runMatchEffect (MatchEffect x) = liftIO x

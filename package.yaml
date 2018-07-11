@@ -36,6 +36,7 @@ library:
   - containers
   - deepseq
   - hashable
+  - logict
   - intern
   - mtl
   - transformers
