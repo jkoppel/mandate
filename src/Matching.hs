@@ -39,6 +39,132 @@ import MatchEffect
 import Term
 import Var
 
+
+
+------------------------------------------------------------------
+------
+------              Thoughts on Abstract Matching/Rewriting
+------              (a.k.a.: Jimmy justifying why he doesn't need to do work)
+------
+------ A matching engine for type x is given fundamentally by one function:
+------    match :: Pattern x -> x -> m (Pattern x -> m x)
+------
+------ This is weaker than the current match/fillMatch interface (and less compositional). Note that getVars is only used internally
+------ (i.e.: would be a protected method in Java), and refreshVars is just me not knowing how to do higher-order matching
+------ (which I think should still sit behind the same interface).
+------
+------ In abstract interpretation, there are functions alpha :: x -> y and gamma :: y -> x satisfying the usual lattice laws.
+------ For terms, you can take x to be the powerset of terms, and lift match through the usual powerset monad.
+------ Then, abstractMatch has type:  Pattern x -> y -> m (Pattern x -> m y), satisfying:
+------         (gamma <$> (abstractMatch p1 (alpha t) <*> p2)) >= (match p1 t <*> p2)
+------
+------ I haven't read the paper on Galois transformers.....but I think m might need to be one. At leat, it should be
+------ an endofunctor on the category of lattices (i.e.: preserves monotone maps).
+------
+------ An example of abstract terms: terms where some subtrees have been replaced with variables, together with logical
+------ constraints on those variables. For instance, in the case where the constraints are of the form cx+dy<=b, where
+------ c,d \in {-1, 1}, then this is the octagon domain, and rewrites are just octagon updates.
+------
+------ The main example of interest: terms where some subtrees are replaced by the special node Star, representing
+------ any well-sorted subtree. Matching is performed where Star matches any pattern, and binds all pattern variables
+------ to Star. This does not yield the most precise transformer because it loses equalities between variables.
+------
+------ My plan is to introduce a Star node to all Matchable's. Just as non-pattern terms are currently given by the type Term l
+------ with the implicit constraint that there are no free variables, non-abstract terms (including pattern terms)
+------ will be given by Term l with the implicit constraint that there are no Star's (or free variables). Star's may also
+------ not appear in negative position. It's easy to see that this is valid abstraction, and the abstract match is a valid transformer.
+------ It's nice because matching is easy to implement; I've basically used a quantified version of subtyping to write a common
+------ matcher that works on both.
+------
+------ To extend my current implementation to the more arbitrary abstractions, I need to: make pattern/matchee types
+------ truly distinct (make Matchable take a "p" parameter probably, and merge match/fillMatch into the match given above
+------ for type-inference reasons), and.....I think that's it. So, it's basically a mattern of rewriting the matchers
+------ + tweaking the callers. At the present level of design, I do not see anything that makes this change much harder
+------ to do later vs. now.
+------
+------ Also, runCompFunc will need a variant for abstract terms. Will take some threading for each semantics,
+------ and breaking apart the runCompFunc impl per language.
+------
+------ The main barrier I see is in case I do want to allow abstractions in negative position,
+------ where terms are used as patterns (and vice versa?). I accept that I don't understand this that well,
+------ don't know how to deal with it, and am essentially propagating the assumption that negative terms
+------ are a subtype of patterns.
+------
+-----------------------------------------------
+------
+------ Questions:
+------   1) How to implement fake associative and ACI matching for Star nodes?
+------
+------      A: Associative is easy, since we're restricting to only one list variable.
+------         For our restricted deterministic ACI matching, we must make sure that there are no Star nodes
+------         in keys. A map variable may be bound to a (map star)+ list of terms.
+------         ^^ But this is assuming that a * node stands for a single element, not a list (must specify which).
+------         If it can stand for a list, as it may in the case we care about (where it can mean an
+------         arbitrary number of stack frames), then this is full-on associative unification.
+------
+------   2) How to reduce terms? Example:
+------           Rule:    < v | [\x -> x+e]. K> -> let n = x+e in <n | K>
+------           AbsTerm: <* | * . ctx > should -> let n = *+* in <n | ctx>
+------     A: Bind (fillMatch v) to x before evaluating the RHS. Oh hey, guess what: I already do this
+------        in a way that will work.
+------
+------   3) How do the star node plans compare to the val node plans? Can they be merged?
+------
+------     A: Kinda. You can have terms that contain abstract vars which stand for arbitrary subtrees,
+------        where some equalities are known. However, when building the graph, all equalities between vars should
+------        be forgotten, and equality between states should be modulo alpha-equivalence. Indeed, I'm already
+------        relying on poor-man's alpha equivalence for my plan to work (all matching frames should have matching
+------        variable names).
+------
+------        In other words: I may have a notion of abstract states that remembers variable equalities and uses
+------        different variable names when doing reductions, but most of my CFGs of interest will project them
+------        down to something which is basically just having a Star node. So, if I can get a good plan for
+------        projections, then I can do this.
+------
+------        Oh yeah, and stars can be lists, whereas val nodes can't. See below.
+------
+------   4) How will projections work? Will they work? If not, how can I create statement or block level CFGs?
+------
+------      A: The only way I think it can work is if you first compute a full graph using an abstraction,
+------         and then blow it down.
+------
+------         Relation between abs CFG and transition system: the abstraction of every path in the transition system
+------         is a path in the CFG. There's a graph homomorphism between all possible states of the transition system
+------         to the abs CFG. Whereas, between the abs CFG and the projected CFG, there's just a graph homomorphism
+------         from the set of abstract states *seen so far*. This is much easier to come by, and justifies having
+------         a separate projection step as an additional source of expressivity.
+------
+------         Can you create statement level CFG without projections?
+------
+------         With an expression-irrelevance abstraction, all expression-eval rules become stutter steps,
+------         all expression congruence-enter rules become pushing a new stack frame (that does nothing), and all congruence-exit
+------         rules become popping off one of those do-nothing stack frames. But if you take those identity-frames
+------         and replace them with a Star frame, then it works; you get separate nodes for evaling a statement
+------         vs. evalling some arbitrary expression within that statement. And remember: *.*.K == *.K .
+------
+------         This means: Yes, I need real-ish associative and ACI matching. Not just matching; it's really
+------         unification where one side must be linear (Star nodes are like distinct variables). This means
+------         that my matching interface must allow backtracking/multiple matches. Good thing I realized this now.
+------
+------         For basic blocks: Yes, if you turn all sequences of assignments into a *. Unsure what happens with
+------         function calls.
+------
+------   5) What about ValVar's?
+------
+------     A: For matching, they are just like having an extra Val constructor. But to chain together rules, the
+------        infrastructure needs to be able to turn a pattern var into a val, whereas it can't currently. So, yes, these
+------        must exist. Also, you cannot prove the needed axiom unless you can mark non-vals; otherwise,
+------        fusing rules (even without discarding anything) can eliminate valid transition sequences.
+------
+------
+------
+------ Other comment: Non-vals do not automatically become vals. So, pairs do need separate pair values / mkPair
+------ constructors.
+------
+------
+------
+------------------------------------------------------------------
+
 data MatchState = MatchState (Map MetaVar Dynamic)
 
 getMatchState :: MatchState -> Map MetaVar Dynamic
