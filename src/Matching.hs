@@ -355,6 +355,12 @@ instance Matchable EmptyState where
   refreshVars EmptyState = return EmptyState
   fillMatch EmptyState = return EmptyState
 
+instance Matchable () where
+  getVars () = Set.empty
+  match _ _ = return ()
+  refreshVars () = return ()
+  fillMatch () = return ()
+
 -- Description: We implemented a restricted version of ACI
 -- matching specialized to the kinds of patterns used in operational semantics,
 -- e.g.: \Gamma, x=v. Our implementation imposes the following restrictions:
