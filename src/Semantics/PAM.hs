@@ -77,7 +77,7 @@ instance (Show (Configuration l), Show (Context l)) => Show (PAMState l) where
   showsPrec d (PAMState c k phase) = showString "<" . showsPrec d c . showString " | " .
                                      showsPrec d k . showString "> " . showsPrec d phase
 
-type PAMRhs = AMRhs PAMState
+type PAMRhs = GenAMRhs PAMState
 
 data PAMRule l = PAM { pamBefore :: PAMState l
                      , pamAfter  :: PAMRhs l
@@ -105,7 +105,7 @@ infNameStream :: ByteString -> InfNameStream
 infNameStream nam = map (\i -> mconcat [nam, "-", BS.pack $ show i]) [1..]
 
 splitFrame :: (Lang l) => PosFrame l -> Context l -> IO (PAMRhs l, Context l, Maybe (Configuration l, PosFrame l))
-splitFrame (KBuild c) k = return (AMRhs $ PAMState c k Up, k, Nothing)
+splitFrame (KBuild c) k = return (GenAMRhs $ PAMState c k Up, k, Nothing)
 -- TODO: Why is this so ugly?
 splitFrame (KStepTo c f@(KInp i pf)) k = fromJust <$> (runMatchUnique $ do
                                          i' <- refreshVars i
@@ -113,9 +113,9 @@ splitFrame (KStepTo c f@(KInp i pf)) k = fromJust <$> (runMatchUnique $ do
                                          let f' = KInp i' pf'
                                          let cont = KPush f k
                                          let cont' = KPush (KInp i' pf') k
-                                         return (AMRhs $ PAMState c cont Down, cont', Just (i, pf')))
+                                         return (GenAMRhs $ PAMState c cont Down, cont', Just (i, pf')))
 splitFrame (KComputation comp (KInp c pf)) k = do (subRhs, ctx, rest) <- splitFrame pf k
-                                                  return (AMLetComputation c comp subRhs, ctx, rest)
+                                                  return (GenAMLetComputation c comp subRhs, ctx, rest)
 
 sosRuleToPam' :: (Lang l) => InfNameStream -> PAMState l -> Context l -> PosFrame l -> IO [NamedPAMRule l]
 sosRuleToPam' (nm:nms) st k fr = do
@@ -141,7 +141,7 @@ sosToPam rs = concat <$> mapM sosRuleToPam rs
 -------------------------------------------------------------------------------------------------------
 
 runPamRhs :: (Lang l) => PAMRhs l -> Match (PAMState l)
-runPamRhs = runAMRhs fillMatch
+runPamRhs = runGenAMRhs fillMatch
 
 reduceFrame :: (Lang l) => PAMState l -> Match ()
 reduceFrame (PAMState c (KPush (KInp i _) _) phase) = do
@@ -226,9 +226,9 @@ instance AbstractCompFuncs (NamedPAMRule l) l where
 instance AbstractCompFuncs (PAMRule l) l where
   abstractCompFuncs abs (PAM l r) = PAM l (abstractCompFuncs abs r)
 
-instance AbstractCompFuncs (AMRhs p l) l where
-  abstractCompFuncs abs (AMLetComputation c (ExtComp f args) r) = AMLetComputation c (ExtComp (abs f) args) r
-  abstractCompFuncs _ t@(AMRhs _) = t
+instance AbstractCompFuncs (GenAMRhs p l) l where
+  abstractCompFuncs abs (GenAMLetComputation c (ExtComp f args) r) = GenAMLetComputation c (ExtComp (abs f) args) r
+  abstractCompFuncs _ t@(GenAMRhs _) = t
 
 
 -----------------------------
