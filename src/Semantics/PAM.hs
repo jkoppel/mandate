@@ -7,8 +7,8 @@
 -- but I don't see how to do it in reduction semantics. So....I guess then PAM is more powerful than Felleisen-Hieb.
 
 module Semantics.PAM (
-    PAMRule(..)
-  , NamedPAMRule(..)
+    PAMRule
+  , NamedPAMRule
   , sosToPam
 
   , pamEvaluationSequence
@@ -18,7 +18,7 @@ module Semantics.PAM (
   ) where
 
 import Control.Monad ( MonadPlus(..), guard, liftM )
-import Data.Maybe ( fromJust, listToMaybe )
+import Data.Maybe ( fromJust )
 import Data.Monoid ( Monoid(..), )
 import Data.Set ( Set )
 import qualified Data.Set as Set
@@ -37,7 +37,6 @@ import Matching
 import Rose
 import Semantics.Abstraction
 import Semantics.Context
-import Semantics.General
 import Semantics.GeneralMachine
 import Semantics.SOS
 import Term

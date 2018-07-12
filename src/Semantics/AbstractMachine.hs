@@ -2,31 +2,37 @@
 
 
 module Semantics.AbstractMachine (
+    AMState
+  , pattern AMState
+  , AMRhs
+  , AMRule
+  , NamedAMRule
+  , pattern AM
+  , pattern NamedAMRule
+  , nameAMRule
+  , NamedAMRules
 
+  , amEvaluationSequence
+  , amEvaluationTreeDepth
+  , amEvaluationTree
+
+  , abstractAmCfg
   ) where
 
-import Control.Monad ( MonadPlus(..), liftM )
-import Data.Maybe ( fromJust, listToMaybe )
-import Data.Monoid ( Monoid(..), )
-import Data.Set ( Set )
-import qualified Data.Set as Set
+import Control.Monad ( liftM )
 
 import Data.ByteString.Char8 ( ByteString )
 
 import Configuration
-import Debug
 import Graph
 import Lang
 import Matching
 import Rose
 import Semantics.Abstraction
 import Semantics.Context
-import Semantics.General
 import Semantics.GeneralMachine
-import Semantics.SOS
 import Term
 import TransitionSystem
-import Var
 
 ---------------------------------------------------------------------
 

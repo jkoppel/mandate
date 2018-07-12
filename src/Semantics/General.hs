@@ -10,8 +10,6 @@ module Semantics.General (
 import Control.Monad ( guard )
 import Data.Foldable ( fold )
 import Data.List ( intersperse )
-import Data.Set ( Set )
-import qualified Data.Set as Set
 
 import GHC.Generics ( Generic )
 
