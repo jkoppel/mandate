@@ -1,7 +1,8 @@
-{-# LANGUAGE FlexibleContexts, UndecidableInstances #-}
+{-# LANGUAGE FlexibleContexts, MultiParamTypeClasses, UndecidableInstances #-}
 
 module Semantics.Abstraction (
     Abstraction
+  , AbstractCompFuncs(..)
   , ValueIrrelevance(..)
   ) where
 
@@ -14,6 +15,11 @@ import Semantics.General
 import Term
 
 type Abstraction t = t -> t
+
+class AbstractCompFuncs t l where
+  abstractCompFuncs :: Abstraction (CompFunc l) -> t -> t
+
+--------------------------------------------------------------------------------------------------------
 
 class ValueIrrelevance t where
   valueIrrelevance :: t -> t

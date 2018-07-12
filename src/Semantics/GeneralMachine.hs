@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts, UndecidableInstances #-}
+{-# LANGUAGE FlexibleContexts, FlexibleInstances, MultiParamTypeClasses, UndecidableInstances #-}
 
 module Semantics.GeneralMachine (
     GenAMRhs(..)
@@ -12,6 +12,7 @@ import qualified Data.Set as Set
 import Configuration
 import Lang
 import Matching
+import Semantics.Abstraction
 import Semantics.General
 
 
@@ -45,3 +46,10 @@ runGenAMRhs g (GenAMLetComputation c f r) = do res <- runExtComp f
                                                match (Pattern c) (Matchee res)
                                                runGenAMRhs g r
 runGenAMRhs g (GenAMRhs p) = g p
+
+
+-------------------------------------------------------------------------
+
+instance AbstractCompFuncs (GenAMRhs p l) l where
+  abstractCompFuncs abs (GenAMLetComputation c (ExtComp f args) r) = GenAMLetComputation c (ExtComp (abs f) args) r
+  abstractCompFuncs _ t@(GenAMRhs _) = t
