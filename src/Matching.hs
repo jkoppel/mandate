@@ -318,7 +318,6 @@ instance (LangBase l) => Matchable (Term l) where
   match (Pattern (IntNode _ _))   (Matchee (GStar _))  = return ()
   match (Pattern (StrNode _ _))   (Matchee (GStar _))  = return ()
 
-  match (Pattern (GMetaVar _ _))  (Matchee (GMetaVar _ TermOrValue)) = error "TermOrValue metavars may never appear in a matchee"
   match _                         _                                  = mzero
 
   refreshVars = fillMatchTermGen (\v mt -> getVarMaybe v return (refresh v mt))

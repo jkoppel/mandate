@@ -42,6 +42,7 @@ import Rose
 import Semantics.Abstraction
 import Semantics.Context
 import Semantics.General
+import Semantics.GeneralMachine
 import Semantics.SOS
 import Term
 import TransitionSystem
@@ -55,31 +56,6 @@ instance Hashable Phase
 instance Show Phase where
   showsPrec _ Up   = showString "up"
   showsPrec _ Down = showString "down"
-
-data AMRhs payload l = AMLetComputation (Configuration l) (ExtComp l) (AMRhs payload l)
-                     | AMRhs (payload l)
-
-
-instance (Lang l, Matchable (payload l)) => Matchable (AMRhs payload l) where
-  getVars (AMLetComputation c f r) = getVars c `Set.union` getVars f `Set.union` getVars r
-  getVars (AMRhs p) = getVars p
-
-  match (Pattern (AMLetComputation c1 f1 r1)) (Matchee (AMLetComputation c2 f2 r2)) =
-      match (Pattern c1) (Matchee c2) >> match (Pattern f1) (Matchee f2) >> match (Pattern r1) (Matchee r2)
-  match (Pattern (AMRhs p1)) (Matchee (AMRhs p2)) = match (Pattern p1) (Matchee p2)
-
-  refreshVars (AMLetComputation c f p) = AMLetComputation <$> refreshVars c <*> refreshVars f <*> refreshVars p
-  refreshVars (AMRhs p) = AMRhs <$> refreshVars p
-
-  fillMatch (AMLetComputation c f p) = AMLetComputation <$> fillMatch c <*> fillMatch f <*> fillMatch p
-  fillMatch (AMRhs p) = AMRhs <$> fillMatch p
-
-instance (Show (Configuration l), Show (payload l), LangBase l) => Show (AMRhs payload l) where
-  showsPrec d (AMLetComputation conf c r) = showString "let " . showsPrec d conf .
-                                            showString " = " . showsPrec d c . showString " in " .
-                                            showsPrec d r
-  showsPrec d (AMRhs x) = showsPrec d x
-
 
 data PAMState l = PAMState { pamConf  :: Configuration l
                            , pamK     :: Context l
@@ -165,10 +141,7 @@ sosToPam rs = concat <$> mapM sosRuleToPam rs
 -------------------------------------------------------------------------------------------------------
 
 runPamRhs :: (Lang l) => PAMRhs l -> Match (PAMState l)
-runPamRhs (AMLetComputation c f r) = do res <- runExtComp f
-                                        match (Pattern c) (Matchee res)
-                                        runPamRhs r
-runPamRhs (AMRhs st) = fillMatch st
+runPamRhs = runAMRhs fillMatch
 
 reduceFrame :: (Lang l) => PAMState l -> Match ()
 reduceFrame (PAMState c (KPush (KInp i _) _) phase) = do
@@ -256,3 +229,9 @@ instance AbstractCompFuncs (PAMRule l) l where
 instance AbstractCompFuncs (AMRhs p l) l where
   abstractCompFuncs abs (AMLetComputation c (ExtComp f args) r) = AMLetComputation c (ExtComp (abs f) args) r
   abstractCompFuncs _ t@(AMRhs _) = t
+
+
+-----------------------------
+
+
+--upRulesInvertible :: (Lang l) => NamedPAMRules l -> IO Bool
