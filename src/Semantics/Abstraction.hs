@@ -8,6 +8,7 @@ module Semantics.Abstraction (
 import qualified Data.Map as Map
 
 import Configuration
+import LangBase
 import Semantics.Context
 import Semantics.General
 import Term
@@ -38,18 +39,18 @@ instance (ValueIrrelevance b) => ValueIrrelevance (SimpEnv a b) where
   valueIrrelevance (JustSimpMap m)   = JustSimpMap (valueIrrelevance m)
   valueIrrelevance (SimpEnvRest v m) = SimpEnvRest v (valueIrrelevance m)
 
-instance (ValueIrrelevance (Configuration l)) => ValueIrrelevance (ExtComp l) where
-  valueIrrelevance (ExtComp f args) = ExtComp f (map valueIrrelevance args)
+instance (ValueIrrelevance (CompFunc l), ValueIrrelevance (Configuration l)) => ValueIrrelevance (ExtComp l) where
+  valueIrrelevance (ExtComp f args) = ExtComp (valueIrrelevance f) (map valueIrrelevance args)
 
-instance (ValueIrrelevance (Configuration l)) => ValueIrrelevance (PosFrame l) where
+instance (ValueIrrelevance (ExtComp l), ValueIrrelevance (Configuration l)) => ValueIrrelevance (PosFrame l) where
   valueIrrelevance (KBuild       c  ) = KBuild       (valueIrrelevance c)
   valueIrrelevance (KStepTo      c f) = KStepTo      (valueIrrelevance c) (valueIrrelevance f)
   valueIrrelevance (KComputation c f) = KComputation (valueIrrelevance c) (valueIrrelevance f)
 
-instance (ValueIrrelevance (Configuration l)) => ValueIrrelevance (Frame l) where
+instance (ValueIrrelevance (ExtComp l), ValueIrrelevance (Configuration l)) => ValueIrrelevance (Frame l) where
   valueIrrelevance (KInp args pf) = KInp args (valueIrrelevance pf) -- args are in negative position
 
-instance (ValueIrrelevance (Configuration l)) => ValueIrrelevance (Context l) where
+instance (ValueIrrelevance (ExtComp l), ValueIrrelevance (Configuration l)) => ValueIrrelevance (Context l) where
   valueIrrelevance  KHalt      = KHalt
   valueIrrelevance (KPush f c) = KPush (valueIrrelevance f) (valueIrrelevance c)
   valueIrrelevance (KVar v)    = KVar v

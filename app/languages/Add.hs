@@ -11,6 +11,7 @@ import Data.Hashable ( Hashable )
 import Configuration
 import Lang
 import Matching
+import Semantics.Abstraction
 import Semantics.General
 import Semantics.PAM
 import Semantics.SOS
@@ -24,14 +25,19 @@ data AddLang
 instance LangBase AddLang where
   type RedState AddLang = EmptyState
 
-  data CompFunc AddLang = RunAdd
+  data CompFunc AddLang = RunAdd | AbsRunAdd
     deriving ( Eq, Generic )
 
   compFuncName RunAdd = "runAdd"
 
   runCompFunc RunAdd [EVal (Const n1), EVal (Const n2)] = return $ initConf $ EVal (Const (n1+n2))
-  runCompFunc RunAdd [GStar _, _] = return $ initConf ValStar
-  runCompFunc RunAdd [_, GStar _] = return $ initConf ValStar
+
+  runCompFunc AbsRunAdd [GStar _, _] = return $ initConf ValStar
+  runCompFunc AbsRunAdd [_, GStar _] = return $ initConf ValStar
+
+instance ValueIrrelevance (CompFunc AddLang) where
+  valueIrrelevance RunAdd    = AbsRunAdd
+  valueIrrelevance AbsRunAdd = AbsRunAdd
 
 instance Hashable (CompFunc AddLang)
 

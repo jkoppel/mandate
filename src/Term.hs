@@ -270,7 +270,7 @@ pattern ValStar <- (TStar _ ValueOnly) where
   ValStar = fromGeneric $ intern $ toUGeneric (BStar ValueOnly)
 
 pattern NonvalStar :: Term l
-pattern NonvalStar <- (TStar _ ValueOnly) where
+pattern NonvalStar <- (TStar _ NonvalOnly) where
   NonvalStar = fromGeneric $ intern $ toUGeneric (BStar NonvalOnly)
 
 pattern Star :: Term l

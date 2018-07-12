@@ -8,10 +8,12 @@ module TransitionSystem (
   ) where
 
 import Control.Monad ( forM_, (=<<) )
-import Control.Monad.State ( get, modify, execStateT )
+import Control.Monad.State ( gets, modify, execStateT )
 import Control.Monad.Trans ( lift )
 
 import Data.Hashable ( Hashable )
+import Data.HashSet ( HashSet )
+import qualified Data.HashSet as S
 
 import Debug
 import Graph ( Graph )
@@ -20,19 +22,20 @@ import Rose
 
 
 transitionGraph :: (Eq a, Hashable a, Monad m) => (a -> m [a]) -> a -> m (Graph a)
-transitionGraph step start = execStateT (go [start]) Graph.empty
+transitionGraph step start = fst <$> execStateT (go [start]) (Graph.empty, S.empty)
   where
     go []     = return ()
     go states = do nextStates <- concat <$> mapM expand states
                    go nextStates
 
-    expand st = do debugM "Doing step"
+    expand st = do modify (\(g, seen) -> (g, S.insert st seen))
+                   debugM "Doing step"
                    succs <- lift (step st)
                    debugM "Evalling succs"
-                   forM_ succs (\succ -> modify (Graph.insert st succ))
+                   forM_ succs (\succ -> modify (\(g, seen) -> (Graph.insert st succ g, seen)))
                    debugM "Inserted nexts succs"
-                   curGraph <- get
-                   return $ filter (\s -> not (Graph.member s curGraph)) succs
+                   seen <- gets snd
+                   return $ filter (\s -> not (S.member s seen)) succs
 
 
 transitionTreeDepth :: (Num n, Eq n, Monad m) => (a -> m [a]) -> n -> a -> m (Rose a)

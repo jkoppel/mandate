@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveGeneric, FlexibleContexts, OverloadedStrings, UndecidableInstances #-}
+{-# LANGUAGE DeriveGeneric, FlexibleContexts, FlexibleInstances, MultiParamTypeClasses, OverloadedStrings, UndecidableInstances #-}
 
 -- | Implementation of "phased abstract machines," a transition system corresponding
 --   to reduction (Felleisen-Hieb) semantics
@@ -210,10 +210,10 @@ initPamState t = PAMState (initConf t) KHalt Down
 pamEvaluationSequence' :: (Lang l) => NamedPAMRules l -> PAMState l -> IO [PAMState l]
 pamEvaluationSequence' rules st = transitionSequence step st
   where
-    step = liftM (guardDone . listToMaybe) . runMatch . stepPam1 rules
+    step = liftM listToMaybe . runMatch . stepPamUnlessDone
 
-    guardDone (Just (PAMState (Conf (Val _ _) _) KHalt Up)) = Nothing
-    guardDone x = x
+    stepPamUnlessDone (PAMState (Conf (Val _ _) _) KHalt Up) = mzero
+    stepPamUnlessDone x = stepPam1 rules x
 
 pamEvaluationSequence :: (Lang l) => NamedPAMRules l -> Term l -> IO [PAMState l]
 pamEvaluationSequence rules t = pamEvaluationSequence' rules (initPamState t)
@@ -236,10 +236,23 @@ pamEvaluationTree rules t = transitionTree (stepPam rules) (initPamState t)
 
 ----------------------------
 
-abstractPamCfg :: (Lang l) => Abstraction (PAMState l) -> NamedPAMRules l -> Term l -> IO (Graph (PAMState l))
-abstractPamCfg abs rules t = transitionGraph (liftM (map abs) . stepPam rules) (abs $ initPamState t)
+abstractPamCfg :: (Lang l) => Abstraction (CompFunc l) -> Abstraction (PAMState l) -> NamedPAMRules l -> Term l -> IO (Graph (PAMState l))
+abstractPamCfg absFunc abs rules t = transitionGraph (liftM (map abs) . stepPam (map (abstractCompFuncs absFunc) rules)) (abs $ initPamState t)
 
 ----------------------------
 
-instance (ValueIrrelevance (Configuration l)) => ValueIrrelevance (PAMState l) where
+instance (ValueIrrelevance (Configuration l), ValueIrrelevance (Context l)) => ValueIrrelevance (PAMState l) where
   valueIrrelevance (PAMState conf ctx phase) = PAMState (valueIrrelevance conf) (valueIrrelevance ctx) phase
+
+class AbstractCompFuncs t l where
+  abstractCompFuncs :: Abstraction (CompFunc l) -> t -> t
+
+instance AbstractCompFuncs (NamedPAMRule l) l where
+  abstractCompFuncs abs (NamedPAMRule nm r) = NamedPAMRule nm (abstractCompFuncs abs r)
+
+instance AbstractCompFuncs (PAMRule l) l where
+  abstractCompFuncs abs (PAM l r) = PAM l (abstractCompFuncs abs r)
+
+instance AbstractCompFuncs (AMRhs p l) l where
+  abstractCompFuncs abs (AMLetComputation c (ExtComp f args) r) = AMLetComputation c (ExtComp (abs f) args) r
+  abstractCompFuncs _ t@(AMRhs _) = t
