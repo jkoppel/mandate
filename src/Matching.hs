@@ -5,6 +5,7 @@ module Matching (
   , refreshVar
   , Match
   , runMatch
+  , runMatchFirst
   , runMatchUnique
 
   , Pattern(..)
@@ -32,7 +33,7 @@ import Data.Set ( Set )
 import qualified Data.Set as Set
 import Data.Typeable ( Typeable )
 
-import Control.Monad.Logic ( LogicT(..), observeAllT )
+import Control.Monad.Logic ( LogicT(..), runLogicT, observeAllT )
 
 import Configuration
 import Debug
@@ -179,6 +180,9 @@ type Match = StateT MatchState (LogicT IO)
 
 runMatch :: Match a -> IO [a]
 runMatch m = observeAllT $ evalStateT m (MatchState Map.empty)
+
+runMatchFirst :: Match a -> IO (Maybe a)
+runMatchFirst m = runLogicT (evalStateT m (MatchState Map.empty)) (const . return . Just) (return Nothing)
 
 runMatchUnique :: Match a -> IO (Maybe a)
 runMatchUnique m = do xs <- runMatch m

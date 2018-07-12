@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveGeneric, FlexibleContexts, FlexibleInstances, MultiParamTypeClasses, OverloadedStrings, UndecidableInstances #-}
+{-# LANGUAGE DeriveGeneric, FlexibleContexts, FlexibleInstances, MultiParamTypeClasses, OverloadedStrings, PatternSynonyms, UndecidableInstances #-}
 
 -- | Implementation of "phased abstract machines," a transition system corresponding
 --   to reduction (Felleisen-Hieb) semantics
@@ -11,7 +11,6 @@ module Semantics.PAM (
   , NamedPAMRule(..)
   , sosToPam
 
-  , stepPam
   , pamEvaluationSequence'
   , pamEvaluationSequence
 
@@ -21,7 +20,7 @@ module Semantics.PAM (
   , abstractPamCfg
   ) where
 
-import Control.Monad ( MonadPlus(..), liftM )
+import Control.Monad ( MonadPlus(..), guard, liftM )
 import Data.Maybe ( fromJust, listToMaybe )
 import Data.Monoid ( Monoid(..), )
 import Data.Set ( Set )
@@ -57,42 +56,30 @@ instance Show Phase where
   showsPrec _ Up   = showString "up"
   showsPrec _ Down = showString "down"
 
-data PAMState l = PAMState { pamConf  :: Configuration l
-                           , pamK     :: Context l
-                           , pamPhase :: Phase
-                           }
-  deriving ( Eq, Generic )
+instance Matchable Phase where
+  getVars _ = Set.empty
+  refreshVars t = return t
+  match (Pattern x) (Matchee y) = guard (x == y)
+  fillMatch t = return t
 
-instance (Lang l) => Hashable (PAMState l)
+type PAMState = GenAMState Phase
 
-instance (Lang l) => Matchable (PAMState l) where
-  getVars (PAMState c k p) = getVars c `Set.union` getVars k
-  match (Pattern (PAMState c1 k1 p1)) (Matchee (PAMState c2 k2 p2))
-    | p1 == p2 = match (Pattern c1) (Matchee c2) >> match (Pattern k1) (Matchee k2)
-  match _ _ = mzero
-  refreshVars (PAMState c k p) = PAMState <$> refreshVars c <*> refreshVars k <*> pure p
-  fillMatch   (PAMState c k p) = PAMState <$> fillMatch   c <*> fillMatch   k <*> pure p
+pattern PAMState :: Configuration l -> Context l -> Phase -> PAMState l
+pattern PAMState c k p = GenAMState c k p
 
 instance (Show (Configuration l), Show (Context l)) => Show (PAMState l) where
-  showsPrec d (PAMState c k phase) = showString "<" . showsPrec d c . showString " | " .
-                                     showsPrec d k . showString "> " . showsPrec d phase
+  showsPrec d (PAMState c k p) = showsPrec d (GenAMState c k ()) . showString " " . showsPrec d p
 
 type PAMRhs = GenAMRhs PAMState
 
-data PAMRule l = PAM { pamBefore :: PAMState l
-                     , pamAfter  :: PAMRhs l
-                     }
+type PAMRule = GenAMRule Phase
+type NamedPAMRule = NamedGenAMRule Phase
 
-instance (Show (Configuration l), LangBase l) => Show (PAMRule l) where
-  showsPrec d (PAM before after) = showsPrec d before . showString "  ---->  " . showsPrec d after
+pattern PAM :: PAMState l -> PAMRhs l -> PAMRule l
+pattern PAM left right = GenAMRule left right
 
-data NamedPAMRule l = NamedPAMRule { pamRuleName :: ByteString
-                                   , getPamRule  :: PAMRule l
-                                   }
-
-instance (Show (Configuration l), LangBase l) => Show (NamedPAMRule l) where
-  showsPrec d (NamedPAMRule nm r) = showString (BS.unpack nm) . showString ":\n" . showsPrec (d+1) r
-  showList rs = showRules rs
+pattern NamedPAMRule :: ByteString -> PAMRule l -> NamedPAMRule l
+pattern NamedPAMRule s r = NamedGenAMRule s r
 
 namePAMRule :: ByteString -> PAMRule l -> NamedPAMRule l
 namePAMRule = NamedPAMRule
@@ -140,63 +127,30 @@ sosToPam rs = concat <$> mapM sosRuleToPam rs
 
 -------------------------------------------------------------------------------------------------------
 
-runPamRhs :: (Lang l) => PAMRhs l -> Match (PAMState l)
-runPamRhs = runGenAMRhs fillMatch
 
-reduceFrame :: (Lang l) => PAMState l -> Match ()
-reduceFrame (PAMState c (KPush (KInp i _) _) phase) = do
-  c' <- fillMatch c
-  match (Pattern i) (Matchee c')
-
-reduceFrame pat = return ()
-
-usePamRule :: (Lang l) => NamedPAMRule l -> PAMState l -> Match (PAMState l)
-usePamRule (NamedPAMRule nm (PAM left right)) st = do
-    -- NOTE: I don't really know how to do higher-order matching, but I think what I did is reasonable
-    ---- The trick is the special match rule for Frame, which clears bound variables from the context.
-
-    debugM $ "Trying rule " ++ BS.unpack nm ++ " for state " ++ show st
-    match (Pattern left) (Matchee st)
-    reduceFrame left
-    debugM $ "LHS matched: " ++ BS.unpack nm
-    ret <- runPamRhs right
-    debugM $ "Rule succeeeded:" ++ BS.unpack nm
-    return ret
-
+-- We can't quite make this a normal PAM rule because you can't match on an arbitrary configuration
 useBaseRule :: (Lang l) => PAMState l -> Match (PAMState l)
-useBaseRule (PAMState conf KHalt Up) = do debugM "Step completed; moving to next Step"
-                                          return (PAMState conf KHalt Down)
+
+useBaseRule (PAMState c@(Conf (Node _ _) _) KHalt Up) = do debugM "Step completed; moving to next Step"
+                                                           return (PAMState c KHalt Down)
 --useBaseRule (PAMState c@(Conf (Val _ _) _) k Down) = do debugM "Value reached; going up"
 --                                                        return (PAMState c k Up)
 useBaseRule _ = mzero
 
-stepPam1 :: (Lang l) => NamedPAMRules l -> PAMState l -> Match (PAMState l)
-stepPam1 allRs st = useBaseRule st `mplus` go allRs
-  where
-    go []     = mzero
-    go (r:rs) = usePamRule r st `mplus` go rs
+stepPam1 :: (Lang l) => NamedPAMRules l -> PAMState l -> IO (Maybe (PAMState l))
+stepPam1 rules st = runMatchFirst $ useBaseRule st `mplus` stepGenAm rules st
 
+stepPam :: (Lang l) => NamedPAMRules l -> PAMState l -> IO [PAMState l]
+stepPam rules st = runMatch $ useBaseRule st `mplus` stepGenAm rules st
 
 initPamState :: (Lang l) => Term l -> PAMState l
 initPamState t = PAMState (initConf t) KHalt Down
 
 pamEvaluationSequence' :: (Lang l) => NamedPAMRules l -> PAMState l -> IO [PAMState l]
-pamEvaluationSequence' rules st = transitionSequence step st
-  where
-    step = liftM listToMaybe . runMatch . stepPamUnlessDone
-
-    stepPamUnlessDone (PAMState (Conf (Val _ _) _) KHalt Up) = mzero
-    stepPamUnlessDone x = stepPam1 rules x
+pamEvaluationSequence' rules st = transitionSequence (stepPam1 rules) st
 
 pamEvaluationSequence :: (Lang l) => NamedPAMRules l -> Term l -> IO [PAMState l]
 pamEvaluationSequence rules t = pamEvaluationSequence' rules (initPamState t)
-
-
-stepPam :: (Lang l) => NamedPAMRules l -> PAMState l -> IO [PAMState l]
-stepPam allRs st = (++) <$> (runMatch (useBaseRule st)) <*> go allRs
-  where
-    go []     = return []
-    go (r:rs) = (++) <$> (runMatch (usePamRule r st)) <*> go rs
 
 pamEvaluationTreeDepth' :: (Lang l, Num a, Eq a) => a ->  NamedPAMRules l -> PAMState l -> IO (Rose (PAMState l))
 pamEvaluationTreeDepth' depth rules state = transitionTreeDepth (stepPam rules) depth state

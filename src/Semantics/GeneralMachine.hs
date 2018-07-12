@@ -1,22 +1,38 @@
-{-# LANGUAGE FlexibleContexts, FlexibleInstances, MultiParamTypeClasses, UndecidableInstances #-}
+{-# LANGUAGE DeriveGeneric, FlexibleContexts, FlexibleInstances, MultiParamTypeClasses, UndecidableInstances #-}
 
 module Semantics.GeneralMachine (
     GenAMRhs(..)
-  , runGenAMRhs
+  , GenAMState(..)
+
+  , GenAMState(..)
+  , GenAMRule(..)
+  , NamedGenAMRule(..)
+
+  , stepGenAm
   ) where
 
+import Control.Monad ( mzero, mplus )
 
 import Data.Set ( Set )
 import qualified Data.Set as Set
 
+import GHC.Generics ( Generic )
+
+import Data.ByteString.Char8 ( ByteString )
+import qualified Data.ByteString.Char8 as BS
+import Data.Hashable ( Hashable )
+
 import Configuration
+import Debug
 import Lang
 import Matching
 import Semantics.Abstraction
+import Semantics.Context
 import Semantics.General
 
 
-
+-- TODO; I think, given my generalization of everything else,
+-- this "payload" approach is the wrong one, and could be simplified
 data GenAMRhs payload l = GenAMLetComputation (Configuration l) (ExtComp l) (GenAMRhs payload l)
                         | GenAMRhs (payload l)
 
@@ -41,15 +57,90 @@ instance (Show (Configuration l), Show (payload l), LangBase l) => Show (GenAMRh
   showsPrec d (GenAMRhs x) = showsPrec d x
 
 
-runGenAMRhs :: (LangBase l, Matchable (Configuration l)) => (p l -> Match a) -> GenAMRhs p l -> Match a
-runGenAMRhs g (GenAMLetComputation c f r) = do res <- runExtComp f
-                                               match (Pattern c) (Matchee res)
-                                               runGenAMRhs g r
-runGenAMRhs g (GenAMRhs p) = g p
+-------------------------------------------------------------------------
 
+data GenAMState t l = GenAMState { genAmConf :: Configuration l
+                                 , genAmK    :: Context l
+                                 , genAmExtra :: t
+                                 }
+  deriving ( Eq, Generic )
+
+
+instance (Lang l, Hashable t) => Hashable (GenAMState t l)
+
+instance (Lang l, Matchable t, Show (GenAMState t l)) => Matchable (GenAMState t l) where
+  getVars (GenAMState c k e) = getVars c `Set.union` getVars k `Set.union` getVars e
+  match (Pattern (GenAMState c1 k1 e1)) (Matchee (GenAMState c2 k2 e2))
+      = match (Pattern c1) (Matchee c2) >> match (Pattern k1) (Matchee k2) >> match (Pattern e1) (Matchee e2)
+  match _ _ = mzero
+  refreshVars (GenAMState c k e) = GenAMState <$> refreshVars c <*> refreshVars k <*> refreshVars e
+  fillMatch   (GenAMState c k e) = GenAMState <$> fillMatch   c <*> fillMatch   k <*> fillMatch e
+
+instance (Show (Configuration l), Show (Context l)) => Show (GenAMState () l) where
+  showsPrec d (GenAMState c k ()) = showString "<" . showsPrec d c . showString " | " .
+                                    showsPrec d k . showString ">"
+
+
+-------------------------------------------------------------------------
+
+data GenAMRule t l = GenAMRule { genAmBefore :: GenAMState t l
+                               , genAmAfter  :: GenAMRhs (GenAMState t) l
+                               }
+
+instance (Show (Configuration l), LangBase l, Show (GenAMState t l)) => Show (GenAMRule t l) where
+  showsPrec d (GenAMRule before after) = showsPrec d before . showString "  ---->  " . showsPrec d after
+
+data NamedGenAMRule t l = NamedGenAMRule { genAmRuleName :: ByteString
+                                         , getGenAmRule  :: GenAMRule t l
+                                         }
+
+type NamedGenAMRules t l = [NamedGenAMRule t l]
+
+instance (Show (Configuration l), LangBase l, Show (GenAMRule t l)) => Show (NamedGenAMRule t l) where
+  showsPrec d (NamedGenAMRule nm r) = showString (BS.unpack nm) . showString ":\n" . showsPrec (d+1) r
+  showList rs = showRules rs
 
 -------------------------------------------------------------------------
 
 instance AbstractCompFuncs (GenAMRhs p l) l where
   abstractCompFuncs abs (GenAMLetComputation c (ExtComp f args) r) = GenAMLetComputation c (ExtComp (abs f) args) r
   abstractCompFuncs _ t@(GenAMRhs _) = t
+
+
+-------------------------------------------------------------------------
+
+
+
+runGenAmRhs :: (Lang l, Matchable (GenAMState t l)) => GenAMRhs (GenAMState t) l -> Match (GenAMState t l)
+runGenAmRhs (GenAMLetComputation c f r) = do res <- runExtComp f
+                                             match (Pattern c) (Matchee res)
+                                             runGenAmRhs r
+runGenAmRhs (GenAMRhs p) = fillMatch p
+
+
+reduceFrame :: (Lang l) => GenAMState t l -> Match ()
+reduceFrame (GenAMState c (KPush (KInp i _) _) phase) = do
+  c' <- fillMatch c
+  match (Pattern i) (Matchee c')
+reduceFrame _ = return ()
+
+
+useGenAmRule :: (Lang l, Show (GenAMState t l), Matchable t) => NamedGenAMRule t l -> GenAMState t l -> Match (GenAMState t l)
+useGenAmRule (NamedGenAMRule nm (GenAMRule left right)) st = do
+    -- NOTE: I don't really know how to do higher-order matching, but I think what I did is reasonable
+    ---- The trick is the special match rule for Frame, which clears bound variables from the context.
+
+    debugM $ "Trying rule " ++ BS.unpack nm ++ " for state " ++ show st
+    match (Pattern left) (Matchee st)
+    reduceFrame left
+    debugM $ "LHS matched: " ++ BS.unpack nm
+    ret <- runGenAmRhs right
+    debugM $ "Rule succeeeded:" ++ BS.unpack nm
+    return ret
+
+
+stepGenAm :: (Lang l, Show (GenAMState t l), Matchable t) => NamedGenAMRules t l -> GenAMState t l -> Match (GenAMState t l)
+stepGenAm allRs st = go allRs
+  where
+    go []     = mzero
+    go (r:rs) = useGenAmRule r st `mplus` go rs

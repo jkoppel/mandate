@@ -40,7 +40,7 @@ type Configuration l = GConfiguration (RedState l) l
 -- This file is how we break the circular depnedence between Lang and Semantics
 -- Semantics are defined relative to a language, but
 
-class (Typeable l, Typeable (RedState l), Eq (CompFunc l), Eq (RedState l), Hashable (CompFunc l)) => LangBase l where
+class (Typeable l, Typeable (RedState l), Eq (CompFunc l), Eq (RedState l), Show (RedState l), Hashable (CompFunc l)) => LangBase l where
   type RedState l :: *
 
   -- TODO: Funcs/sideconds need to be able to depend on state
