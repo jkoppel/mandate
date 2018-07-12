@@ -11,10 +11,7 @@ module Semantics.PAM (
   , NamedPAMRule(..)
   , sosToPam
 
-  , pamEvaluationSequence'
   , pamEvaluationSequence
-
-  , pamEvaluationTreeDepth'
   , pamEvaluationTreeDepth
   , pamEvaluationTree
   , abstractPamCfg
@@ -146,14 +143,8 @@ stepPam rules st = runMatch $ useBaseRule st `mplus` stepGenAm rules st
 initPamState :: (Lang l) => Term l -> PAMState l
 initPamState t = PAMState (initConf t) KHalt Down
 
-pamEvaluationSequence' :: (Lang l) => NamedPAMRules l -> PAMState l -> IO [PAMState l]
-pamEvaluationSequence' rules st = transitionSequence (stepPam1 rules) st
-
 pamEvaluationSequence :: (Lang l) => NamedPAMRules l -> Term l -> IO [PAMState l]
-pamEvaluationSequence rules t = pamEvaluationSequence' rules (initPamState t)
-
-pamEvaluationTreeDepth' :: (Lang l, Num a, Eq a) => a ->  NamedPAMRules l -> PAMState l -> IO (Rose (PAMState l))
-pamEvaluationTreeDepth' depth rules state = transitionTreeDepth (stepPam rules) depth state
+pamEvaluationSequence rules t = transitionSequence (stepPam1 rules) (initPamState t)
 
 pamEvaluationTreeDepth :: (Lang l, Num a, Eq a) => a -> NamedPAMRules l -> Term l -> IO (Rose (PAMState l))
 pamEvaluationTreeDepth depth rules t = transitionTreeDepth (stepPam rules) depth (initPamState t)
