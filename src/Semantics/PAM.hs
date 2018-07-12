@@ -168,16 +168,8 @@ abstractPamCfg absFunc abs rules t = transitionGraph (liftM (map abs) . stepPam 
 
 ----------------------------
 
-instance (ValueIrrelevance (Configuration l), ValueIrrelevance (Context l)) => ValueIrrelevance (PAMState l) where
-  valueIrrelevance (PAMState conf ctx phase) = PAMState (valueIrrelevance conf) (valueIrrelevance ctx) phase
-
-
-instance AbstractCompFuncs (NamedPAMRule l) l where
-  abstractCompFuncs abs (NamedPAMRule nm r) = NamedPAMRule nm (abstractCompFuncs abs r)
-
-instance AbstractCompFuncs (PAMRule l) l where
-  abstractCompFuncs abs (PAM l r) = PAM l (abstractCompFuncs abs r)
-
+instance ValueIrrelevance Phase where
+  valueIrrelevance p = p
 
 -----------------------------
 
