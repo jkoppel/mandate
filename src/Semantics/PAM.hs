@@ -91,12 +91,12 @@ splitFrame :: (Lang l) => PosFrame l -> Context l -> IO (PAMRhs l, Context l, Ma
 splitFrame (KBuild c) k = return (GenAMRhs $ PAMState c k Up, k, Nothing)
 -- TODO: Why is this so ugly?
 splitFrame (KStepTo c f@(KInp i pf)) k = fromJust <$> (runMatchUnique $ do
-                                         i' <- refreshVars i
-                                         pf' <- fillMatch pf
-                                         let f' = KInp i' pf'
-                                         let cont = KPush f k
-                                         let cont' = KPush (KInp i' pf') k
-                                         return (GenAMRhs $ PAMState c cont Down, cont', Just (i, pf')))
+                                           i' <- refreshVars i
+                                           pf' <- fillMatch pf
+                                           let f' = KInp i' pf'
+                                           let cont = KPush f k
+                                           let cont' = KPush (KInp i' pf') k
+                                           return (GenAMRhs $ PAMState c cont Down, cont', Just (i, pf')))
 splitFrame (KComputation comp (KInp c pf)) k = do (subRhs, ctx, rest) <- splitFrame pf k
                                                   return (GenAMLetComputation c comp subRhs, ctx, rest)
 
