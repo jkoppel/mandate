@@ -20,6 +20,12 @@ import qualified Data.HashSet as S
 
 import Data.Hashable ( Hashable(..) )
 
+
+
+-- | A simple digraph, implemented as a map of nodes to edges.
+
+------------------------------------------------------------------------------------------------
+
 data GraphNode a = GraphNode { inDeg  :: !Int
                              , outDeg :: !Int
                              , edges  :: !(HashSet a)}
@@ -36,9 +42,12 @@ showsPrecNode' d n es s = showString "Node: " . showsPrec d n . showString "\n" 
 instance Show a => Show (Graph a) where
   showsPrec d (Graph edgeMap) = M.foldrWithKey (showsPrecNode' d) id edgeMap
 
+-- | Pretty-prints a graph in DFS order. This means that consecutive nodes in a CFG
+-- will tend to be printed in sequence.
 showDfsOrder :: (Eq a, Hashable a, Show a) => Graph a -> String
 showDfsOrder g = (foldr (\(x,n) s -> showsPrecNode' 0 x n s) id $ dfsOrder g) ""
 
+-- Used only by showDfsOrder
 dfsOrder :: (Eq a, Hashable a) => Graph a -> [(a, GraphNode a)]
 dfsOrder (Graph g) = execWriter $ evalStateT (mapM doDfs inspectOrder) S.empty
   where
@@ -63,6 +72,8 @@ empty = Graph M.empty
 newNode :: GraphNode a
 newNode = GraphNode 0 0 S.empty
 
+-- | `insert x y g` adds an edge from `x` to `y` in graph `g`. `x` and `y` do
+-- not need to be pre-existing nodes in the graph.
 insert :: (Eq a, Hashable a) => a -> a -> Graph a -> Graph a
 insert x y (Graph m) = Graph $ addEdge x y
                              $ incOutDeg x
@@ -76,6 +87,8 @@ insert x y (Graph m) = Graph $ addEdge x y
     addIfNotExists a b mp = M.insertWith (\_ x -> x) a b mp
     addEdge a b mp = M.adjust (\n -> n { edges = S.insert b (edges n)}) a mp
 
+
+-- | `member n graph` returns whether n is a node in `graph`
 member :: (Eq a, Hashable a) => a -> Graph a -> Bool
 member a = M.member a . getGraph
 

@@ -57,6 +57,8 @@ import Var
 
 -----------------------------------------------------------------------------------------------------------
 
+----------------------------- Signatures -------------------------------------
+
 -- Beware: Lists are not strict
 
 data Sort = Sort {-# UNPACK #-} !InternedByteString
@@ -109,12 +111,8 @@ sigNodeArity (StrSig  _ _   ) = 0
 data Signature l = Signature [SigNode]
   deriving ( Eq, Ord, Show, Generic )
 
--- Need a single Interned instance for all terms. This implies
--- that they must share a cache.
--- This is a special private token used to make things share a cache
--- Has the side effect that can have cache collisions
--- between the same term in different languages. (This is a feature, not a bug.)
-data AnyLanguage
+
+----------------------------- Terms -------------------------------------
 
 -- Rules of Val nodes:
 -- * May never be reduced
@@ -131,12 +129,27 @@ matchTypeCompat ValueOnly  NonvalOnly = False
 matchTypeCompat NonvalOnly ValueOnly  = False
 matchTypeCompat _          _          = True
 
-data Term l = TNode    !Id !Symbol [Term l]
-            | TVal     !Id !Symbol [Term l]
-            | TIntNode !Id !Symbol !Integer
-            | TStrNode !Id !Symbol !InternedByteString
-            | TMetaVar !Id !MetaVar !MatchType
-            | TStar    !Id !MatchType
+-- | Terms in language `l`. These should be syntactically valid according to the signature for language `l`
+-- of which only one should exist.
+--
+-- The `Id` field is used internally by the hash table; do not touch. Use the
+-- smart constructors defined below, which hide the Id.
+data Term l = TNode    !Id !Symbol [Term l]             -- A node which is not a normal form
+
+            | TVal     !Id !Symbol [Term l]             -- A value node, i.e.: does not contain any reducible expressions
+                                                        -- Corresponds to variables written "v" in blackboard presentations
+                                                        -- of semantics
+
+            | TIntNode !Id !Symbol !Integer             -- An integer. Ideally, would be a special case of `TVal`,
+                                                        -- but must be a distinct node to simplify matching
+
+            | TStrNode !Id !Symbol !InternedByteString  -- Like `TIntNode`, but for strings
+
+            | TMetaVar !Id !MetaVar !MatchType          -- A meta-syntactic variable. Closed terms do not have these.
+                                                        -- However, some closed syntactic objects (i.e.: continuations)
+                                                        -- do bind these and can thereby contain non-closed terms
+
+            | TStar    !Id !MatchType                   -- An abstract node.
 
 instance Show (Term l) where
   showsPrec d (TNode _ s ts) = showsPrec (d+1) s . showList ts
@@ -162,6 +175,21 @@ getId (TStrNode i _ _) = i
 getId (TMetaVar i _ _) = i
 getId (TStar    i _)   = i
 
+
+---------------------------- Generic terms -----------------------------------------
+
+-- Internal use only.
+-- A single unifying monotype for all terms. Used for compatibility with the hash-consing machinery
+-- (the "intern" library).
+
+
+-- We need a single Interned instance for all terms. This implies
+-- that they must share a cache.
+-- This is a special private token used to make things share a cache
+-- Has the side effect that can have cache collisions
+-- between the same term in different languages. (This is a feature, not a bug.)
+data AnyLanguage
+
 type GenericTerm = Term AnyLanguage
 
 -- I tried to get safe coercions working, but couldn't
@@ -173,12 +201,18 @@ fromGeneric :: GenericTerm -> Term l
 fromGeneric = unsafeCoerce
 
 
+------------------------------- Interning terms ---------------------------------
+
+-- This is boilerplate for hash-consing terms. See documentation and examples from Edward Kmett's
+-- "intern" library
+
 data UninternedTerm l = BNode Symbol [Term l]
                       | BVal  Symbol [Term l]
                       | BIntNode Symbol Integer
                       | BStrNode Symbol InternedByteString
                       | BMetaVar MetaVar MatchType
                       | BStar MatchType
+
 
 type GenericUninternedTerm = UninternedTerm AnyLanguage
 
@@ -232,6 +266,8 @@ termCache :: Cache GenericTerm
 termCache = mkCache
 {-# NOINLINE termCache #-}
 
+----------------------------- Smart constructors -------------------------------------
+
 
 pattern Node :: Symbol -> [Term l] -> Term l
 pattern Node s ts <- (TNode _ s ts) where
@@ -283,8 +319,9 @@ pattern GStar mt <- (TStar _ mt) where
   GStar mt  = fromGeneric $ intern $ toUGeneric (BStar mt)
 
 
-------------------------------------------------------------------------------------
+---------------------------------- Traversals --------------------------------------------------
 
+-- | Similar to `traverse` from the `Traversable` class, except that `Term` does not satisfy `Traversable`
 traverseTerm :: Monad m => (Term l -> m (Term l)) -> Term l -> m (Term l)
 traverseTerm f (Node s ts)      = f =<< (Node s <$> mapM (traverseTerm f) ts)
 traverseTerm f (Val  s ts)      = f =<< (Val  s <$> mapM (traverseTerm f) ts)
@@ -293,10 +330,13 @@ traverseTerm f t@(StrNode _ _)  = f t
 traverseTerm f t@(GMetaVar _ _) = f t
 traverseTerm f t@(GStar _)      = f t
 
+-- | Similar to `fmap`, except that `Term` is not a `Functor`
 mapTerm :: (Term l -> Term l) -> Term l -> Term l
 mapTerm f t = runIdentity (traverseTerm (Identity . f) t)
 
-------------------------------------------------------------------------------------
+---------------------------------------- Sort-checking  --------------------------------------------
+
+-- | `checkSig` checks that a signature only contains sorts from the given list
 
 -- I feel like a hypocrite using string constants in signature definitions.
 -- The reason is that I really don't want to give a non-capitalized name
@@ -315,15 +355,18 @@ checkSig sorts (Signature sigs) = map checkNodeSig sigs `deepseq` ()
     checkNodeSig (StrSig  _    s) = checkSort s `deepseq` ()
 
 
+-- private helper
 -- If want the language in error messages, can add Typeable constraints and show the TypeRep
 getInSig :: Signature l -> Symbol -> SigNode
 getInSig (Signature sig) s = case find (\n -> sigNodeSymbol n == s) sig of
                            Just n -> n
                            Nothing -> error ("Cannot find symbol " ++ show s ++ " in signature " ++ show sig)
 
+-- private helper
 sortForSym :: Signature l -> Symbol -> Sort
 sortForSym sig s = sigNodeSort $ getInSig sig s
 
+-- private helper
 -- Metavars/stars are currently unsorted / can have any sort
 sortOfTerm :: Signature l -> Term l -> Maybe Sort
 sortOfTerm sig (Node    sym _) = Just $ sortForSym sig sym
@@ -333,6 +376,8 @@ sortOfTerm sig (StrNode sym _) = Just $ sortForSym sig sym
 sortOfTerm sig (GMetaVar _ _)  = Nothing
 sortOfTerm sig (GStar _)       = Nothing
 
+
+-- | Checks that a term is syntactically valid according to the given signature
 sortCheckTerm :: Signature l -> Term l -> Sort -> ()
 sortCheckTerm sig t sort =
   case sortOfTerm sig t of
@@ -371,7 +416,7 @@ checkTerm sig (GStar _)       = ()
 checkTerm _   (GMetaVar _ _)  = ()
 
 
------------------------------------------------------------------------------------------------------
+------------------------------------------- Code generation ----------------------------------------------------------
 
 charToString :: Char -> String
 charToString = (:[])

@@ -18,7 +18,12 @@ import Data.Hashable ( Hashable(..) )
 import MatchEffect
 import Term
 
--- These really should be in Configuration, but.....breaking circular dependencies
+--------------------------------------------------------------------------------------------------------
+
+-- | The 'LangBase' typeclass contains information associated with a language that do not involve configurations
+-- or semantics. Most modules should rely on 'Lang' instead.
+
+-- The following definitions really should be in Configuration, but.....breaking circular dependencies
 
 data GConfiguration s l where
   Conf :: Typeable s => Term l -> s -> GConfiguration s l
@@ -35,18 +40,34 @@ confTerm (Conf t _) = t
 confState :: GConfiguration s l -> s
 confState (Conf _ s) = s
 
+-- | The configuration
 type Configuration l = GConfiguration (RedState l) l
 
--- This file is how we break the circular depnedence between Lang and Semantics
+-- This file is how we break the circular dependence between Lang and Semantics
 -- Semantics are defined relative to a language, but
 
 class (Typeable l, Typeable (RedState l), Eq (CompFunc l), Eq (RedState l), Show (RedState l), Hashable (CompFunc l)) => LangBase l where
+  -- | The "reduction state" of all extra information that is maintained about a program when executing it.
+  -- E.g.: the mutable store, installed exception handlers, etc
   type RedState l :: *
 
-  -- TODO: Funcs/sideconds need to be able to depend on state
+
+  -- | A defunctionalized representation of all semantic/"meta-level" functions associated with a language.
+  --
+  -- For instance, in a language with addition/multiplication, the syntactic "+" and "*" nodes will likely be implemented
+  -- using Haskell's meta-level addition and multiplication operators. The language implementation may define CompFunc
+  -- to have constructors "AddOp" and "MulOp", and define them separately by implementing `runCompFunc`.
+  -- This way, SOS rules may be given entirely as first-order terms (no lambdas).
+  --
+  -- Note that all semantics functions must be well-behaved when given abstract terms
+
   data CompFunc l
+
+  -- | Gives a human-readable name for the input meta-level operations. Used when displaying rules.
   compFuncName :: CompFunc l -> ByteString
 
+  -- TODO: Funcs need to be able to depend on state
+  -- |
   runCompFunc  :: CompFunc l -> [Term l] -> MatchEffect (Configuration l)
 
 instance LangBase l => Show (CompFunc l) where
