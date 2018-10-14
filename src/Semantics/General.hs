@@ -22,6 +22,9 @@ import LangBase
 import Matching
 import Term
 
+
+------------------------------- External / meta-level computations ---------------------------------------
+
 data ExtComp l = ExtComp (CompFunc l) [Term l]
   deriving ( Generic )
 
