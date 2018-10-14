@@ -40,7 +40,9 @@ confTerm (Conf t _) = t
 confState :: GConfiguration s l -> s
 confState (Conf _ s) = s
 
--- | The configuration
+-- | The configuration is the object of the transition system defined by
+-- a language's semantics. It contains a term together with the extra information
+-- (i.e.: environment) computed and transformed when running a program.
 type Configuration l = GConfiguration (RedState l) l
 
 -- This file is how we break the circular dependence between Lang and Semantics

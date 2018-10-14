@@ -30,13 +30,23 @@ import Data.Hashable ( Hashable(..) )
 import LangBase
 import Var
 
-------------------------------------------------------------------------------------------------------------------
+
+-- | Combining terms with the auxiliary state for the language
+--
+-- The core datatypes of this file are GConfiguration and Configuration. However, for reasons of avoiding
+-- circular dependencies, these are actually defined in LangBase.hs
+
+------------------------------------------ Pretty-printing ---------------------------------------------------------
+
 
 data EmptyState = EmptyState
   deriving ( Eq, Ord, Show, Generic )
 
 instance Hashable EmptyState
 
+-- For languages with no additional state in their configuration, we want to display
+-- the configuration as foo(a,b), not as (foo(a,b) ; empty state).
+--
 -- Look ma! No overlapping instances.
 -- Unfortunately, this is not quite enough to avoid the need to use StandaloneDeriving all over.
 -- Need more dedicated OO techniques for that.
@@ -46,6 +56,18 @@ instance (Show s) => Show (GConfiguration s l) where
                              Nothing -> showString "(" . showsPrec d t . showString "; " . showsPrec d s . showString ")"
 
 
+------------------------------------------ SimpEnv ---------------------------------------------------------
+
+
+-- | A simple representation of environments (e.g.: for local variables) in semantics.
+-- A closed `SimpEnv` is a map of variable names to values. An open one may have
+-- meta-variables in value position, but not in key position. Most importantly, in open `SimpEnv`'s, there
+-- may be at most one ACI (associative/commutative/idempotent) metavariable.
+-- So, an open `SimpEnv` can represent terms like  "Gamma, x : a" often found in blackboard descriptions of semantics.
+--
+-- Note that "more open" `SimpEnv`'s with meta-variables in key position may appear, but, if matched,
+-- will be treated as fixed terms.
+--
 -- Strictly speaking, a real ACI map should be designed in a way so that you could match Gamma1, Gamma2 against an env,
 -- and it would try all possible decompositions. However, that seems slow, plus I haven't written it in a way
 -- where you could do backtracking on matches (though the API supports it). Really, I don't think you want to be
@@ -56,6 +78,7 @@ data SimpEnv a b where
 
 deriving instance (Eq a, Eq b) => Eq (SimpEnv a b)
 
+-- | The portion of a `SimpEnv` which does not contain any ACI variables
 data SimpEnvMap a b where
   SimpEnvMap :: (Ord a, Eq b) => Map a b -> SimpEnvMap a b
 
@@ -63,6 +86,10 @@ deriving instance (Eq a, Eq b) => Eq (SimpEnvMap a b)
 
 getSimpEnvMap :: SimpEnvMap a b -> Map a b
 getSimpEnvMap (SimpEnvMap m) = m
+
+
+--------------------- SimpEnv: Smart constructors ----------------------
+
 
 pattern EmptySimpMap :: () => (Ord a, Eq b) => SimpEnvMap a b
 pattern EmptySimpMap <- SimpEnvMap (Map.null -> True) where
@@ -81,7 +108,7 @@ pattern WholeSimpEnv v = SimpEnvRest v EmptySimpMap
 pattern AssocOneVal :: () => (Ord a, Eq b, Typeable a, Typeable b) => MetaVar -> a -> b -> SimpEnv a b
 pattern AssocOneVal v a b = SimpEnvRest v (SingletonSimpMap a b)
 
--- TODO: Intern
+--------------------- SimpEnv: Pretty printing / hashing ----------------------
 
 
 instance (Show a, Show b) => Show (SimpEnvMap a b) where
@@ -105,3 +132,5 @@ instance (Hashable a, Hashable b) => Hashable (SimpEnvMap a b) where
 instance (Hashable a, Hashable b) => Hashable (SimpEnv a b) where
   hashWithSalt s (SimpEnvRest v m) = s `hashWithSalt` v `hashWithSalt` m
   hashWithSalt s (JustSimpMap m)   = s `hashWithSalt` m
+
+-- TODO: Hash-cons SimpEnv

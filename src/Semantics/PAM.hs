@@ -43,6 +43,9 @@ import Term
 import TransitionSystem
 import Var
 
+
+----------------------------- PAM rule type ----------------------------------
+
 data Phase = Up | Down
   deriving (Eq, Ord, Generic)
 
@@ -71,6 +74,8 @@ type PAMRhs = GenAMRhs PAMState
 type PAMRule = GenAMRule Phase
 type NamedPAMRule = NamedGenAMRule Phase
 
+------------------------------- Smart constructors and abbreviations ------------------------------
+
 pattern PAM :: PAMState l -> PAMRhs l -> PAMRule l
 pattern PAM left right = GenAMRule left right
 
@@ -82,11 +87,18 @@ namePAMRule = NamedPAMRule
 
 type NamedPAMRules l = [NamedPAMRule l]
 
+----------------------------------- Helpers for SOS-to-PAM conversion -------------------------------
+
 type InfNameStream = [ByteString]
 
 infNameStream :: ByteString -> InfNameStream
 infNameStream nam = map (\i -> mconcat [nam, "-", BS.pack $ show i]) [1..]
 
+
+----------------------------------- SOS to PAM conversion --------------------------------------------
+
+-- | Strips off the first layer of nesting in a context. All computation up to the first
+-- KStepTo is converted into a PAM RHS. The remainder, if any, is returned for further conversion into the next rule.
 splitFrame :: (Lang l) => PosFrame l -> Context l -> IO (PAMRhs l, Context l, Maybe (Configuration l, PosFrame l))
 splitFrame (KBuild c) k = return (GenAMRhs $ PAMState c k Up, k, Nothing)
 -- TODO: Why is this so ugly?
@@ -121,7 +133,7 @@ sosToPam :: (Lang l) => NamedRules l -> IO (NamedPAMRules l)
 sosToPam rs = concat <$> mapM sosRuleToPam rs
 
 
--------------------------------------------------------------------------------------------------------
+------------------------------- Single-stepping PAM rules -----------------------------------------------------
 
 
 -- We can't quite make this a normal PAM rule because you can't match on an arbitrary configuration
@@ -141,6 +153,8 @@ stepPam rules st = runMatch $ useBaseRule st `mplus` stepGenAm rules st
 
 initPamState :: (Lang l) => Term l -> PAMState l
 initPamState t = PAMState (initConf t) KHalt Down
+
+--------------------------------- PAM executions --------------------------------------------
 
 pamEvaluationSequence :: (Lang l) => NamedPAMRules l -> Term l -> IO [PAMState l]
 pamEvaluationSequence rules t = transitionSequence (stepPam1 rules) (initPamState t)
