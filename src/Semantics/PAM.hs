@@ -103,7 +103,7 @@ splitFrame :: (Lang l) => PosFrame l -> Context l -> IO (PAMRhs l, Context l, Ma
 splitFrame (KBuild c) k = return (GenAMRhs $ PAMState c k Up, k, Nothing)
 -- TODO: Why is this so ugly?
 splitFrame (KStepTo c f@(KInp i pf)) k = fromJust <$> (runMatchUnique $ do
-                                           i' <- refreshVars i
+                                           i' <- withVarAllocator mkNegativeVarAllocator $ refreshVars i
                                            pf' <- fillMatch pf
                                            let f' = KInp i' pf'
                                            let cont = KPush f k
