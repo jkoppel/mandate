@@ -39,7 +39,6 @@ module Term (
 import Control.DeepSeq ( deepseq )
 import Control.Monad ( (=<<) )
 import Control.Monad.Identity ( Identity(..) )
-import Control.Monad.Writer
 
 import Data.Function ( on )
 import Data.List ( intersperse, find )
