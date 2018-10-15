@@ -10,8 +10,6 @@ module Semantics.General (
 import Control.Monad ( guard )
 import Data.Foldable ( fold )
 import Data.List ( intersperse )
-import Data.Set ( Set )
-import qualified Data.Set as Set
 
 import GHC.Generics ( Generic )
 
@@ -23,6 +21,9 @@ import Configuration
 import LangBase
 import Matching
 import Term
+
+
+------------------------------- External / meta-level computations ---------------------------------------
 
 data ExtComp l = ExtComp (CompFunc l) [Term l]
   deriving ( Generic )

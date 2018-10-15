@@ -23,8 +23,18 @@ import Semantics.SOS
 import Term
 import Var
 
--- TODO: Intern
 
+-- | Contexts / continuations. These correspond to the "K" in a CEK machine.
+-- They are constructed from the suffix of an SOS rule.
+--
+-- A context is composed of a sequence of frames. Each frame corresponds to a step of computation,
+-- whose result will be passed to the next frame.
+
+
+---------------------------------------
+
+
+-- | The positive part of a frame, i.e.: no binders on the outside
 data PosFrame l = KBuild  !(Configuration l)
                 | KStepTo !(Configuration l) !(Frame l)
                 | KComputation !(ExtComp l) !(Frame l)
@@ -32,22 +42,35 @@ data PosFrame l = KBuild  !(Configuration l)
 
 deriving instance (Eq (Configuration l), LangBase l) => Eq (PosFrame l)
 
+-- | A frame awaits the result of some computation as input, binds it to a variable, and
+-- then performs another computation.
+--
+-- `KInp c p` is displayed as `[\c -> p]`
+--
+--
 -- Rule for frames: all PosFrame's may have no free variables except those bound by a surrounding KInp
-data Frame l = KInp !(Configuration l) !(PosFrame l)
+data Frame l = KInp !(Configuration l) -- this is a binder
+                    !(PosFrame l)
   deriving ( Generic )
 
 deriving instance (Eq (Configuration l), LangBase l) => Eq (Frame l)
 
+
 data Context l = KHalt
                | KPush !(Frame l) !(Context l)
-               | KVar !MetaVar
+               | KVar !MetaVar                  -- E.g.: the "K" in the pattern `[\x -> x +5 ] . K`
   deriving ( Generic )
+
+
+--------------------------------------- Equality, printing, hashing ------------------------------------------
 
 deriving instance (Eq (Configuration l), LangBase l) => Eq (Context l)
 
 instance (Hashable (Configuration l), LangBase l) => Hashable (PosFrame l)
 instance (Hashable (Configuration l), LangBase l) => Hashable (Frame l)
 instance (Hashable (Configuration l), LangBase l) => Hashable (Context l)
+
+-- TODO: Intern
 
 instance (Show (Configuration l), LangBase l) => Show (PosFrame l) where
   showsPrec d (KBuild t) = showsPrec (d+1) t
@@ -65,10 +88,17 @@ instance (Show (Configuration l), LangBase l) => Show (Context l) where
   showsPrec d (KPush f c) = showsPrec d f . showString "." . showsPrec d c
   showsPrec d (KVar v) = showsPrec d v
 
+----------------------------------- Constructing contexts -------------------------------
+
+-- | Performs a CPS conversion of on SOS RHS into a context.
+-- Since our SOS rules are already essentially in A-normal form, this is easy.
 rhsToFrame :: (LangBase l) => Rhs l -> PosFrame l
-rhsToFrame (Build c)                     = KBuild c
-rhsToFrame (LetStepTo out arg rhs')      = KStepTo arg (KInp out (rhsToFrame rhs'))
-rhsToFrame (LetComputation out comp rhs) = KComputation comp (KInp out (rhsToFrame rhs))
+rhsToFrame (Build c)                      = KBuild c
+rhsToFrame (LetStepTo out arg rhs')       = KStepTo arg (KInp out (rhsToFrame rhs'))
+rhsToFrame (LetComputation out comp rhs') = KComputation comp (KInp out (rhsToFrame rhs'))
+
+
+-------------------------------------- Matching ------------------------------------------
 
 instance (LangBase l, Matchable (Configuration l)) => Matchable (PosFrame l) where
   getVars (KBuild       c  ) = getVars c

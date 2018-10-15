@@ -5,6 +5,7 @@ module Matching (
   , refreshVar
   , Match
   , runMatch
+  , runMatchFirst
   , runMatchUnique
 
   , Pattern(..)
@@ -32,7 +33,7 @@ import Data.Set ( Set )
 import qualified Data.Set as Set
 import Data.Typeable ( Typeable )
 
-import Control.Monad.Logic ( LogicT(..), observeAllT )
+import Control.Monad.Logic ( LogicT(..), runLogicT, observeAllT )
 
 import Configuration
 import Debug
@@ -58,7 +59,7 @@ import Var
 ------ Then, abstractMatch has type:  Pattern x -> y -> m (Pattern x -> m y), satisfying:
 ------         (gamma <$> (abstractMatch p1 (alpha t) <*> p2)) >= (match p1 t <*> p2)
 ------
------- I haven't read the paper on Galois transformers.....but I think m might need to be one. At leat, it should be
+------ I haven't read the paper on Galois transformers.....but I think match might need to be one. At leat, it should be
 ------ an endofunctor on the category of lattices (i.e.: preserves monotone maps).
 ------
 ------ An example of abstract terms: terms where some subtrees have been replaced with variables, together with logical
@@ -78,7 +79,7 @@ import Var
 ------
 ------ To extend my current implementation to the more arbitrary abstractions, I need to: make pattern/matchee types
 ------ truly distinct (make Matchable take a "p" parameter probably, and merge match/fillMatch into the match given above
------- for type-inference reasons), and.....I think that's it. So, it's basically a mattern of rewriting the matchers
+------ for type-inference reasons), and.....I think that's it. So, it's basically a matter of rewriting the matchers
 ------ + tweaking the callers. At the present level of design, I do not see anything that makes this change much harder
 ------ to do later vs. now.
 ------
@@ -174,11 +175,14 @@ modMatchState :: (Map MetaVar Dynamic -> Map MetaVar Dynamic) -> MatchState -> M
 modMatchState f (MatchState m) = MatchState $ f m
 
 
--- Maybe is on inside; means state will reset on backtrack
+-- LogicT is on inside; means state will reset on backtrack
 type Match = StateT MatchState (LogicT IO)
 
 runMatch :: Match a -> IO [a]
 runMatch m = observeAllT $ evalStateT m (MatchState Map.empty)
+
+runMatchFirst :: Match a -> IO (Maybe a)
+runMatchFirst m = runLogicT (evalStateT m (MatchState Map.empty)) (const . return . Just) (return Nothing)
 
 runMatchUnique :: Match a -> IO (Maybe a)
 runMatchUnique m = do xs <- runMatch m
@@ -248,15 +252,20 @@ newtype Pattern f = Pattern f
 
 -- NOTE: I think I need to write SYB/Uniplate infrastructure for vars-containing terms
 class (Show f) => Matchable f where
+  -- | Returns all meta-syntactic variables contained in an `f`
   getVars :: f -> Set MetaVar
 
-  -- TODO: Review these preconditions; I think some no longer hold
+  -- | `match p m` matches the pattern p against m in the current match context.
+  -- It uses the failure effect on failure. On success, it binds all metavars in `p` to the corresponding subterms
+  -- of `m`.
+  --
+  --
   -- Extra precondition:
   -- Variables in an open term may be in "template" or "pattern" position. This distinction is not made syntactially.
   -- Currently, the only example of a template variable is the LHSs of bindings in SimpEnvMap.
   --
-  -- Prior to calling match, all template variables must be filled in, either because there were none, or
-  -- by calling partiallyFillMatch. This includes recursive calls to match in match instances.
+  -- Prior to calling match, all template variables should be filled in, either because there were none, or
+  -- by calling fillMatch. This includes recursive calls to match in match instances.
   --
 
   -- While you can call (match t1 t2) where t2 is open, if you do, all variables in t2 will be considered closed,
@@ -264,7 +273,33 @@ class (Show f) => Matchable f where
   -- the term f(x,y) will not match the pattern f(z,z).
   match :: (MonadMatchable m) => Pattern f -> Matchee f -> m ()
 
+  -- | Renames all meta-syntactic variables in the argument with newly allocated variables
+  --
+  -- This is used when wrapping a term inside a binder, to prevent the bound variable from shadowing
+  -- existing variables. It is particularly used when converting an SOS rule to PAM rules. Consider the following SOS rule:
+  --
+  --    plus-cong-1:
+  --    step(+(0t, 1)) = let 2 = step(0t) in +(2, 1)
+  --
+  -- Naively, it would be converted into the following two PAM rules:
+  --
+  --   plus-cong-1-1:
+  --   <+(0t, 1) | 9> down  ---->  <0t | [\2 -> +(2, 1)].3> down
+  --
+  --   plus-cong-1-2:
+  --    <2 | [\2 -> +(2, 1)].3> up  ---->  <+(2, 1) | 3> up
+  --
+  -- This is problematic, because the bound variable "2" in the context on the LHS shadows the variable "2"
+  -- used to match the term. Instead, a new name is generated for the bound variable, yielding the following PAM rule:
+  --
+  --   plus-cong-1-2:
+  --    <2 | [\4 -> +(4, 1)].3> up  ---->  <+(2, 1) | 3> up
   refreshVars :: (MonadMatchable m) => f -> m f
+
+  -- | Replaces all metavariables in the argument with their matched values in the current match context
+  --
+  -- If all metavariables in the argument have been bound, then the return value
+  -- will be closed
   fillMatch :: (MonadMatchable m) => f -> m f
 
 matchList :: (Matchable f, MonadMatchable m) => Pattern [f] -> Matchee [f] -> m ()
@@ -351,7 +386,16 @@ instance Matchable EmptyState where
   refreshVars EmptyState = return EmptyState
   fillMatch EmptyState = return EmptyState
 
--- Description: We implemented a restricted version of ACI
+instance Matchable () where
+  getVars () = Set.empty
+  match _ _ = return ()
+  refreshVars () = return ()
+  fillMatch () = return ()
+
+
+-------------------------------------- Matching on SimpEnv ------------------------------------------
+
+-- | Description: We implemented a restricted version of ACI
 -- matching specialized to the kinds of patterns used in operational semantics,
 -- e.g.: \Gamma, x=v. Our implementation imposes the following restrictions:
 -- the match pattern must be linear, all but one pattern variable may only match one element,
@@ -377,8 +421,6 @@ mapKeysM f mp = Map.fromList <$> traverse (\(k,v) -> (,v) <$> f k) (Map.toList m
 
 -- |
 -- Important notes on matching maps:
---  partiallyFillMatch will not touch "Rest" variables
---  Also cannot refresh rest vars.
 --
 -- If you fail to close all keys before matching, then you'll get weird behavior
 
@@ -399,6 +441,7 @@ instance (Matchable a, Matchable b) => Matchable (SimpEnvMap a b) where
   fillMatch   (SimpEnvMap m) = SimpEnvMap <$> (mapKeysM fillMatch   =<< mapM fillMatch   m)
 
 
+-- | Used as a hint to type inference
 declareTypesEq :: (Monad m) => a -> a -> m ()
 declareTypesEq _ _ = return ()
 

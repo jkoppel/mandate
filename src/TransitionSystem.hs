@@ -20,7 +20,19 @@ import Graph ( Graph )
 import qualified Graph as Graph
 import Rose
 
+-- | Functions in this file are used to construct all reachable states
+-- from some start under a "step" function that returns all successor states.
+-- Functions are available for graphs, trees, and (for deterministic systems) sequences.
+--
+-- This is used to take our various formulations of semantics, which each define one step,
+-- and use them to execute a program fully.
 
+
+-- | Similar to `transitionTree`, but merges repeated states. Especially important for cyclic transition systems.
+--
+-- Cyclic transition systems include nonterminating programs and (most importantly)
+-- abstracted non-cyclic systems. I.e.: if the concrete executions of a program
+-- form a tree, its abstract executions will form a graph, namely a control-flow graph
 transitionGraph :: (Eq a, Hashable a, Monad m) => (a -> m [a]) -> a -> m (Graph a)
 transitionGraph step start = fst <$> execStateT (go [start]) (Graph.empty, S.empty)
   where

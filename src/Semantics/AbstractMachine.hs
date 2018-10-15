@@ -1,70 +1,85 @@
-{-# LANGUAGE DeriveGeneric, FlexibleContexts, FlexibleInstances, MultiParamTypeClasses, OverloadedStrings, UndecidableInstances #-}
+{-# LANGUAGE FlexibleContexts, FlexibleInstances, MultiParamTypeClasses, OverloadedStrings, PatternSynonyms, UndecidableInstances #-}
 
 
 module Semantics.AbstractMachine (
+    AMState
+  , pattern AMState
+  , AMRhs
+  , AMRule
+  , NamedAMRule
+  , pattern AM
+  , pattern NamedAMRule
+  , nameAMRule
+  , NamedAMRules
 
+  , amEvaluationSequence
+  , amEvaluationTreeDepth
+  , amEvaluationTree
+
+  , abstractAmCfg
   ) where
 
-import Control.Monad ( MonadPlus(..), liftM )
-import Data.Maybe ( fromJust, listToMaybe )
-import Data.Monoid ( Monoid(..), )
-import Data.Set ( Set )
-import qualified Data.Set as Set
-
-import GHC.Generics ( Generic )
+import Control.Monad ( liftM )
 
 import Data.ByteString.Char8 ( ByteString )
-import qualified Data.ByteString.Char8 as BS
-import Data.Hashable ( Hashable )
 
 import Configuration
-import Debug
 import Graph
 import Lang
 import Matching
 import Rose
 import Semantics.Abstraction
 import Semantics.Context
-import Semantics.General
 import Semantics.GeneralMachine
-import Semantics.SOS
 import Term
 import TransitionSystem
-import Var
 
--- TODO: Define PAMState by delegating to AMState....or the Haskell version of such
+---------------------------------------------------------------------
 
-data AMState l = AMState { amConf  :: Configuration l
-                         , amK     :: Context l
-                         }
-  deriving ( Eq, Generic )
+type AMState = GenAMState ()
 
-instance (Lang l) => Hashable (AMState l)
-
-instance (Lang l) => Matchable (AMState l) where
-  getVars (AMState c k) = getVars c `Set.union` getVars k
-  match (Pattern (AMState c1 k1)) (Matchee (AMState c2 k2)) = match (Pattern c1) (Matchee c2) >> match (Pattern k1) (Matchee k2)
-  match _ _ = mzero
-  refreshVars (AMState c k) = AMState <$> refreshVars c <*> refreshVars k
-  fillMatch   (AMState c k) = AMState <$> fillMatch   c <*> fillMatch   k
-
-instance (Show (Configuration l), Show (Context l)) => Show (AMState l) where
-  showsPrec d (AMState c k) = showString "<" . showsPrec d c . showString " | " .
-                              showsPrec d k . showString "> "
+pattern AMState :: Configuration l -> Context l -> AMState l
+pattern AMState c k = GenAMState c k ()
 
 type AMRhs = GenAMRhs AMState
 
-data AMRule l = AM { amBefore :: AMState l
-                   , amAfter  :: AMRhs l
-                   }
+type AMRule = GenAMRule ()
+type NamedAMRule = NamedGenAMRule ()
 
-instance (Show (Configuration l), LangBase l) => Show (AMRule l) where
-  showsPrec d (AM before after) = showsPrec d before . showString "  ---->  " . showsPrec d after
+pattern AM :: AMState l -> AMRhs l -> AMRule l
+pattern AM left right = GenAMRule left right
 
-data NamedAMRule l = NamedAMRule { amRuleName :: ByteString
-                                 , getAMRule  :: AMRule l
-                                 }
+pattern NamedAMRule :: ByteString -> AMRule l -> NamedAMRule l
+pattern NamedAMRule s r = NamedGenAMRule s r
 
-instance (Show (Configuration l), LangBase l) => Show (NamedAMRule l) where
-  showsPrec d (NamedAMRule nm r) = showString (BS.unpack nm) . showString ":\n" . showsPrec (d+1) r
-  showList rs = showRules rs
+nameAMRule :: ByteString -> AMRule l -> NamedAMRule l
+nameAMRule = NamedAMRule
+
+type NamedAMRules l = [NamedAMRule l]
+
+-------------------------------------------------------------------------------------------------------
+
+stepAm1 :: (Lang l) => NamedAMRules l -> AMState l -> IO (Maybe (AMState l))
+stepAm1 rules st = runMatchFirst $ stepGenAm rules st
+
+stepAm :: (Lang l) => NamedAMRules l -> AMState l -> IO [AMState l]
+stepAm rules st = runMatch $ stepGenAm rules st
+
+initAmState :: (Lang l) => Term l -> AMState l
+initAmState t = AMState (initConf t) KHalt
+
+amEvaluationSequence :: (Lang l) => NamedAMRules l -> Term l -> IO [AMState l]
+amEvaluationSequence rules t = transitionSequence (stepAm1 rules) (initAmState t)
+
+amEvaluationTreeDepth :: (Lang l, Num a, Eq a) => a -> NamedAMRules l -> Term l -> IO (Rose (AMState l))
+amEvaluationTreeDepth depth rules t = transitionTreeDepth (stepAm rules) depth (initAmState t)
+
+amEvaluationTree :: (Lang l) => NamedAMRules l -> Term l -> IO (Rose (AMState l))
+amEvaluationTree rules t = transitionTree (stepAm rules) (initAmState t)
+
+----------------------------
+
+abstractAmCfg :: (Lang l) => Abstraction (CompFunc l) -> Abstraction (AMState l) -> NamedAMRules l -> Term l -> IO (Graph (AMState l))
+abstractAmCfg absFunc abs rules t = transitionGraph (liftM (map abs) . stepAm (map (abstractCompFuncs absFunc) rules)) (abs $ initAmState t)
+
+-----------------------------
