@@ -335,14 +335,6 @@ traverseTerm f t@(GStar _)      = f t
 mapTerm :: (Term l -> Term l) -> Term l -> Term l
 mapTerm f t = runIdentity (traverseTerm (Identity . f) t)
 
--- Example traverseTerm useage:
-findConsts :: Term t -> Writer [Integer] ()
-findConsts = void . traverseTerm findConstsInner
-  where
-    findConstsInner :: Term t -> Writer [Integer] (Term t)
-    findConstsInner t@(IntNode _ n) = tell [n] >> return t
-    findConstsInner t = return t
-
 ---------------------------------------- Sort-checking  --------------------------------------------
 
 -- | `checkSig` checks that a signature only contains sorts from the given list
