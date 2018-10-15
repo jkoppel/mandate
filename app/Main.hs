@@ -7,7 +7,8 @@ import Data.List
 import Lang
 import Semantics.SOS
 
-import Languages.Add
+-- import Languages.Add
+import Languages.AddMul
 import Languages.Lockstep
 import Languages.MITScript.Parse
 import Languages.MITScript.Signature

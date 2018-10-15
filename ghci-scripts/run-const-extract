@@ -1,0 +1,9 @@
+:set -XOverloadedStrings
+:set -XTypeApplications
+:l Languages.Imp
+import Control.Monad.Writer
+runWriter $ findConsts term1
+:l Languages.Add
+runWriter $ findConsts term1
+:l Languages.Lockstep
+runWriter $ findConsts term1
