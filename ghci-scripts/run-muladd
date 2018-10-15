@@ -1,12 +1,11 @@
 :set -XOverloadedStrings
 :set -XTypeApplications
-:l Languages.Add
+:l Languages.AddMul
 import Control.DeepSeq
 import Configuration
-import Graph
 import Rose
 import Semantics.PAM
 import Term
-rules <- addLangRules
+rules <- addMulLangRules
 pamRules <- sosToPam rules
 putStrLn "Try this: evaluationSequenceL (initConf term1) >>= mapM_ (putStrLn.show)"
