@@ -34,7 +34,6 @@ module Term (
 
 , checkSig
 , checkTerm
-, findConsts
 ) where
 
 import Control.DeepSeq ( deepseq )
