@@ -1,0 +1,14 @@
+:set -XOverloadedStrings
+:set -XTypeApplications
+:l Languages.MITScript.Semantics
+import Control.DeepSeq
+import Configuration
+import Graph
+import Rose
+import Semantics.PAM
+import Term
+rules <- mitScriptRules
+pamRules <- sosToPam rules
+eval term = evaluationSequenceL (initConf term) >>= mapM_ (putStrLn.show)
+interpret file = do x <- parseFile file; eval (toGeneric x :: Term MITScript)
+putStrLn "Try this: interpret [file]"
