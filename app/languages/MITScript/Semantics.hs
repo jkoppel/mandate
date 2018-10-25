@@ -2,8 +2,7 @@
 
 
 module Languages.MITScript.Semantics (
-    MITScript,
-    run
+    MITScript
   ) where
 
 import Prelude hiding ( True, False, LT, GT )
@@ -208,20 +207,3 @@ mitScriptRules = sequence [
             (LetComputation (initConf $ ValVar v') (ExtComp RunOr [vv1, vv2])
             (Build $ conf vv' mu))
     ]
-
-term1 :: Term MITScript
-term1 = Block $
-    ConsStmt
-        (Assign
-            (Var (Name "x"))
-            (BinExp (NumConst (ConstInt 3)) PLUS ( NumConst (ConstInt 5))))
-        (ConsStmt
-            (Assign
-                (Var (Name "y"))
-                (BinExp (Var (Name "x")) PLUS ( NumConst (ConstInt 5))))
-            NilStmt)
-
-run :: FilePath -> IO (Term MITScript)
-run s = do
-    x <- parseFile s;
-    return $ toGeneric x
