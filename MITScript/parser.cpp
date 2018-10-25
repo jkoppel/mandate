@@ -99,14 +99,14 @@ extern int yydebug;
 #include <iostream>
 #include <string>
 #define YY_DECL int yylex (YYSTYPE* yylval, YYLTYPE * yylloc, yyscan_t yyscanner)
-#ifndef FLEX_SCANNER
+#ifndef FLEX_SCANNER 
 #include "lexer.h"
-#endif
+#endif 
 
 using namespace std;
 
 //The macro below is used by bison for error reporting
-//it comes from stacck overflow
+//it comes from stacck overflow 
 //http://stackoverflow.com/questions/656703/how-does-flex-support-bison-location-exactly
 #define YY_USER_ACTION \
     yylloc->first_line = yylloc->last_line; \
@@ -168,7 +168,7 @@ union YYSTYPE
 	Expression*  expr;
 	vector<string>* namelist;
 	vector<pair<string, ptr<Expression> > >* fieldlist;
-	vector<ptr<Statement> >* slist;
+	vector<ptr<Statement> >* slist; 
 	vector<ptr<Expression> >* elist;
 	pair<BinaryOperator, Expression* >* labeledExpression;
 //end_student_code
@@ -1475,10 +1475,10 @@ yyreduce:
     {
         case 2:
 #line 147 "parser.yy" /* yacc.c:1663  */
-    {
+    {  
         (yyval.stmt) = // assign a new block to $$.
 //begin_student_code
-            new sBlock(*(yyvsp[0].slist)); delete (yyvsp[0].slist);
+            new sBlock(*(yyvsp[0].slist)); delete (yyvsp[0].slist); 
 //end_student_code
 // and make sure the out variable is set, because that is what main is going to read.
 out = (yyval.stmt); }
@@ -1493,8 +1493,8 @@ out = (yyval.stmt); }
 
   case 4:
 #line 158 "parser.yy" /* yacc.c:1663  */
-    {
-		auto list = (yyvsp[0].slist);
+    { 
+		auto list = (yyvsp[0].slist); 
 		list->insert(list->begin(), shared_ptr<Statement>((yyvsp[-1].stmt)));
 		(yyval.slist) = list;
 		}
@@ -1504,23 +1504,23 @@ out = (yyval.stmt); }
   case 12:
 #line 174 "parser.yy" /* yacc.c:1663  */
     {
-	(yyval.stmt) = new sGlobal(*(yyvsp[-1].strconst));
-	delete (yyvsp[-1].strconst);
+	(yyval.stmt) = new sGlobal(*(yyvsp[-1].strconst)); 
+	delete (yyvsp[-1].strconst); 
 	}
 #line 1511 "parser.cpp" /* yacc.c:1663  */
     break;
 
   case 13:
 #line 180 "parser.yy" /* yacc.c:1663  */
-    {
-	(yyval.stmt) = new sAssign((yyvsp[-3].expr), (yyvsp[-1].expr));
+    { 
+	(yyval.stmt) = new sAssign((yyvsp[-3].expr), (yyvsp[-1].expr)); 
 	}
 #line 1519 "parser.cpp" /* yacc.c:1663  */
     break;
 
   case 14:
 #line 185 "parser.yy" /* yacc.c:1663  */
-    {
+    { 
 	(yyval.stmt) = new sExpression((yyvsp[-1].expr));
 }
 #line 1527 "parser.cpp" /* yacc.c:1663  */
@@ -1570,7 +1570,7 @@ out = (yyval.stmt); }
   case 24:
 #line 224 "parser.yy" /* yacc.c:1663  */
     {
-	(yyval.expr) = new eFundecl(*(yyvsp[-2].namelist), (yyvsp[0].stmt));
+	(yyval.expr) = new eFundecl(*(yyvsp[-2].namelist), (yyvsp[0].stmt)); 
 	delete (yyvsp[-2].namelist);
 }
 #line 1577 "parser.cpp" /* yacc.c:1663  */
@@ -1599,7 +1599,7 @@ out = (yyval.stmt); }
 	if((yyvsp[-1].expr) == NULL){
 		(yyval.expr) = (yyvsp[0].expr);
 	}else{
-		(yyval.expr) = new eBinary((yyvsp[-1].expr), (yyvsp[0].expr), OR);
+		(yyval.expr) = new eBinary((yyvsp[-1].expr), (yyvsp[0].expr), OR);		
 	}
 }
 #line 1606 "parser.cpp" /* yacc.c:1663  */
@@ -1623,7 +1623,7 @@ out = (yyval.stmt); }
 	if((yyvsp[-1].expr) == NULL){
 		(yyval.expr) = (yyvsp[0].expr);
 	}else{
-		(yyval.expr) = new eBinary((yyvsp[-1].expr), (yyvsp[0].expr), AND);
+		(yyval.expr) = new eBinary((yyvsp[-1].expr), (yyvsp[0].expr), AND);		
 	}
 }
 #line 1630 "parser.cpp" /* yacc.c:1663  */
@@ -1693,7 +1693,7 @@ out = (yyval.stmt); }
 #line 279 "parser.yy" /* yacc.c:1663  */
     {
 	if((yyvsp[-1].labeledExpression) == NULL){
-		(yyval.expr) = (yyvsp[0].expr);
+		(yyval.expr) = (yyvsp[0].expr); 
 	}else{
 		(yyval.expr) = new eBinary((yyvsp[-1].labeledExpression)->second, (yyvsp[0].expr), (yyvsp[-1].labeledExpression)->first);
 		delete (yyvsp[-1].labeledExpression);
@@ -1724,7 +1724,7 @@ out = (yyval.stmt); }
 #line 294 "parser.yy" /* yacc.c:1663  */
     {
 	if((yyvsp[-1].labeledExpression) == NULL){
-		(yyval.expr) = (yyvsp[0].expr);
+		(yyval.expr) = (yyvsp[0].expr); 
 	}else{
 		(yyval.expr) = new eBinary((yyvsp[-1].labeledExpression)->second, (yyvsp[0].expr), (yyvsp[-1].labeledExpression)->first);
 		delete (yyvsp[-1].labeledExpression);
@@ -1819,9 +1819,9 @@ out = (yyval.stmt); }
 
   case 63:
 #line 333 "parser.yy" /* yacc.c:1663  */
-    {
+    { 
 	(yyval.expr) = new eFuncall((yyvsp[-3].expr), *(yyvsp[-1].elist));
-	delete (yyvsp[-1].elist);
+	delete (yyvsp[-1].elist); 
 }
 #line 1827 "parser.cpp" /* yacc.c:1663  */
     break;
@@ -1861,7 +1861,7 @@ out = (yyval.stmt); }
   case 68:
 #line 354 "parser.yy" /* yacc.c:1663  */
     {
-	(yyval.expr) = new eRecordConstructor(*(yyvsp[-1].fieldlist));
+	(yyval.expr) = new eRecordConstructor(*(yyvsp[-1].fieldlist)); 
 	delete (yyvsp[-1].fieldlist);
 }
 #line 1868 "parser.cpp" /* yacc.c:1663  */
