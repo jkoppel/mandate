@@ -114,35 +114,31 @@ mitScriptRules = sequence [
             StepTo (conf (ConsStmt NilStmt ms) mu)
             (Build $ conf ms mu)
 
-    -- This seems to not actually do anything for some reason?
-    , name "seq-eval-nil" $
-         mkRule1 $ \mu -> StepTo (conf (ConsStmt NilStmt NilStmt) mu) (Build $ conf NilStmt mu)
-
     -- Control Flow
     , name "if-cong" $
-        mkRule6 $ \e e' s t mu mu' ->
-                  let (te, me', ms, mt) = (tv e, mv e', mv s, mv t) in
-                  StepTo (conf (If te ms mt) mu)
-                    (LetStepTo (conf me' mu') (conf te mu)
-                    (Build $ conf (If me' ms mt) mu))
+    mkRule6 $ \e e' s t mu mu' ->
+        let (te, me', ms, mt) = (tv e, mv e', mv s, mv t) in
+            StepTo (conf (If te ms mt) mu)
+            (LetStepTo (conf me' mu') (conf te mu)
+            (Build $ conf (If me' ms mt) mu))
 
     , name "if-true" $
-        mkRule3 $ \s t mu ->
-                    let (ms, mt) = (mv s, mv t) in
-                    StepTo (conf (If (BConst True) ms mt) mu)
-                    (Build $ conf ms mu)
+    mkRule3 $ \s t mu ->
+        let (ms, mt) = (mv s, mv t) in
+            StepTo (conf (If (BConst True) ms mt) mu)
+            (Build $ conf ms mu)
 
     , name "if-false" $
     mkRule3 $ \s t mu ->
-                let (ms, mt) = (mv s, mv t) in
-                StepTo (conf (If (BConst False) ms mt) mu)
-                (Build $ conf mt mu)
+        let (ms, mt) = (mv s, mv t) in
+            StepTo (conf (If (BConst False) ms mt) mu)
+            (Build $ conf mt mu)
 
     , name "while" $
     mkRule3 $ \e s mu ->
-                let (me, ms) = (mv e, mv s) in
-                StepTo (conf (While me ms) mu)
-                (Build $ conf (If me (ConsStmt ms (While me ms)) NilStmt) mu)
+        let (me, ms) = (mv e, mv s) in
+            StepTo (conf (While me ms) mu)
+            (Build $ conf (If me (ConsStmt ms (While me ms)) NilStmt) mu)
 
     -- Variable Access
     , name "assn-cong" $
