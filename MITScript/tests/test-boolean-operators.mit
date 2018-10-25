@@ -1,0 +1,11 @@
+beFalse1 = false & false;
+beFalse2 = true & false;
+beFalse3 = false & true;
+beFalse4 = false | false;
+beFalse5 = !true;
+
+beTrue1 = true | true;
+beTrue2 = true | false;
+beTrue3 = false | true;
+beTrue4 = true & true;
+beTrue5 = !false;
