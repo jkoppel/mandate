@@ -3,14 +3,14 @@
 #include <iostream>
 #include <string>
 #define YY_DECL int yylex (YYSTYPE* yylval, YYLTYPE * yylloc, yyscan_t yyscanner)
-#ifndef FLEX_SCANNER 
+#ifndef FLEX_SCANNER
 #include "lexer.h"
-#endif 
+#endif
 
 using namespace std;
 
 //The macro below is used by bison for error reporting
-//it comes from stacck overflow 
+//it comes from stacck overflow
 //http://stackoverflow.com/questions/656703/how-does-flex-support-bison-location-exactly
 #define YY_USER_ACTION \
     yylloc->first_line = yylloc->last_line; \
@@ -36,7 +36,7 @@ using namespace std;
 %define api.pure full
 %parse-param {yyscan_t yyscanner} {Statement*& out}
 %lex-param {yyscan_t yyscanner}
-%locations 
+%locations
 %define parse.error verbose
 
 %code provides{
@@ -47,9 +47,9 @@ int yyerror(YYLTYPE * yylloc, yyscan_t yyscanner, Statement*& out, const char* m
 
 
 //The union directive defines a union type that will be used to store
-//the return values of all the parse rules. We have initialized for you 
-//with an intconst field that you can use to store an integer, and a 
-//stmt field with a pointer to a statement. Note that one limitation 
+//the return values of all the parse rules. We have initialized for you
+//with an intconst field that you can use to store an integer, and a
+//stmt field with a pointer to a statement. Note that one limitation
 //is that you can only use primitive types and pointers in the union.
 %union {
 	int intconst;
@@ -60,13 +60,13 @@ int yyerror(YYLTYPE * yylloc, yyscan_t yyscanner, Statement*& out, const char* m
 	Expression*  expr;
 	vector<string>* namelist;
 	vector<pair<string, ptr<Expression> > >* fieldlist;
-	vector<ptr<Statement> >* slist; 
+	vector<ptr<Statement> >* slist;
 	vector<ptr<Expression> >* elist;
 	pair<BinaryOperator, Expression* >* labeledExpression;
 //end_student_code
 }
 
-//Below is where you define your tokens and their types. 
+//Below is where you define your tokens and their types.
 //for example, we have defined for you a T_int token, with type intconst
 //the type is the name of a field from the union above
 %token<intconst> T_int
@@ -76,10 +76,10 @@ int yyerror(YYLTYPE * yylloc, yyscan_t yyscanner, Statement*& out, const char* m
 %token T_then
 %token T_else
 %token T_global
-%token T_if 
+%token T_if
 %token T_while
 %token T_return
-%token T_fun 
+%token T_fun
 %token T_geq
 %token T_leq
 %token T_eq
@@ -89,8 +89,8 @@ int yyerror(YYLTYPE * yylloc, yyscan_t yyscanner, Statement*& out, const char* m
 //end_student_code
 
 //Use the %type directive to specify the types of AST nodes produced by each production.
-//For example, you will have a program non-terimnal in your grammar, and it will 
-//return a Statement*. As with tokens, the name of the type comes 
+//For example, you will have a program non-terimnal in your grammar, and it will
+//return a Statement*. As with tokens, the name of the type comes
 //from the union defined earlier.
 
 %type<stmt> Program
@@ -135,7 +135,7 @@ int yyerror(YYLTYPE * yylloc, yyscan_t yyscanner, Statement*& out, const char* m
 //to resolve ambiguities and properly parse the code.
 //begin_student_code
 %nonassoc "then"
-%nonassoc T_else 
+%nonassoc T_else
 
 //end_student_code
 
@@ -143,50 +143,50 @@ int yyerror(YYLTYPE * yylloc, yyscan_t yyscanner, Statement*& out, const char* m
 
 //Your grammar rules should be written here.
 
-Program: 
-StatementList {  
+Program:
+StatementList {
         $$ = // assign a new block to $$.
 //begin_student_code
-            new sBlock(*$1); delete $1; 
+            new sBlock(*$1); delete $1;
 //end_student_code
 // and make sure the out variable is set, because that is what main is going to read.
 out = $$; }
 
 //begin_student_code
-StatementList: 
-  %empty { $$ = new vector<ptr<Statement> >(); } 
-| Statement StatementList { 
-		auto list = $2; 
+StatementList:
+  %empty { $$ = new vector<ptr<Statement> >(); }
+| Statement StatementList {
+		auto list = $2;
 		list->insert(list->begin(), shared_ptr<Statement>($1));
 		$$ = list;
 		}
 
-Statement: 
-  Assignment 
+Statement:
+  Assignment
 | CallStatement
-| Global 
-| IfStatement 
-| WhileLoop 
-| Block 
+| Global
+| IfStatement
+| WhileLoop
+| Block
 | Return
 
-Global: 
+Global:
  T_global T_ident ';' {
-	$$ = new sGlobal(*$2); 
-	delete $2; 
-	} 
+	$$ = new sGlobal(*$2);
+	delete $2;
+	}
 
-Assignment :  
- LHS '=' Expression ';' { 
-	$$ = new sAssign($1, $3); 
-	} 
+Assignment :
+ LHS '=' Expression ';' {
+	$$ = new sAssign($1, $3);
+	}
 
-CallStatement : 
-Call ';' { 
+CallStatement :
+Call ';' {
 	$$ = new sExpression($1);
 }
 
-IfStatement : 
+IfStatement :
 T_if '(' Expression ')' Statement MaybeElse
 {
 	$$ = new sIfThen($3, $5, $6);
@@ -194,13 +194,13 @@ T_if '(' Expression ')' Statement MaybeElse
 
 
 
-MaybeElse: 
+MaybeElse:
  %empty %prec "then" { $$ = NULL; }
-| T_else Statement   { $$ = $2; } 
+| T_else Statement   { $$ = $2; }
 
 
-WhileLoop : 
-  T_while '(' Expression ')' Statement 
+WhileLoop :
+  T_while '(' Expression ')' Statement
 {
   $$ = new sWhile($3, $5);
 
@@ -209,24 +209,24 @@ WhileLoop :
 Block :
  '{' StatementList '}' { $$ = new sBlock(*$2); delete $2; }
 
-Return : 
- T_return Expression ';' {  $$ = new sReturn($2); } 
+Return :
+ T_return Expression ';' {  $$ = new sReturn($2); }
 
 
 
-Expression : 
-   Function 
-|  Boolean 
-|  Record 
+Expression :
+   Function
+|  Boolean
+|  Record
 
 
 Function :
  T_fun '(' NameList ')' Block {
-	$$ = new eFundecl(*$3, $5); 
+	$$ = new eFundecl(*$3, $5);
 	delete $3;
-} 
+}
 
-NameList : 
+NameList :
  %empty { $$ = new vector<string>(); }
 | T_ident NameList {
 	auto list = $2;
@@ -235,65 +235,65 @@ NameList :
 	$$ = list;
 }
 
-Boolean : 
+Boolean :
  BooleanRest Conjunction {
 	if($1 == NULL){
 		$$ = $2;
 	}else{
-		$$ = new eBinary($1, $2, OR);		
+		$$ = new eBinary($1, $2, OR);
 	}
 }
 
 BooleanRest:
-  %empty { $$ = NULL; } 
+  %empty { $$ = NULL; }
 |  Boolean  '|' { $$ = $1; }
 
 
-Conjunction : 
+Conjunction :
  ConjunctionRest BoolUnit {
 	if($1 == NULL){
 		$$ = $2;
 	}else{
-		$$ = new eBinary($1, $2, AND);		
+		$$ = new eBinary($1, $2, AND);
 	}
 }
 
-ConjunctionRest:  
-   %empty { $$ = NULL; } 
+ConjunctionRest:
+   %empty { $$ = NULL; }
 |   Conjunction '&' { $$ = $1; }
 
 
 BoolUnit :
 Predicate { $$ = $1; }
-| '!' Predicate { $$ = new eUnary($2, NOT); } 
+| '!' Predicate { $$ = new eUnary($2, NOT); }
 
-Predicate: 
+Predicate:
 Arithmetic {$$ = $1; }
-| Arithmetic '<' Arithmetic { $$ = new eBinary($3, $1, GT); }
-| Arithmetic '>' Arithmetic  { $$ = new eBinary($1, $3, GT); } 
-| Arithmetic T_leq Arithmetic { $$ = new eBinary($3, $1, GTE); } 
-| Arithmetic T_geq Arithmetic { $$ = new eBinary($1, $3, GTE); } 
+| Arithmetic '<' Arithmetic { $$ = new eUnary(new eBinary($1, $3, GTE), NOT); }
+| Arithmetic '>' Arithmetic  { $$ = new eBinary($1, $3, GT); }
+| Arithmetic T_leq Arithmetic { $$ = new eUnary(new eBinary($1, $3, GT), NOT); }
+| Arithmetic T_geq Arithmetic { $$ = new eBinary($1, $3, GTE); }
 | Arithmetic T_eq Arithmetic  { $$ = new eBinary($1, $3, EQ); }
 
-Arithmetic : 
+Arithmetic :
   ArithmeticRest Product  {
 	if($1 == NULL){
-		$$ = $2; 
+		$$ = $2;
 	}else{
 		$$ = new eBinary($1->second, $2, $1->first);
 		delete $1;
 	}
 }
 
-ArithmeticRest: 
-  %empty { $$ = NULL; } 
-|  Arithmetic '+' { $$ = new pair<BinaryOperator, Expression* >(PLUS, $1); } 
+ArithmeticRest:
+  %empty { $$ = NULL; }
+|  Arithmetic '+' { $$ = new pair<BinaryOperator, Expression* >(PLUS, $1); }
 |  Arithmetic '-' { $$ = new pair<BinaryOperator, Expression* >(MINUS, $1); }
 
-Product : 
+Product :
   ProductRest Unit{
 	if($1 == NULL){
-		$$ = $2; 
+		$$ = $2;
 	}else{
 		$$ = new eBinary($1->second, $2, $1->first);
 		delete $1;
@@ -301,41 +301,41 @@ Product :
 }
 
 
-ProductRest: 
-  %empty {$$ = NULL; } 
-|  Product '*' { $$ = new pair<BinaryOperator, Expression* >(TIMES, $1); } 
-|  Product '/' { $$ = new pair<BinaryOperator, Expression* >(DIV, $1); } 
+ProductRest:
+  %empty {$$ = NULL; }
+|  Product '*' { $$ = new pair<BinaryOperator, Expression* >(TIMES, $1); }
+|  Product '/' { $$ = new pair<BinaryOperator, Expression* >(DIV, $1); }
 
 Unit:
 '-' LHSorConstant  { $$ = new eUnary($2, UMINUS); }
-| LHSorConstant    { $$ = $1; } 
+| LHSorConstant    { $$ = $1; }
 
-LHSorConstant: 
+LHSorConstant:
 LHS
 | Constant
 | Call
 | '(' Boolean ')' { $$ = $2; }
 
-Constant: 
+Constant:
 T_int { $$ = new eNum($1); }
 | T_string { $$ = new eString(*$1); delete $1; }
 | T_none { $$ = new eNone(); }
 | T_true { $$ = new eBconst(true); }
 | T_false { $$ = new eBconst(false); }
-LHS : 
+LHS :
 T_ident { $$ = new eVar(*$1); delete $1; }
 | LHS '.' T_ident { $$ = new eField($1, *$3); delete $3; }
-| LHS '[' Expression ']' { $$ = new eIndex($1, $3); } 
+| LHS '[' Expression ']' { $$ = new eIndex($1, $3); }
 
 
 
 Call :
- LHS '(' ArgList ')' { 
+ LHS '(' ArgList ')' {
 	$$ = new eFuncall($1, *$3);
-	delete $3; 
+	delete $3;
 }
 
-ArgList : 
+ArgList :
 %empty { $$ = new vector<ptr<Expression> >(); }
 | Expression MaybeMore{
 	auto list = $2;
@@ -343,7 +343,7 @@ ArgList :
 	$$ = list;
 }
 
-MaybeMore: 
+MaybeMore:
 %empty{ $$ = new vector<ptr<Expression> >(); }
 | ',' Expression MaybeMore{
 	auto list = $3;
@@ -352,10 +352,10 @@ MaybeMore:
 }
 
 Record : '{' FieldList '}' {
-	$$ = new eRecordConstructor(*$2); 
+	$$ = new eRecordConstructor(*$2);
 	delete $2;
-} 
-FieldList : 
+}
+FieldList :
  %empty { $$ = new vector<pair<string, ptr<Expression> > >(); }
 |  T_ident ':' Expression ';' FieldList {
 	auto fields = $5;

@@ -5,7 +5,7 @@ module Languages.MITScript.Semantics (
     MITScript
   ) where
 
-import Prelude hiding ( True, False, LT, GT )
+import Prelude hiding ( True, False, LT, GT, EQ )
 
 import GHC.Generics ( Generic )
 
@@ -32,49 +32,38 @@ instance LangBase MITScript where
         -- these are keyed by terms becuase thats what Imp.hs did and it seemed to be rationalized well
         type RedState MITScript = SimpEnv (Term MITScript) (Term MITScript)
 
-        data CompFunc MITScript = RunAdd    | RunGT    | RunUMinus    | RunAnd    | RunOr
-                                | AbsRunAdd | AbsRunGT | AbsRunUMinus | AbsRunAnd | AbsRunOr
-            deriving ( Eq, Generic )
+        data CompFunc MITScript = Compute | AbsCompute deriving ( Eq, Generic )
 
-        compFuncName RunAdd     = "runAdd"
-        compFuncName RunGT      = "runGT"
-        compFuncName RunUMinus  = "runUminus"
-        compFuncName RunAnd     = "runAnd"
-        compFuncName RunOr      = "runOr"
+        compFuncName Compute      = "compute"
 
-        runCompFunc RunAdd     [NumConst (ConstInt n1), NumConst (ConstInt n2)] = return $ initConf $ NumConst (ConstInt (n1+n2))
-        runCompFunc RunGT      [NumConst (ConstInt n1), NumConst (ConstInt n2)] = if n1 < n2 then return (initConf True) else return (initConf False)
-        runCompFunc RunUMinus  [NumConst (ConstInt n1)] = return $ initConf $ NumConst (ConstInt (negate n1))
+        runCompFunc Compute    [UMINUS, NumConst (ConstInt n1)] = return $ initConf $ NumConst (ConstInt (negate n1))
 
-        runCompFunc RunAnd     [BConst True, BConst True]   = return $ initConf $ BConst True
-        runCompFunc RunAnd     [BConst l, BConst r]         = return $ initConf $ BConst False
-        runCompFunc RunOr      [BConst False, BConst False] = return $ initConf $ BConst False
-        runCompFunc RunOr      [BConst l, BConst r]         = return $ initConf $ BConst True
+        runCompFunc Compute    [PLUS,  NumConst (ConstInt n1), NumConst (ConstInt n2)] = return $ initConf $ NumConst (ConstInt (n1+n2)) -- todo: strings
+        runCompFunc Compute    [MINUS, NumConst (ConstInt n1), NumConst (ConstInt n2)] = return $ initConf $ NumConst (ConstInt (n1-n2))
+        runCompFunc Compute    [TIMES, NumConst (ConstInt n1), NumConst (ConstInt n2)] = return $ initConf $ NumConst (ConstInt (n1*n2))
+        runCompFunc Compute    [DIV,   NumConst (ConstInt n1), NumConst (ConstInt n2)] = return $ initConf $ NumConst (ConstInt (n1 `div` n2)) -- TODO: n/0
 
-        runCompFunc AbsRunUMinus [GStar _]    = return $ initConf ValStar
+        runCompFunc Compute    [GT, NumConst (ConstInt n1), NumConst (ConstInt n2)]   = if n1 > n2  then return (initConf True) else return (initConf False)
+        runCompFunc Compute    [GTE, NumConst (ConstInt n1), NumConst (ConstInt n2)]  = if n1 >= n2 then return (initConf True) else return (initConf False)
 
-        runCompFunc AbsRunAdd    [GStar _, _] = return $ initConf ValStar
-        runCompFunc AbsRunAdd    [_, GStar _] = return $ initConf ValStar
+        runCompFunc Compute    [EQ, NumConst (ConstInt n1), NumConst (ConstInt n2)]   = if n1 == n2 then return (initConf True) else return (initConf False)
+        runCompFunc Compute    [EQ, BConst l, BConst r]                               = if l == r   then return (initConf True) else return (initConf False)
 
-        runCompFunc AbsRunGT     [GStar _, _] = return $ initConf ValStar
-        runCompFunc AbsRunGT     [_, GStar _] = return $ initConf ValStar
+        runCompFunc Compute    [NOT, BConst b] = if b == True then return (initConf False) else return (initConf True)
 
-        runCompFunc AbsRunAnd    [GStar _, _] = return $ initConf ValStar
-        runCompFunc AbsRunAnd    [_, GStar _] = return $ initConf ValStar
+        runCompFunc Compute    [AND, BConst True, BConst True]   = return $ initConf $ BConst True
+        runCompFunc Compute    [AND, BConst l, BConst r]         = return $ initConf $ BConst False
 
-        runCompFunc AbsRunOr     [GStar _, _] = return $ initConf ValStar
-        runCompFunc AbsRunOr     [_, GStar _] = return $ initConf ValStar
+        runCompFunc Compute    [OR, BConst False, BConst False] = return $ initConf $ BConst False
+        runCompFunc Compute    [OR, BConst l, BConst r]         = return $ initConf $ BConst True
+
+        runCompFunc AbsCompute   [_, GStar _] = return $ initConf ValStar
 
 instance Hashable (CompFunc MITScript)
 
 instance ValueIrrelevance (CompFunc MITScript) where
-    valueIrrelevance RunUMinus  = AbsRunUMinus
-    valueIrrelevance RunAdd     = AbsRunAdd
-    valueIrrelevance RunGT      = AbsRunGT
-
-    valueIrrelevance AbsRunUMinus  = AbsRunUMinus
-    valueIrrelevance AbsRunAdd     = AbsRunAdd
-    valueIrrelevance AbsRunGT      = AbsRunGT
+    valueIrrelevance Compute      = AbsCompute
+    valueIrrelevance AbsCompute       = AbsCompute
 
 instance Lang MITScript where
     signature = mitScriptSig
@@ -146,22 +135,12 @@ mitScriptRules = sequence [
             (LetStepTo (conf me' mu') (conf te mu)
             (Build $ conf (UnExp mop me') mu'))
 
-    , name "uminus-eval" $
-    mkRule3 $ \v1 v' mu ->
-        let (vv1, vv') = (vv v1, vv v') in
-            StepTo (conf (UnExp UMINUS vv1) mu)
-            (LetComputation (initConf $ ValVar v') (ExtComp RunUMinus [vv1])
+    , name "unary-eval" $
+    mkRule4 $ \v1 v' mu op ->
+        let (vv1, vv', mop) = (vv v1, vv v', mv op) in
+            StepTo (conf (UnExp mop vv1) mu)
+            (LetComputation (initConf $ ValVar v') (ExtComp Compute [mop, vv1])
             (Build $ conf vv' mu))
-
-    , name "not-eval-true" $
-    mkRule3 $ \v1 v' mu ->
-        let (vv1, vv') = (vv v1, vv v') in
-            StepTo (conf (UnExp NOT (BConst True)) mu) (Build $ conf (BConst False) mu)
-
-    , name "not-eval-false" $
-    mkRule3 $ \v1 v' mu ->
-        let (vv1, vv') = (vv v1, vv v') in
-            StepTo (conf (UnExp NOT (BConst False)) mu) (Build $ conf (BConst True) mu)
 
     -- Binary
     -- assumes all binary operators are left-associative
@@ -179,31 +158,10 @@ mitScriptRules = sequence [
             (LetStepTo (conf me2' mu') (conf te2 mu)
             (Build $ conf (BinExp vv1 mop me2') mu'))
 
-    , name "plus-eval" $
-    mkRule4 $ \v1 v2 v' mu ->
-        let (vv1, vv2, vv') = (vv v1, vv v2, vv v') in
-            StepTo (conf (BinExp vv1 PLUS vv2) mu)
-            (LetComputation (initConf $ ValVar v') (ExtComp RunAdd [vv1, vv2])
-            (Build $ conf vv' mu))
-
-    , name "gt-eval" $
-    mkRule4 $ \v1 v2 v' mu ->
-        let (vv1, vv2, vv') = (vv v1, vv v2, vv v') in
-            StepTo (conf (BinExp vv1 GT vv2) mu)
-            (LetComputation (initConf $ ValVar v') (ExtComp RunGT [vv1, vv2])
-            (Build $ conf vv' mu))
-
-    , name "and-eval" $
-    mkRule4 $ \v1 v2 v' mu ->
-        let (vv1, vv2, vv') = (vv v1, vv v2, vv v') in
-            StepTo (conf (BinExp vv1 AND vv2) mu)
-            (LetComputation (initConf $ ValVar v') (ExtComp RunAnd [vv1, vv2])
-            (Build $ conf vv' mu))
-
-    , name "or-eval" $
-    mkRule4 $ \v1 v2 v' mu ->
-        let (vv1, vv2, vv') = (vv v1, vv v2, vv v') in
-            StepTo (conf (BinExp vv1 OR vv2) mu)
-            (LetComputation (initConf $ ValVar v') (ExtComp RunOr [vv1, vv2])
+    , name "binary-eval" $
+    mkRule5 $ \v1 v2 v' op mu ->
+        let (vv1, vv2, vv', mop) = (vv v1, vv v2, vv v', mv op) in
+            StepTo (conf (BinExp vv1 mop vv2) mu)
+            (LetComputation (initConf $ ValVar v') (ExtComp Compute [mop, vv1, vv2])
             (Build $ conf vv' mu))
     ]
