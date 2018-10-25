@@ -41,7 +41,7 @@ instance LangBase MITScript where
         runCompFunc Compute    [PLUS,  NumConst (ConstInt n1), NumConst (ConstInt n2)] = return $ initConf $ NumConst (ConstInt (n1+n2)) -- todo: strings
         runCompFunc Compute    [MINUS, NumConst (ConstInt n1), NumConst (ConstInt n2)] = return $ initConf $ NumConst (ConstInt (n1-n2))
         runCompFunc Compute    [TIMES, NumConst (ConstInt n1), NumConst (ConstInt n2)] = return $ initConf $ NumConst (ConstInt (n1*n2))
-        runCompFunc Compute    [DIV,   NumConst (ConstInt n1), NumConst (ConstInt n2)] = return $ initConf $ NumConst (ConstInt (n1 `div` n2)) -- TODO: n/0
+        runCompFunc Compute    [DIV,   NumConst (ConstInt n1), NumConst (ConstInt n2)] = return $ initConf $ NumConst (ConstInt (n1 `div` n2))
 
         runCompFunc Compute    [GT, NumConst (ConstInt n1), NumConst (ConstInt n2)]   = if n1 > n2  then return (initConf True) else return (initConf False)
         runCompFunc Compute    [GTE, NumConst (ConstInt n1), NumConst (ConstInt n2)]  = if n1 >= n2 then return (initConf True) else return (initConf False)
