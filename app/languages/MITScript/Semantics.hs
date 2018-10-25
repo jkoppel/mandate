@@ -33,23 +33,38 @@ instance LangBase MITScript where
         -- these are keyed by terms becuase thats what Imp.hs did and it seemed to be rationalized well
         type RedState MITScript = SimpEnv (Term MITScript) (Term MITScript)
 
-        data CompFunc MITScript = RunAdd    | RunGT    | RunUMinus
-                                | AbsRunAdd | AbsRunGT | AbsRunUMinus
+        data CompFunc MITScript = RunAdd    | RunGT    | RunUMinus    | RunAnd    | RunOr
+                                | AbsRunAdd | AbsRunGT | AbsRunUMinus | AbsRunAnd | AbsRunOr
             deriving ( Eq, Generic )
 
         compFuncName RunAdd     = "runAdd"
         compFuncName RunGT      = "runGT"
         compFuncName RunUMinus  = "runUminus"
+        compFuncName RunAnd     = "runAnd"
+        compFuncName RunOr      = "runOr"
 
         runCompFunc RunAdd     [NumConst (ConstInt n1), NumConst (ConstInt n2)] = return $ initConf $ NumConst (ConstInt (n1+n2))
         runCompFunc RunGT      [NumConst (ConstInt n1), NumConst (ConstInt n2)] = if n1 < n2 then return (initConf True) else return (initConf False)
         runCompFunc RunUMinus  [NumConst (ConstInt n1)] = return $ initConf $ NumConst (ConstInt (negate n1))
 
+        runCompFunc RunAnd     [BConst True, BConst True]   = return $ initConf $ BConst True
+        runCompFunc RunAnd     [BConst l, BConst r]         = return $ initConf $ BConst False
+        runCompFunc RunOr      [BConst False, BConst False] = return $ initConf $ BConst False
+        runCompFunc RunOr      [BConst l, BConst r]         = return $ initConf $ BConst True
+
         runCompFunc AbsRunUMinus [GStar _]    = return $ initConf ValStar
+
         runCompFunc AbsRunAdd    [GStar _, _] = return $ initConf ValStar
         runCompFunc AbsRunAdd    [_, GStar _] = return $ initConf ValStar
+
         runCompFunc AbsRunGT     [GStar _, _] = return $ initConf ValStar
         runCompFunc AbsRunGT     [_, GStar _] = return $ initConf ValStar
+
+        runCompFunc AbsRunAnd    [GStar _, _] = return $ initConf ValStar
+        runCompFunc AbsRunAnd    [_, GStar _] = return $ initConf ValStar
+
+        runCompFunc AbsRunOr     [GStar _, _] = return $ initConf ValStar
+        runCompFunc AbsRunOr     [_, GStar _] = return $ initConf ValStar
 
 instance Hashable (CompFunc MITScript)
 
@@ -123,15 +138,14 @@ mitScriptRules = sequence [
             StepTo (Conf (Var mvar) (AssocOneVal mu mvar vval))
             (Build $ Conf vval (AssocOneVal mu mvar vval))
 
-    -- Arithmetic Operations
-    -- * -> *
-    -- Num -> Num
-    , name "uminus-cong" $
-    mkRule4 $ \e1 e1' mu mu' ->
-        let (te, me') = (tv e1, mv e1') in
-            StepTo (conf (UnExp UMINUS te) mu)
+    --- Arithmetic Operations
+    -- Unary
+    , name "unary-cong" $
+    mkRule5 $ \e1 e1' mu mu' op ->
+        let (te, me', mop) = (tv e1, mv e1', mv op) in
+            StepTo (conf (UnExp mop te) mu)
             (LetStepTo (conf me' mu') (conf te mu)
-            (Build $ conf (UnExp UMINUS me') mu'))
+            (Build $ conf (UnExp mop me') mu'))
 
     , name "uminus-eval" $
     mkRule3 $ \v1 v' mu ->
@@ -139,14 +153,6 @@ mitScriptRules = sequence [
             StepTo (conf (UnExp UMINUS vv1) mu)
             (LetComputation (initConf $ ValVar v') (ExtComp RunUMinus [vv1])
             (Build $ conf vv' mu))
-
-    -- Bool -> Bool
-    , name "not-cong" $
-    mkRule4 $ \e1 e1' mu mu' ->
-        let (te, me') = (tv e1, mv e1') in
-            StepTo (conf (UnExp NOT te) mu)
-            (LetStepTo (conf me' mu') (conf te mu)
-            (Build $ conf (UnExp NOT me') mu'))
 
     , name "not-eval-true" $
     mkRule3 $ \v1 v' mu ->
@@ -158,21 +164,21 @@ mitScriptRules = sequence [
         let (vv1, vv') = (vv v1, vv v') in
             StepTo (conf (UnExp NOT (BConst False)) mu) (Build $ conf (BConst True) mu)
 
-    -- * -> * -> *
-    -- Num -> Num -> Num
-    , name "plus-cong-1" $
-    mkRule5 $ \e1 e2 e1' mu mu' ->
-        let (te1, me2, me1') = (tv e1, mv e2, mv e1') in
-            StepTo (conf (BinExp te1 PLUS me2) mu)
+    -- Binary
+    -- assumes all binary operators are left-associative
+    , name "binary-cong-left" $
+    mkRule6 $ \e1 e2 e1' mu mu' op ->
+        let (te1, me2, me1', mop) = (tv e1, mv e2, mv e1', mv op) in
+            StepTo (conf (BinExp te1 mop me2) mu)
             (LetStepTo (conf me1' mu') (conf te1 mu)
-            (Build $ conf (BinExp me1' PLUS me2) mu'))
+            (Build $ conf (BinExp me1' mop me2) mu'))
 
-    , name "plus-cong-2" $
-    mkRule5 $ \v1 e2 e2' mu mu' ->
-        let (vv1, te2, me2') = (vv v1, tv e2, mv e2') in
-            StepTo (conf (BinExp vv1 PLUS te2) mu)
+    , name "binary-cong-right" $
+    mkRule6 $ \v1 e2 e2' mu mu' op ->
+        let (vv1, te2, me2', mop) = (vv v1, tv e2, mv e2', mv op) in
+            StepTo (conf (BinExp vv1 mop te2) mu)
             (LetStepTo (conf me2' mu') (conf te2 mu)
-            (Build $ conf (BinExp vv1 PLUS me2') mu'))
+            (Build $ conf (BinExp vv1 mop me2') mu'))
 
     , name "plus-eval" $
     mkRule4 $ \v1 v2 v' mu ->
@@ -181,21 +187,6 @@ mitScriptRules = sequence [
             (LetComputation (initConf $ ValVar v') (ExtComp RunAdd [vv1, vv2])
             (Build $ conf vv' mu))
 
-    -- Num -> Num -> Bool
-    , name "gt-cong-1" $
-    mkRule5 $ \e1 e2 e1' mu mu' ->
-        let (te1, me2, me1') = (tv e1, mv e2, mv e1') in
-            StepTo (conf (BinExp te1 GT me2) mu)
-            (LetStepTo (conf me1' mu') (conf te1 mu)
-            (Build $ conf (BinExp me1' GT me2) mu'))
-
-    , name "gt-cong-2" $
-    mkRule5 $ \v1 e2 e2' mu mu' ->
-        let (vv1, te2, me2') = (vv v1, tv e2, mv e2') in
-            StepTo (conf (BinExp vv1 GT te2) mu)
-            (LetStepTo (conf me2' mu') (conf te2 mu)
-            (Build $ conf (BinExp vv1 GT me2') mu'))
-
     , name "gt-eval" $
     mkRule4 $ \v1 v2 v' mu ->
         let (vv1, vv2, vv') = (vv v1, vv v2, vv v') in
@@ -203,40 +194,19 @@ mitScriptRules = sequence [
             (LetComputation (initConf $ ValVar v') (ExtComp RunGT [vv1, vv2])
             (Build $ conf vv' mu))
 
-    -- Bool -> Bool -> Bool
-    , name "and-cong" $
-    mkRule5 $ \e1 e2 e1' mu mu' ->
-        let (te1, me2, me1') = (tv e1, mv e2, mv e1') in
-            StepTo (conf (BinExp te1 AND me2) mu)
-            (LetStepTo (conf me1' mu') (conf te1 mu)
-            (Build $ conf (BinExp me1' AND me2) mu'))
+    , name "and-eval" $
+    mkRule4 $ \v1 v2 v' mu ->
+        let (vv1, vv2, vv') = (vv v1, vv v2, vv v') in
+            StepTo (conf (BinExp vv1 AND vv2) mu)
+            (LetComputation (initConf $ ValVar v') (ExtComp RunAnd [vv1, vv2])
+            (Build $ conf vv' mu))
 
-    , name "and-eval-short-circuit-false" $
-    mkRule2 $ \e mu ->
-        let me = mv e in
-            StepTo (conf (BinExp (BConst False) AND me) mu) (Build $ conf (BConst False) mu)
-
-    , name "and-eval-short-circuit-true" $
-    mkRule2 $ \e mu ->
-        let me = mv e in
-            StepTo (conf (BinExp (BConst True) AND me) mu) (Build $ conf me mu)
-
-    , name "or-cong" $
-    mkRule5 $ \e1 e2 e1' mu mu' ->
-        let (te1, me2, me1') = (tv e1, mv e2, mv e1') in
-            StepTo (conf (BinExp te1 OR me2) mu)
-            (LetStepTo (conf me1' mu') (conf te1 mu)
-            (Build $ conf (BinExp me1' OR me2) mu'))
-
-    , name "or-eval-short-circuit-true" $
-    mkRule2 $ \e mu ->
-        let me = mv e in
-            StepTo (conf (BinExp (BConst True) OR me) mu) (Build $ conf (BConst True) mu)
-
-    , name "or-eval-short-circuit-false" $
-    mkRule2 $ \e mu ->
-        let me = mv e in
-            StepTo (conf (BinExp (BConst False) OR me) mu) (Build $ conf me mu)
+    , name "or-eval" $
+    mkRule4 $ \v1 v2 v' mu ->
+        let (vv1, vv2, vv') = (vv v1, vv v2, vv v') in
+            StepTo (conf (BinExp vv1 OR vv2) mu)
+            (LetComputation (initConf $ ValVar v') (ExtComp RunOr [vv1, vv2])
+            (Build $ conf vv' mu))
     ]
 
 term1 :: Term MITScript
