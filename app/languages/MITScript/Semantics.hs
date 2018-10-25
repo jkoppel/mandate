@@ -34,36 +34,36 @@ instance LangBase MITScript where
 
         data CompFunc MITScript = Compute | AbsCompute deriving ( Eq, Generic )
 
-        compFuncName Compute      = "compute"
+        compFuncName Compute = "compute"
 
-        runCompFunc Compute    [UMINUS, NumConst (ConstInt n1)] = return $ initConf $ NumConst (ConstInt (negate n1))
+        runCompFunc Compute [UMINUS, NumConst (ConstInt n1)] = return $ initConf $ NumConst (ConstInt (negate n1))
 
-        runCompFunc Compute    [PLUS,  NumConst (ConstInt n1), NumConst (ConstInt n2)] = return $ initConf $ NumConst (ConstInt (n1+n2)) -- todo: strings
-        runCompFunc Compute    [MINUS, NumConst (ConstInt n1), NumConst (ConstInt n2)] = return $ initConf $ NumConst (ConstInt (n1-n2))
-        runCompFunc Compute    [TIMES, NumConst (ConstInt n1), NumConst (ConstInt n2)] = return $ initConf $ NumConst (ConstInt (n1*n2))
-        runCompFunc Compute    [DIV,   NumConst (ConstInt n1), NumConst (ConstInt n2)] = return $ initConf $ NumConst (ConstInt (n1 `div` n2))
+        runCompFunc Compute [PLUS,  NumConst (ConstInt n1), NumConst (ConstInt n2)] = return $ initConf $ NumConst (ConstInt (n1+n2)) -- todo: strings
+        runCompFunc Compute [MINUS, NumConst (ConstInt n1), NumConst (ConstInt n2)] = return $ initConf $ NumConst (ConstInt (n1-n2))
+        runCompFunc Compute [TIMES, NumConst (ConstInt n1), NumConst (ConstInt n2)] = return $ initConf $ NumConst (ConstInt (n1*n2))
+        runCompFunc Compute [DIV,   NumConst (ConstInt n1), NumConst (ConstInt n2)] = return $ initConf $ NumConst (ConstInt (n1 `div` n2))
 
-        runCompFunc Compute    [GT, NumConst (ConstInt n1), NumConst (ConstInt n2)]   = if n1 > n2  then return (initConf True) else return (initConf False)
-        runCompFunc Compute    [GTE, NumConst (ConstInt n1), NumConst (ConstInt n2)]  = if n1 >= n2 then return (initConf True) else return (initConf False)
+        runCompFunc Compute [GT, NumConst (ConstInt n1), NumConst (ConstInt n2)]   = if n1 > n2  then return (initConf True) else return (initConf False)
+        runCompFunc Compute [GTE, NumConst (ConstInt n1), NumConst (ConstInt n2)]  = if n1 >= n2 then return (initConf True) else return (initConf False)
 
-        runCompFunc Compute    [EQ, NumConst (ConstInt n1), NumConst (ConstInt n2)]   = if n1 == n2 then return (initConf True) else return (initConf False)
-        runCompFunc Compute    [EQ, BConst l, BConst r]                               = if l == r   then return (initConf True) else return (initConf False)
+        runCompFunc Compute [EQ, NumConst (ConstInt n1), NumConst (ConstInt n2)]   = if n1 == n2 then return (initConf True) else return (initConf False)
+        runCompFunc Compute [EQ, BConst l, BConst r]                               = if l == r   then return (initConf True) else return (initConf False)
 
-        runCompFunc Compute    [NOT, BConst b] = if b == True then return (initConf False) else return (initConf True)
+        runCompFunc Compute [NOT, BConst b] = if b == True then return (initConf False) else return (initConf True)
 
-        runCompFunc Compute    [AND, BConst True, BConst True]   = return $ initConf $ BConst True
-        runCompFunc Compute    [AND, BConst l, BConst r]         = return $ initConf $ BConst False
+        runCompFunc Compute [AND, BConst True, BConst True]   = return $ initConf $ BConst True
+        runCompFunc Compute [AND, BConst l, BConst r]         = return $ initConf $ BConst False
 
-        runCompFunc Compute    [OR, BConst False, BConst False] = return $ initConf $ BConst False
-        runCompFunc Compute    [OR, BConst l, BConst r]         = return $ initConf $ BConst True
+        runCompFunc Compute [OR, BConst False, BConst False] = return $ initConf $ BConst False
+        runCompFunc Compute [OR, BConst l, BConst r]         = return $ initConf $ BConst True
 
-        runCompFunc AbsCompute   [_, GStar _] = return $ initConf ValStar
+        runCompFunc AbsCompute [_, GStar _] = return $ initConf ValStar
 
 instance Hashable (CompFunc MITScript)
 
 instance ValueIrrelevance (CompFunc MITScript) where
-    valueIrrelevance Compute      = AbsCompute
-    valueIrrelevance AbsCompute       = AbsCompute
+    valueIrrelevance Compute    = AbsCompute
+    valueIrrelevance AbsCompute = AbsCompute
 
 instance Lang MITScript where
     signature = mitScriptSig
