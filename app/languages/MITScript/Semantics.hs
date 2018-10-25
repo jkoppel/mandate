@@ -13,6 +13,7 @@ import Data.ByteString.Char8 ( ByteString )
 import qualified Data.ByteString.Char8 as BS
 import Data.Interned.ByteString ( InternedByteString(..) )
 import Data.Hashable ( Hashable )
+import Data.String ( fromString )
 
 import Configuration
 import Lang
@@ -38,18 +39,21 @@ instance LangBase MITScript where
 
         runCompFunc Compute [UMINUS, NumConst (ConstInt n1)] = return $ initConf $ NumConst (ConstInt (negate n1))
 
-        runCompFunc Compute [PLUS,  NumConst (ConstInt n1), NumConst (ConstInt n2)] = return $ initConf $ NumConst (ConstInt (n1+n2)) -- todo: strings
-        runCompFunc Compute [MINUS, NumConst (ConstInt n1), NumConst (ConstInt n2)] = return $ initConf $ NumConst (ConstInt (n1-n2))
-        runCompFunc Compute [TIMES, NumConst (ConstInt n1), NumConst (ConstInt n2)] = return $ initConf $ NumConst (ConstInt (n1*n2))
+        runCompFunc Compute [PLUS,  NumConst (ConstInt n1), NumConst (ConstInt n2)] = return $ initConf $ NumConst (ConstInt (n1 + n2))
+        runCompFunc Compute [PLUS,  vv1@(Str (ConstStr s1)), vv2]                          = return $ initConf $ Str $ ConstStr $ fromString $ toString vv1 ++ toString vv2
+        runCompFunc Compute [PLUS,  vv1, vv2@(Str (ConstStr s1))]                          = return $ initConf $ Str $ ConstStr $ fromString $ toString vv1 ++ toString vv2
+
+        runCompFunc Compute [MINUS, NumConst (ConstInt n1), NumConst (ConstInt n2)] = return $ initConf $ NumConst (ConstInt (n1 - n2))
+        runCompFunc Compute [TIMES, NumConst (ConstInt n1), NumConst (ConstInt n2)] = return $ initConf $ NumConst (ConstInt (n1 * n2))
         runCompFunc Compute [DIV,   NumConst (ConstInt n1), NumConst (ConstInt n2)] = return $ initConf $ NumConst (ConstInt (n1 `div` n2))
 
-        runCompFunc Compute [GT, NumConst (ConstInt n1), NumConst (ConstInt n2)]   = if n1 > n2  then return (initConf True) else return (initConf False)
+        runCompFunc Compute [GT,  NumConst (ConstInt n1), NumConst (ConstInt n2)]  = if n1 > n2  then return (initConf True) else return (initConf False)
         runCompFunc Compute [GTE, NumConst (ConstInt n1), NumConst (ConstInt n2)]  = if n1 >= n2 then return (initConf True) else return (initConf False)
 
         runCompFunc Compute [EQ, NumConst (ConstInt n1), NumConst (ConstInt n2)]   = if n1 == n2 then return (initConf True) else return (initConf False)
         runCompFunc Compute [EQ, BConst l, BConst r]                               = if l == r   then return (initConf True) else return (initConf False)
 
-        runCompFunc Compute [NOT, BConst b] = if b == True then return (initConf False) else return (initConf True)
+        runCompFunc Compute [NOT, BConst b]                                        = if b == True then return (initConf False) else return (initConf True)
 
         runCompFunc Compute [AND, BConst True, BConst True]   = return $ initConf $ BConst True
         runCompFunc Compute [AND, BConst l, BConst r]         = return $ initConf $ BConst False
@@ -165,3 +169,8 @@ mitScriptRules = sequence [
             (LetComputation (initConf $ ValVar v') (ExtComp Compute [mop, vv1, vv2])
             (Build $ conf vv' mu))
     ]
+
+toString :: Term MITScript -> String
+toString (BConst b) = if b == True then "True" else "False"
+toString (NumConst (ConstInt n1)) = show n1
+toString (Str (ConstStr s1)) = let str = show s1 in take (length str - 2) $ drop 1 str
