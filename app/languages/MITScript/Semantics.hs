@@ -2,10 +2,12 @@
 
 
 module Languages.MITScript.Semantics (
-    MITScript
+    MITScript,
+    returnConf
   ) where
 
 import Prelude hiding ( True, False, LT, GT, EQ )
+import qualified Prelude
 
 import GHC.Generics ( Generic )
 
@@ -37,31 +39,30 @@ instance LangBase MITScript where
 
         compFuncName Compute = "compute"
 
-        runCompFunc Compute [UMINUS, NumConst (ConstInt n1)] = return $ initConf $ NumConst (ConstInt (negate n1))
+        runCompFunc Compute [UMINUS, NumConst (ConstInt n1)] = returnInt $ negate n1
+        runCompFunc Compute [NOT, BConst b]                  = returnBool $ not $ toMetaBool b
 
-        runCompFunc Compute [PLUS,  NumConst (ConstInt n1), NumConst (ConstInt n2)] = return $ initConf $ NumConst (ConstInt (n1 + n2))
-        runCompFunc Compute [PLUS,  vv1@(Str (ConstStr s1)), vv2]                          = return $ initConf $ Str $ ConstStr $ fromString $ toString vv1 ++ toString vv2
-        runCompFunc Compute [PLUS,  vv1, vv2@(Str (ConstStr s1))]                          = return $ initConf $ Str $ ConstStr $ fromString $ toString vv1 ++ toString vv2
+        runCompFunc Compute [PLUS,  NumConst (ConstInt n1), NumConst (ConstInt n2)] = returnInt $ n1 + n2
+        runCompFunc Compute [PLUS,  vv1@(Str (ConstStr s1)), vv2]                   = returnString $ toString vv1 ++ toString vv2
+        runCompFunc Compute [PLUS,  vv1, vv2@(Str (ConstStr s1))]                   = returnString $ toString vv1 ++ toString vv2
 
-        runCompFunc Compute [MINUS, NumConst (ConstInt n1), NumConst (ConstInt n2)] = return $ initConf $ NumConst (ConstInt (n1 - n2))
-        runCompFunc Compute [TIMES, NumConst (ConstInt n1), NumConst (ConstInt n2)] = return $ initConf $ NumConst (ConstInt (n1 * n2))
-        runCompFunc Compute [DIV,   NumConst (ConstInt n1), NumConst (ConstInt n2)] = return $ initConf $ NumConst (ConstInt (n1 `div` n2))
+        runCompFunc Compute [MINUS, NumConst (ConstInt n1), NumConst (ConstInt n2)] = returnInt $ n1 - n2
+        runCompFunc Compute [TIMES, NumConst (ConstInt n1), NumConst (ConstInt n2)] = returnInt $ n1 * n2
+        runCompFunc Compute [DIV,   NumConst (ConstInt n1), NumConst (ConstInt n2)] = returnInt $ n1 `div` n2
 
-        runCompFunc Compute [GT,  NumConst (ConstInt n1), NumConst (ConstInt n2)]  = if n1 > n2  then return (initConf True) else return (initConf False)
-        runCompFunc Compute [GTE, NumConst (ConstInt n1), NumConst (ConstInt n2)]  = if n1 >= n2 then return (initConf True) else return (initConf False)
+        runCompFunc Compute [GT,  NumConst (ConstInt n1), NumConst (ConstInt n2)]  = returnBool $ n1 > n2
+        runCompFunc Compute [GTE, NumConst (ConstInt n1), NumConst (ConstInt n2)]  = returnBool $ n1 >= n2
 
-        runCompFunc Compute [EQ, NumConst (ConstInt n1), NumConst (ConstInt n2)]   = if n1 == n2 then return (initConf True) else return (initConf False)
-        runCompFunc Compute [EQ, BConst l, BConst r]                               = if l == r   then return (initConf True) else return (initConf False)
+        runCompFunc Compute [EQ, NumConst (ConstInt n1), NumConst (ConstInt n2)]   = returnBool $ n1 == n2
+        runCompFunc Compute [EQ, BConst l, BConst r]                               = returnBool $ l == r
 
-        runCompFunc Compute [NOT, BConst b]                                        = if b == True then return (initConf False) else return (initConf True)
+        runCompFunc Compute [AND, BConst True, BConst True]   = returnBool Prelude.True
+        runCompFunc Compute [AND, BConst l, BConst r]         = returnBool Prelude.False
 
-        runCompFunc Compute [AND, BConst True, BConst True]   = return $ initConf $ BConst True
-        runCompFunc Compute [AND, BConst l, BConst r]         = return $ initConf $ BConst False
+        runCompFunc Compute [OR, BConst False, BConst False] = returnBool Prelude.False
+        runCompFunc Compute [OR, BConst l, BConst r]         = returnBool Prelude.True
 
-        runCompFunc Compute [OR, BConst False, BConst False] = return $ initConf $ BConst False
-        runCompFunc Compute [OR, BConst l, BConst r]         = return $ initConf $ BConst True
-
-        runCompFunc AbsCompute [_, GStar _] = return $ initConf ValStar
+        runCompFunc AbsCompute [_, GStar _] = returnConf ValStar
 
 instance Hashable (CompFunc MITScript)
 
@@ -170,7 +171,27 @@ mitScriptRules = sequence [
             (Build $ conf vv' mu))
     ]
 
+toMetaBool :: Term MITScript -> Bool
+toMetaBool True = Prelude.True
+toMetaBool False = Prelude.False
+
+fromMetaBool :: Bool -> Term MITScript
+fromMetaBool Prelude.True = True
+fromMetaBool Prelude.False = False
+
 toString :: Term MITScript -> String
-toString (BConst b) = if b == True then "True" else "False"
+toString (BConst b) = show $ toMetaBool b
 toString (NumConst (ConstInt n1)) = show n1
 toString (Str (ConstStr s1)) = let str = show s1 in take (length str - 2) $ drop 1 str
+
+returnConf :: (Monad m, Lang l) => Term l -> m (GConfiguration (RedState l) l)
+returnConf x = return $ initConf x
+
+returnInt :: Monad m => Integer -> m (GConfiguration (RedState MITScript) MITScript)
+returnInt x = returnConf $ NumConst $ ConstInt x
+
+returnBool :: Monad m => Bool -> m (GConfiguration (RedState MITScript) MITScript)
+returnBool x = returnConf $ BConst $ fromMetaBool x
+
+returnString :: Monad m => String -> m (GConfiguration (RedState MITScript) MITScript)
+returnString x = returnConf $ Str $ ConstStr $ fromString x
