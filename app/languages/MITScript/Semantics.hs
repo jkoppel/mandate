@@ -55,12 +55,15 @@ instance LangBase MITScript where
 
         runCompFunc Compute [EQ, NumConst (ConstInt n1), NumConst (ConstInt n2)]   = returnBool $ n1 == n2
         runCompFunc Compute [EQ, BConst l, BConst r]                               = returnBool $ l == r
+        runCompFunc Compute [EQ, None, None]                                       = returnBool Prelude.True
+        runCompFunc Compute [EQ, vv1@(Str (ConstStr s1)), vv2@(Str (ConstStr s2))] = returnBool $ toString vv1 == toString vv2
+        runCompFunc Compute [EQ, _, _]                                             = returnBool Prelude.False
 
         runCompFunc Compute [AND, BConst True, BConst True]   = returnBool Prelude.True
         runCompFunc Compute [AND, BConst l, BConst r]         = returnBool Prelude.False
 
-        runCompFunc Compute [OR, BConst False, BConst False] = returnBool Prelude.False
-        runCompFunc Compute [OR, BConst l, BConst r]         = returnBool Prelude.True
+        runCompFunc Compute [OR, BConst False, BConst False]  = returnBool Prelude.False
+        runCompFunc Compute [OR, BConst l, BConst r]          = returnBool Prelude.True
 
         runCompFunc AbsCompute [_, GStar _] = returnConf ValStar
 
@@ -183,6 +186,7 @@ toString :: Term MITScript -> String
 toString (BConst b) = show $ toMetaBool b
 toString (NumConst (ConstInt n1)) = show n1
 toString (Str (ConstStr s1)) = let str = show s1 in take (length str - 2) $ drop 1 str
+toString None = "None"
 
 returnConf :: (Monad m, Lang l) => Term l -> m (GConfiguration (RedState l) l)
 returnConf x = return $ initConf x
