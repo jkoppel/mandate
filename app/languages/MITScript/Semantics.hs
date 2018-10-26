@@ -64,7 +64,7 @@ instance LangBase MITScript where
         runCompFunc Compute [OR, BConst False, BConst False]  = returnBool Prelude.False
         runCompFunc Compute [OR, BConst l, BConst r]          = returnBool Prelude.True
 
-        runCompFunc AbsCompute [_, GStar _] = returnConf ValStar
+        runCompFunc AbsCompute [_, GStar _] = return $ initConf ValStar
 
 instance Hashable (CompFunc MITScript)
 
