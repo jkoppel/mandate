@@ -1,0 +1,14 @@
+x = -(3 + 5); // negation and summation work
+y = x + 4;    // variable access works
+s = "hello " + "world" + 1 + 2 + 3 + true + false + None; // most addition works (not record or function)
+
+a = 1;
+while (a < 10) { // while works
+    a = a + 1;
+}
+
+if (true | false) { // if/else works
+    z = 4;
+} else {
+    z = 5;
+}
