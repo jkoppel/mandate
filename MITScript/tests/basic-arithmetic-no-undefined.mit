@@ -3,6 +3,6 @@
 // s = "hello " + "world" + 1 + 2 + 3 + true + false + None; // most addition works (not none or record or function)
 // a = { hello: 4; goodbye: 5;};
 a = 1;
-while (a < 0) {
+while (a < 10) {
     a = a + 1;
 }

@@ -96,10 +96,14 @@ mitScriptRules = sequence [
      -- Sequential Behaviour
     name "block-cong" $
     mkRule4 $ \s s' mu mu' ->
-        let (ts, ts') = (tv s, tv s') in
+        let (ts, ms') = (tv s, mv s') in
             StepTo (conf (Block ts) mu)
-            (LetStepTo (conf ts' mu') (conf ts mu)
-            (Build (conf (Block ts') mu')))
+            (LetStepTo (conf ms' mu') (conf ts mu)
+            (Build (conf (Block ms') mu')))
+
+    ,name "block-nil" $
+    mkRule1 $ \mu  ->
+        StepTo (conf (Block NilStmt) mu) (Build (conf NilStmt mu))
 
     , name "seq-cong" $
     mkRule5 $ \s1 s2 s1' mu mu' ->
@@ -108,7 +112,7 @@ mitScriptRules = sequence [
             (LetStepTo (conf ms1' mu') (conf ts1 mu)
             (Build (conf (ConsStmt ms1' ms2) mu')))
 
-    , name "seq-eval" $
+    , name "seq-eval-nil" $
     mkRule2 $ \s mu ->
         let ms = mv s in
             StepTo (conf (ConsStmt NilStmt ms) mu)
