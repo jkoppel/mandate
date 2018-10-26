@@ -102,7 +102,7 @@ mitScriptRules = sequence [
             (Build (conf (Block ms') mu')))
 
     , name "block-nil" $
-    mkRule1 $ \mu  ->
+    mkRule1 $ \mu ->
         StepTo (conf (Block NilStmt) mu) (Build (conf NilStmt mu))
 
     , name "seq-cong" $
