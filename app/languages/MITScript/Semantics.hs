@@ -112,7 +112,7 @@ mitScriptRules = sequence [
             (LetStepTo (conf ms1' mu') (conf ts1 mu)
             (Build (conf (ConsStmt ms1' ms2) mu')))
 
-    , name "seq-eval-nil" $
+    , name "seq-nil" $
     mkRule2 $ \s mu ->
         let ms = mv s in
             StepTo (conf (ConsStmt NilStmt ms) mu)
