@@ -203,9 +203,9 @@ mitScriptRules = sequence [
     -- Records Literals -> Runtime Records
     , name "record-cong" $
     mkRule4 $ \r r' mu mu' ->
-        let (mr, mr') = (mv r, mv r') in
-            StepTo (conf (Record mr) mu)
-            (LetStepTo (conf mr' mu') (conf mr mu)
+        let (tr, mr') = (tv r, mv r') in
+            StepTo (conf (Record tr) mu)
+            (LetStepTo (conf mr' mu') (conf tr mu)
             (Build $ conf (Record mr') mu'))
 
     , name "record-eval" $
@@ -216,16 +216,16 @@ mitScriptRules = sequence [
 
     , name "cons-record-pair-cong-car" $
     mkRule5 $ \r r' rs mu mu' ->
-        let (mr, mr', mrs) = (mv r, mv r', mv rs) in
-            StepTo (conf (ConsRecordPair mr mrs) mu)
-            (LetStepTo (conf mr' mu') (conf mr mu)
+        let (tr, mr', mrs) = (tv r, mv r', mv rs) in
+            StepTo (conf (ConsRecordPair tr mrs) mu)
+            (LetStepTo (conf mr' mu') (conf tr mu)
             (Build $ conf (ConsRecordPair mr' mrs) mu'))
 
     , name "cons-record-pair-cong-cdr" $
     mkRule5 $ \r rs rs' mu mu' ->
-        let (vr, mrs, mrs') = (vv r, mv rs, mv rs') in
-            StepTo (conf (ConsRecordPair vr mrs) mu)
-            (LetStepTo (conf mrs' mu') (conf mrs mu)
+        let (vr, trs, mrs') = (vv r, tv rs, mv rs') in
+            StepTo (conf (ConsRecordPair vr trs) mu)
+            (LetStepTo (conf mrs' mu') (conf trs mu)
             (Build $ conf (ConsRecordPair vr mrs') mu'))
 
     , name "cons-record-pair-eval" $
@@ -235,11 +235,11 @@ mitScriptRules = sequence [
             (Build $ conf (ReducedRecordCons vr vrs) mu)
 
     , name "record-pair-cong" $
-    mkRule5 $ \k vv vv' mu mu' ->
-        let (mk, mvv, mvv') = (mv k, mv vv, mv vv') in
-            StepTo (conf (RecordPair mk mvv) mu)
-            (LetStepTo (conf mvv' mu') (conf mvv mu)
-            (Build $ conf (RecordPair mk mvv') mu'))
+    mkRule5 $ \k v v' mu mu' ->
+        let (mk, tvv, mv') = (mv k, tv v, mv v') in
+            StepTo (conf (RecordPair mk tvv) mu)
+            (LetStepTo (conf mv' mu') (conf tvv mu)
+            (Build $ conf (RecordPair mk mv') mu'))
 
     , name "record-pair-eval" $
     mkRule3 $ \key val mu ->
