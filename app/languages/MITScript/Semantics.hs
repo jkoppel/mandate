@@ -5,20 +5,19 @@ module Languages.MITScript.Semantics (
     MITScript
   ) where
 
+import Prelude hiding ( True, False, LT, GT, EQ )
+import qualified Prelude
+
+import GHC.Generics ( Generic )
+
 import Data.ByteString.Char8 ( ByteString )
 import qualified Data.ByteString.Char8 as BS
 import Data.Interned.ByteString ( InternedByteString(..) )
 import Data.Hashable ( Hashable )
 import Data.String ( fromString )
-import GHC.Generics ( Generic )
-import qualified Prelude
-import Prelude hiding ( True, False, LT, GT, EQ )
 
 import Configuration
 import Lang
-import Languages.MITScript.Signature
-import Languages.MITScript.Translate
-import Languages.MITScript.Parse
 import Matching
 import Semantics.Abstraction
 import Semantics.General
@@ -27,6 +26,9 @@ import Semantics.SOS
 import Term
 import Var
 
+import Languages.MITScript.Signature
+import Languages.MITScript.Translate
+import Languages.MITScript.Parse
 
 instance LangBase MITScript where
         -- these are keyed by terms becuase thats what Imp.hs did and it seemed to be rationalized well
