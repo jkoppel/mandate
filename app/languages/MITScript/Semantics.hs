@@ -261,15 +261,18 @@ fromMetaBool :: Bool -> Term MITScript
 fromMetaBool Prelude.True = True
 fromMetaBool Prelude.False = False
 
+removeQuotes :: String -> String
+removeQuotes s = take (length s - 2) $ drop 1 s
+
 toString :: Term MITScript -> String
 toString (BConst b) = show $ toMetaBool b
 toString (NumConst (ConstInt n1)) = show n1
-toString (Str (ConstStr s1)) = let str = show s1 in take (length str - 2) $ drop 1 str
+toString (Str (ConstStr s)) = removeQuotes $ show s
 toString None = "None"
 toString (ReducedRecord rs) = "{" ++ toString rs ++ "}"
 toString (ReducedRecordCons rp rps) = toString rp ++ toString rps
 toString ReducedRecordNil = ""
-toString (ReducedRecordPair (Name n) v) = (let key = show n in take (length key - 2) $ drop 1 key) ++ ":" ++ toString v ++ " "
+toString (ReducedRecordPair (Name n) v) = removeQuotes (show n) ++ ":" ++ toString v ++ " "
 
 returnInt :: Monad m => Integer -> m (GConfiguration (RedState MITScript) MITScript)
 returnInt x = return $ initConf $ NumConst $ ConstInt x
