@@ -199,6 +199,58 @@ mitScriptRules = sequence [
             StepTo (conf (BinExp vv1 mop vv2) mu)
             (LetComputation (initConf $ ValVar v') (ExtComp Compute [mop, vv1, vv2])
             (Build $ conf vv' mu))
+
+    -- Records
+    , name "record-cong" $
+    mkRule4 $ \r r' mu mu' ->
+        let (mr, mr') = (mv r, mv r') in
+            StepTo (conf (Record mr) mu)
+            (LetStepTo (conf mr' mu') (conf mr mu)
+            (Build $ conf (Record mr') mu'))
+
+    , name "record-eval" $
+    mkRule2 $ \mu r ->
+        let vr = vv r in
+            StepTo (conf (Record vr) mu)
+            (Build $ conf (RTRecord vr) mu)
+
+    , name "cons-record-pair-cong-car" $
+    mkRule5 $ \r r' rs mu mu' ->
+        let (mr, mr', mrs) = (mv r, mv r', mv rs) in
+            StepTo (conf (ConsRecordPair mr mrs) mu)
+            (LetStepTo (conf mr' mu') (conf mr mu)
+            (Build $ conf (ConsRecordPair mr' mrs) mu'))
+
+    , name "cons-record-pair-cong-cdr" $
+    mkRule5 $ \r rs rs' mu mu' ->
+        let (vr, mrs, mrs') = (vv r, mv rs, mv rs') in
+            StepTo (conf (ConsRecordPair vr mrs) mu)
+            (LetStepTo (conf mrs' mu') (conf mrs mu)
+            (Build $ conf (ConsRecordPair vr mrs') mu'))
+
+    , name "cons-record-pair-eval" $
+    mkRule3 $ \r rs mu ->
+        let (vr, vrs) = (vv r, vv rs) in
+            StepTo (conf (ConsRecordPair vr vrs) mu)
+            (Build $ conf (ConsRTRecordPair vr vrs) mu)
+
+    , name "record-pair-cong" $
+    mkRule5 $ \k vv vv' mu mu' ->
+        let (mk, mvv, mvv') = (mv k, mv vv, mv vv') in
+            StepTo (conf (RecordPair mk mvv) mu)
+            (LetStepTo (conf mvv' mu') (conf mvv mu)
+            (Build $ conf (RecordPair mk mvv') mu'))
+
+    , name "record-pair-eval" $
+    mkRule3 $ \key val mu ->
+        let (mkey, vval) = (mv key, vv val) in
+            StepTo (conf (RecordPair mkey vval) mu)
+            (Build $ conf (RTRecordPair mkey vval) mu)
+
+    , name "nil-record-pair-eval" $
+    mkRule1 $ \mu ->
+            StepTo (conf NilRecordPair mu)
+            (Build $ conf NilRTRecordPair mu)
     ]
 
 toMetaBool :: Term MITScript -> Bool

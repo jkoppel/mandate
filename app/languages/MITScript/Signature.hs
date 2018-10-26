@@ -14,6 +14,7 @@ mitScriptSorts :: [Sort]
 mitScriptSorts = [ "Name",  "NameList", "Stmt", "StmtList"
                 , "BinOp", "UnOp", "Expr", "ExprList"
                 , "RecordPair", "RecordPairList"
+                , "RTRecordPair", "RTRecordPairList"
                 , "Bool", "ConstInt", "ConstStr"
                 ]
 
@@ -74,6 +75,12 @@ mitScriptSig = Signature [ StrSig "Name" "Name"
                          , ValSig "False" [] "Bool"
                          , IntSig "ConstInt" "ConstInt"
                          , StrSig "ConstStr" "ConstStr"
+
+                         , ValSig  "RTRecord" ["RTRecordPairList"]        "Expr"
+                         , ValSig "RTRecordPair" ["Name", "Expr"] "RTRecordPair"
+
+                         , ValSig "NilRTRecordPair" [] "RTRecordPairList"
+                         , ValSig "ConsRTRecordPair" ["RTRecordPair", "RTRecordPairList"] "RTRecordPairList"
              ]
 
 --------------------------------------------------------------------------------------------------------------------
@@ -214,3 +221,16 @@ pattern ConstStr :: InternedByteString -> Term MITScript
 pattern ConstStr s = StrNode "ConstStr" s
 
 --------------------------------------------------------------------------------------------------------------------
+
+-- Runtime records: like record literals, but values must be fully evaluated
+pattern RTRecord :: Term MITScript -> Term MITScript
+pattern RTRecord a = Val "RTRecord" [a]
+
+pattern RTRecordPair :: Term MITScript -> Term MITScript -> Term MITScript
+pattern RTRecordPair a b = Val "RTRecordPair" [a, b]
+
+pattern NilRTRecordPair :: Term MITScript
+pattern NilRTRecordPair = Val "NilRTRecordPair" []
+
+pattern ConsRTRecordPair :: Term MITScript -> Term MITScript -> Term MITScript
+pattern ConsRTRecordPair a b = Val "ConsRTRecordPair" [a, b]
