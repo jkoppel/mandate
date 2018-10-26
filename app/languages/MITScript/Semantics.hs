@@ -200,7 +200,7 @@ mitScriptRules = sequence [
             (LetComputation (initConf $ ValVar v') (ExtComp Compute [mop, vv1, vv2])
             (Build $ conf vv' mu))
 
-    -- Records
+    -- Records Literals -> Runtime Records
     , name "record-cong" $
     mkRule4 $ \r r' mu mu' ->
         let (mr, mr') = (mv r, mv r') in
@@ -212,7 +212,7 @@ mitScriptRules = sequence [
     mkRule2 $ \mu r ->
         let vr = vv r in
             StepTo (conf (Record vr) mu)
-            (Build $ conf (RTRecord vr) mu)
+            (Build $ conf (ReducedRecord vr) mu)
 
     , name "cons-record-pair-cong-car" $
     mkRule5 $ \r r' rs mu mu' ->
@@ -232,7 +232,7 @@ mitScriptRules = sequence [
     mkRule3 $ \r rs mu ->
         let (vr, vrs) = (vv r, vv rs) in
             StepTo (conf (ConsRecordPair vr vrs) mu)
-            (Build $ conf (ConsRTRecordPair vr vrs) mu)
+            (Build $ conf (ReducedRecordCons vr vrs) mu)
 
     , name "record-pair-cong" $
     mkRule5 $ \k vv vv' mu mu' ->
@@ -245,12 +245,12 @@ mitScriptRules = sequence [
     mkRule3 $ \key val mu ->
         let (mkey, vval) = (mv key, vv val) in
             StepTo (conf (RecordPair mkey vval) mu)
-            (Build $ conf (RTRecordPair mkey vval) mu)
+            (Build $ conf (ReducedRecordPair mkey vval) mu)
 
     , name "nil-record-pair-eval" $
     mkRule1 $ \mu ->
             StepTo (conf NilRecordPair mu)
-            (Build $ conf NilRTRecordPair mu)
+            (Build $ conf ReducedRecordNil mu)
     ]
 
 toMetaBool :: Term MITScript -> Bool

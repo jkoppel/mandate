@@ -14,7 +14,7 @@ mitScriptSorts :: [Sort]
 mitScriptSorts = [ "Name",  "NameList", "Stmt", "StmtList"
                 , "BinOp", "UnOp", "Expr", "ExprList"
                 , "RecordPair", "RecordPairList"
-                , "RTRecordPair", "RTRecordPairList"
+                , "ReducedRecordPair", "ReducedRecordPairList"
                 , "Bool", "ConstInt", "ConstStr"
                 ]
 
@@ -76,11 +76,11 @@ mitScriptSig = Signature [ StrSig "Name" "Name"
                          , IntSig "ConstInt" "ConstInt"
                          , StrSig "ConstStr" "ConstStr"
 
-                         , ValSig  "RTRecord" ["RTRecordPairList"]        "Expr"
-                         , ValSig "RTRecordPair" ["Name", "Expr"] "RTRecordPair"
+                         , ValSig "ReducedRecord" ["ReducedRecordPairList"] "Expr"
+                         , ValSig "ReducedRecordPair" ["Name", "Expr"] "ReducedRecordPair"
 
-                         , ValSig "NilRTRecordPair" [] "RTRecordPairList"
-                         , ValSig "ConsRTRecordPair" ["RTRecordPair", "RTRecordPairList"] "RTRecordPairList"
+                         , ValSig "ReducedRecordNil" [] "ReducedRecordPairList"
+                         , ValSig "ReducedRecordCons" ["ReducedRecordPair", "ReducedRecordPairList"] "ReducedRecordPairList"
              ]
 
 --------------------------------------------------------------------------------------------------------------------
@@ -223,14 +223,14 @@ pattern ConstStr s = StrNode "ConstStr" s
 --------------------------------------------------------------------------------------------------------------------
 
 -- Runtime records: like record literals, but values must be fully evaluated
-pattern RTRecord :: Term MITScript -> Term MITScript
-pattern RTRecord a = Val "RTRecord" [a]
+pattern ReducedRecord :: Term MITScript -> Term MITScript
+pattern ReducedRecord a = Val "ReducedRecord" [a]
 
-pattern RTRecordPair :: Term MITScript -> Term MITScript -> Term MITScript
-pattern RTRecordPair a b = Val "RTRecordPair" [a, b]
+pattern ReducedRecordPair :: Term MITScript -> Term MITScript -> Term MITScript
+pattern ReducedRecordPair a b = Val "ReducedRecordPair" [a, b]
 
-pattern NilRTRecordPair :: Term MITScript
-pattern NilRTRecordPair = Val "NilRTRecordPair" []
+pattern ReducedRecordNil :: Term MITScript
+pattern ReducedRecordNil = Val "ReducedRecordNil" []
 
-pattern ConsRTRecordPair :: Term MITScript -> Term MITScript -> Term MITScript
-pattern ConsRTRecordPair a b = Val "ConsRTRecordPair" [a, b]
+pattern ReducedRecordCons :: Term MITScript -> Term MITScript -> Term MITScript
+pattern ReducedRecordCons a b = Val "ReducedRecordCons" [a, b]

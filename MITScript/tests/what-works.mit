@@ -12,3 +12,5 @@ if (true | false) { // if/else works
 } else {
     z = 5;
 }
+
+m = { x: 1 + 1; y: 2 + 2;}; // records work!
