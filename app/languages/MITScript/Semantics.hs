@@ -165,7 +165,6 @@ mitScriptRules = sequence [
             (Build $ Conf vval (AssocOneVal mu mvar vval))
 
     --- Arithmetic Operations
-    -- Unary
     , name "unary-cong" $
     mkRule5 $ \e1 e1' mu mu' op ->
         let (te, me', mop) = (tv e1, mv e1', mv op) in
@@ -180,8 +179,7 @@ mitScriptRules = sequence [
             (LetComputation (initConf $ ValVar v') (ExtComp Compute [mop, vv1])
             (Build $ conf vv' mu))
 
-    -- Binary
-    -- assumes all binary operators are left-associative
+    -- all binary operators are left-associative
     , name "binary-cong-left" $
     mkRule6 $ \e1 e2 e1' mu mu' op ->
         let (te1, me2, me1', mop) = (tv e1, mv e2, mv e1', mv op) in
