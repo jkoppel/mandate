@@ -3,7 +3,7 @@
 
 module Languages.MITScript.Semantics (
     MITScript
- ) where
+  ) where
 
 import Prelude hiding ( True, False, LT, GT, EQ )
 import qualified Prelude
