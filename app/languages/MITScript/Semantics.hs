@@ -101,7 +101,7 @@ mitScriptRules = sequence [
             (LetStepTo (conf ms' mu') (conf ts mu)
             (Build (conf (Block ms') mu')))
 
-    ,name "block-nil" $
+    , name "block-nil" $
     mkRule1 $ \mu  ->
         StepTo (conf (Block NilStmt) mu) (Build (conf NilStmt mu))
 
