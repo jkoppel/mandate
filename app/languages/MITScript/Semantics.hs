@@ -215,14 +215,11 @@ toString (NumConst (ConstInt n1)) = show n1
 toString (Str (ConstStr s1)) = let str = show s1 in take (length str - 2) $ drop 1 str
 toString None = "None"
 
-returnConf :: (Monad m, Lang l) => Term l -> m (GConfiguration (RedState l) l)
-returnConf x = return $ initConf x
-
 returnInt :: Monad m => Integer -> m (GConfiguration (RedState MITScript) MITScript)
-returnInt x = returnConf $ NumConst $ ConstInt x
+returnInt x = return $ initConf $ NumConst $ ConstInt x
 
 returnBool :: Monad m => Bool -> m (GConfiguration (RedState MITScript) MITScript)
-returnBool x = returnConf $ BConst $ fromMetaBool x
+returnBool x = return $ initConf $ BConst $ fromMetaBool x
 
 returnString :: Monad m => String -> m (GConfiguration (RedState MITScript) MITScript)
-returnString x = returnConf $ Str $ ConstStr $ fromString x
+returnString x = return $ initConf $ Str $ ConstStr $ fromString x
