@@ -1,7 +1,7 @@
 x = -(3 + 5); // negation and summation work
 y = x + 4;    // variable access works
 r = {hello: "world"; rec: {goodbye: "world";};};
-s = "hello " + "world" + 1 + 2 + 3 + true + false + None + r; // most addition works (not record or function)
+s = "hello " + "world" + 1 + 2 + 3 + true + false + None + r; // most addition works (not function)
 
 a = 1;
 while (a < 10) { // while works
