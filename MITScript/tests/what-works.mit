@@ -18,3 +18,6 @@ m = { // records work!
     x: { x: 1 + 1; y: 2 + 2;};
     y: 2 + 2;
 };
+
+xx = m.x.x; // as does field access!
+yy = m["" + "x" ]["y"]; // and index access!

@@ -12,6 +12,7 @@ import GHC.Generics ( Generic )
 
 import Data.ByteString.Char8 ( ByteString )
 import qualified Data.ByteString.Char8 as BS
+import Data.Interned ( unintern )
 import Data.Interned.ByteString ( InternedByteString(..) )
 import Data.Hashable ( Hashable )
 import Data.String ( fromString )
@@ -34,9 +35,14 @@ instance LangBase MITScript where
         -- these are keyed by terms becuase thats what Imp.hs did and it seemed to be rationalized well
         type RedState MITScript = SimpEnv (Term MITScript) (Term MITScript)
 
-        data CompFunc MITScript = Compute | AbsCompute deriving ( Eq, Generic )
+        data CompFunc MITScript = Compute | AbsCompute
+                                | AccessField | AbsAccessField
+                                | AccessIndex | AbsAccessIndex
+            deriving ( Eq, Generic )
 
         compFuncName Compute = "compute"
+        compFuncName AccessField = "accessField"
+        compFuncName AccessIndex = "accessIndex"
 
         runCompFunc Compute [UMINUS, NumConst (ConstInt n1)] = returnInt $ negate n1
         runCompFunc Compute [NOT, BConst b]                  = returnBool $ not $ toMetaBool b
@@ -64,13 +70,32 @@ instance LangBase MITScript where
         runCompFunc Compute [OR, BConst False, BConst False]  = returnBool Prelude.False
         runCompFunc Compute [OR, BConst l, BConst r]          = returnBool Prelude.True
 
-        runCompFunc AbsCompute [_, GStar _] = return $ initConf ValStar
+        runCompFunc AccessField [ReducedRecord r, Name f] = return $ initConf $ accessField r (ibsToString f)
+        runCompFunc AccessIndex [ReducedRecord r, i]      = return $ initConf $ accessField r (toString i)
+
+        runCompFunc AbsCompute [GStar _, _]    = return $ initConf ValStar
+        runCompFunc AbsCompute [_, GStar _]    = return $ initConf ValStar
+        runCompFunc AbsCompute [GStar _, _, _] = return $ initConf ValStar
+        runCompFunc AbsCompute [_, GStar _, _] = return $ initConf ValStar
+        runCompFunc AbsCompute [_, _, GStar _] = return $ initConf ValStar
+
+        runCompFunc AbsAccessField [GStar _, _] = return $ initConf ValStar
+        runCompFunc AbsAccessField [_, GStar _] = return $ initConf ValStar
+
+        runCompFunc AbsAccessIndex [GStar _, _] = return $ initConf ValStar
+        runCompFunc AbsAccessIndex [_, GStar _] = return $ initConf ValStar
+
 
 instance Hashable (CompFunc MITScript)
 
 instance ValueIrrelevance (CompFunc MITScript) where
-    valueIrrelevance Compute    = AbsCompute
+    valueIrrelevance Compute     = AbsCompute
+    valueIrrelevance AccessIndex = AbsAccessIndex
+    valueIrrelevance AccessField = AbsAccessField
+
     valueIrrelevance AbsCompute = AbsCompute
+    valueIrrelevance AbsAccessField = AbsAccessField
+    valueIrrelevance AbsAccessIndex = AbsAccessIndex
 
 instance Lang MITScript where
     signature = mitScriptSig
@@ -251,7 +276,51 @@ mitScriptRules = sequence [
     mkRule1 $ \mu ->
             StepTo (conf NilRecordPair mu)
             (Build $ conf ReducedRecordNil mu)
+
+    -- Index Access
+    , name "index-cong-1" $
+    mkRule5 $ \r i i' mu mu' ->
+        let (mr, ti, mi) = (mv r, tv i, mv i') in
+            StepTo (conf (Index mr ti) mu)
+            (LetStepTo (conf mi mu') (conf ti mu)
+            (Build $ conf (Index mr mi) mu'))
+
+    , name "index-cong-2" $
+    mkRule5 $ \r r' i mu mu' ->
+        let (tr, mr', vi) = (tv r, mv r', vv i) in
+            StepTo (conf (Index tr vi) mu)
+            (LetStepTo (conf mr' mu') (conf tr mu)
+            (Build $ conf (Index mr' vi) mu'))
+
+    , name "index-eval" $
+    mkRule4 $ \r i v mu ->
+        let (vr, vi, v') = (vv r, vv i, vv v) in
+            StepTo (conf (Index vr vi) mu)
+            (LetComputation (initConf v') (ExtComp AccessIndex [vr, vi])
+            (Build $ conf v' mu))
+
+    -- Field Access
+    , name "field-cong" $
+    mkRule5 $ \r r' f mu mu' ->
+        let (tr, mr, mf) = (tv r, mv r', mv f) in
+            StepTo (conf (FieldAccess tr mf) mu)
+            (LetStepTo (conf mr mu') (conf tr mu)
+            (Build $ conf (FieldAccess mr mf) mu'))
+
+    , name "field-eval" $
+    mkRule4 $ \r f v mu ->
+        let (vr, mf, v') = (vv r, mv f, vv v) in
+            StepTo (conf (FieldAccess vr mf) mu)
+            (LetComputation (initConf v') (ExtComp AccessField [vr, mf])
+            (Build $ conf v' mu))
     ]
+
+ibsToString :: InternedByteString -> String
+ibsToString = BS.unpack . unintern
+
+accessField :: Term MITScript -> String ->  Term MITScript
+accessField (ReducedRecordCons (ReducedRecordPair (Name k) v) rps) field = if ibsToString k == field then v else accessField rps field
+accessField _ _ = None
 
 toMetaBool :: Term MITScript -> Bool
 toMetaBool True = Prelude.True
@@ -267,12 +336,12 @@ removeQuotes s = take (length s - 2) $ drop 1 s
 toString :: Term MITScript -> String
 toString (BConst b) = show $ toMetaBool b
 toString (NumConst (ConstInt n1)) = show n1
-toString (Str (ConstStr s)) = removeQuotes $ show s
+toString (Str (ConstStr s)) = ibsToString s
 toString None = "None"
 toString (ReducedRecord rs) = "{" ++ toString rs ++ "}"
 toString (ReducedRecordCons rp rps) = toString rp ++ toString rps
 toString ReducedRecordNil = ""
-toString (ReducedRecordPair (Name n) v) = removeQuotes (show n) ++ ":" ++ toString v ++ " "
+toString (ReducedRecordPair (Name n) v) = ibsToString n ++ ":" ++ toString v ++ " "
 
 returnInt :: Monad m => Integer -> m (GConfiguration (RedState MITScript) MITScript)
 returnInt x = return $ initConf $ NumConst $ ConstInt x
