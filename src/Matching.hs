@@ -24,6 +24,7 @@ module Matching (
 import Control.Monad ( MonadPlus(..), guard, forM_ )
 import Control.Monad.IO.Class ( MonadIO(..) )
 import Control.Monad.State ( MonadState(..), StateT, evalStateT, modify )
+import Control.Monad.Trans ( lift )
 
 import Data.Dynamic ( Dynamic, toDyn, fromDynamic)
 import Data.Foldable ( fold )
@@ -59,7 +60,7 @@ import Var
 ------ Then, abstractMatch has type:  Pattern x -> y -> m (Pattern x -> m y), satisfying:
 ------         (gamma <$> (abstractMatch p1 (alpha t) <*> p2)) >= (match p1 t <*> p2)
 ------
------- I haven't read the paper on Galois transformers.....but I think match might need to be one. At leat, it should be
+------ I haven't read the paper on Galois transformers.....but I think match might need to be one. At least, it should be
 ------ an endofunctor on the category of lattices (i.e.: preserves monotone maps).
 ------
 ------ An example of abstract terms: terms where some subtrees have been replaced with variables, together with logical
@@ -166,23 +167,22 @@ import Var
 ------
 ------------------------------------------------------------------
 
-data MatchState = MatchState (Map MetaVar Dynamic)
+data MatchState = MatchState { ms_varMap   :: Map MetaVar Dynamic
+                             , ms_varAlloc :: VarAllocator
+                             }
 
-getMatchState :: MatchState -> Map MetaVar Dynamic
-getMatchState (MatchState m) = m
-
-modMatchState :: (Map MetaVar Dynamic -> Map MetaVar Dynamic) -> MatchState -> MatchState
-modMatchState f (MatchState m) = MatchState $ f m
+modVarMap :: (Map MetaVar Dynamic -> Map MetaVar Dynamic) -> MatchState -> MatchState
+modVarMap f m = m { ms_varMap = f (ms_varMap m) }
 
 
 -- LogicT is on inside; means state will reset on backtrack
 type Match = StateT MatchState (LogicT IO)
 
 runMatch :: Match a -> IO [a]
-runMatch m = observeAllT $ evalStateT m (MatchState Map.empty)
+runMatch m = observeAllT $ evalStateT m (MatchState Map.empty mkPositiveVarAllocator)
 
 runMatchFirst :: Match a -> IO (Maybe a)
-runMatchFirst m = runLogicT (evalStateT m (MatchState Map.empty)) (const . return . Just) (return Nothing)
+runMatchFirst m = runLogicT (evalStateT m (MatchState Map.empty mkPositiveVarAllocator)) (const . return . Just) (return Nothing)
 
 runMatchUnique :: Match a -> IO (Maybe a)
 runMatchUnique m = do xs <- runMatch m
@@ -194,7 +194,13 @@ runMatchUnique m = do xs <- runMatch m
 runMatchEffect :: MatchEffect a -> Match a
 runMatchEffect (MatchEffect x) = liftIO x
 
-class (MonadPlus m, MonadIO m) => MonadMatchable m where
+instance MonadVarAllocator Match where
+  allocVarM = do ms <- get
+                 let (mv, va') = allocVar (ms_varAlloc ms)
+                 put $ ms { ms_varAlloc = va' }
+                 return mv
+
+class (MonadPlus m, MonadVarAllocator m, MonadIO m) => MonadMatchable m where
   hasVar :: MetaVar -> m Bool
   putVar :: (Typeable a, Eq a) => MetaVar -> a -> m ()
   clearVar :: MetaVar -> m ()
@@ -202,44 +208,56 @@ class (MonadPlus m, MonadIO m) => MonadMatchable m where
   getVarMaybe :: Typeable a => MetaVar -> (a -> m b) -> m b -> m b
   getVarDefault :: Typeable a => MetaVar -> m a -> m a
   getVar :: Typeable a => MetaVar -> m a
+
+  withSubCtx   :: m x -> m x
   withFreshCtx :: m x -> m x
+
+  withVarAllocator :: VarAllocator -> m x -> m x
 
   overrideVar m x = clearVar m >> putVar m x
   getVarDefault v = getVarMaybe v return
   getVar var = getVarDefault var mzero
 
-instance {-# OVERLAPPABLE #-} (MonadState MatchState m, MonadIO m, MonadPlus m) => MonadMatchable m where
-  hasVar var = Map.member var <$> getMatchState <$> get
+
+withModCtxState :: (MonadState MatchState m) => (MatchState -> MatchState) -> m x -> m x
+withModCtxState f m = do old <- get
+                         modify f
+                         res <- m
+                         put old
+                         return res
+
+instance {-# OVERLAPPABLE #-} (MonadState MatchState m, MonadVarAllocator m, MonadIO m, MonadPlus m) => MonadMatchable m where
+  hasVar var = Map.member var <$> ms_varMap <$> get
   putVar var val = do curVal <- getVarMaybe var (return.Just) (return Nothing)
                       case curVal of
                         Nothing   -> do debugM $ "Setting var " ++ show var
-                                        modify (modMatchState $ Map.insert var (toDyn val))
+                                        modify (modVarMap $ Map.insert var (toDyn val))
                         Just val' -> guard (val == val')
 
-  clearVar var = modify (modMatchState $ Map.delete var)
+  clearVar var = modify (modVarMap $ Map.delete var)
 
-  getVarMaybe var f def = do maybeDyn <- Map.lookup var <$> getMatchState <$> get
+  getVarMaybe var f def = do maybeDyn <- Map.lookup var <$> ms_varMap <$> get
                              case (maybeDyn :: Maybe Dynamic) of
                                Nothing -> def
                                Just x  -> maybe def f (fromDynamic x)
 
-  withFreshCtx m = do old <- get
-                      put $ MatchState Map.empty
-                      res <- m
-                      put old
-                      return res
+
+  withSubCtx          = withModCtxState id
+  withFreshCtx        = withModCtxState (\ms -> ms { ms_varMap   = Map.empty })
+  withVarAllocator va = withModCtxState (\ms -> ms { ms_varAlloc = va})
 
 -- Hack to prevent eagerly matching the above instance
 data UnusedMonad a
-instance {-# OVERLAPPING #-} (MonadPlus UnusedMonad, MonadIO UnusedMonad) => MonadMatchable UnusedMonad where
+instance {-# OVERLAPPING #-} (MonadPlus UnusedMonad, MonadVarAllocator UnusedMonad, MonadIO UnusedMonad) => MonadMatchable UnusedMonad where
   hasVar = error "Using UnusedMonad"
   putVar = error "Using UnusedMonad"
   clearVar = error "Using UnusedMonad"
   getVarMaybe = error "Using UnusedMonad"
   withFreshCtx = error "Using UnusedMonad"
+  withVarAllocator = error "Using UnusedMonad"
 
 refreshVar :: (MonadMatchable m, Typeable a, Eq a) => (MetaVar -> a) -> MetaVar -> m MetaVar
-refreshVar f v = do v' <- liftIO nextVar
+refreshVar f v = do v' <- allocVarM
                     putVar v (f v')
                     return v'
 
@@ -305,7 +323,7 @@ class (Show f) => Matchable f where
 matchList :: (Matchable f, MonadMatchable m) => Pattern [f] -> Matchee [f] -> m ()
 matchList (Pattern xs1) (Matchee xs2) = sequence_ $ zipWith match (map Pattern xs1) (map Matchee xs2)
 
-refreshVarsList :: (Matchable f, MonadMatchable m) => [f] -> m [f]
+refreshVarsList :: (Matchable f, MonadVarAllocator m, MonadMatchable m) => [f] -> m [f]
 refreshVarsList = mapM refreshVars
 
 fillMatchList :: (Matchable f, MonadMatchable m) => [f] -> m [f]
@@ -357,7 +375,7 @@ instance (LangBase l) => Matchable (Term l) where
 
   refreshVars = fillMatchTermGen (\v mt -> getVarMaybe v return (refresh v mt))
     where
-      refresh :: (MonadMatchable m, LangBase l) => MetaVar -> MatchType -> m (Term l)
+      refresh :: (MonadMatchable m, MonadVarAllocator m, LangBase l) => MetaVar -> MatchType -> m (Term l)
       refresh v mt = GMetaVar <$> refreshVar (\v' -> GMetaVar @l v' mt) v <*> pure mt
   fillMatch = fillMatchTermGen (\v _ -> getVarMaybe v return (return $ MetaVar v))
 
