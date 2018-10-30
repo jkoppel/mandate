@@ -291,7 +291,8 @@ class (Show f) => Matchable f where
   -- the term f(x,y) will not match the pattern f(z,z).
   match :: (MonadMatchable m) => Pattern f -> Matchee f -> m ()
 
-  -- | Renames all meta-syntactic variables in the argument with newly allocated variables
+  -- | Renames all meta-syntactic variables in the argument with newly allocated variables, binding the old
+  -- variables to the new ones
   --
   -- This is used when wrapping a term inside a binder, to prevent the bound variable from shadowing
   -- existing variables. It is particularly used when converting an SOS rule to PAM rules. Consider the following SOS rule:
