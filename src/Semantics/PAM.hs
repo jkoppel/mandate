@@ -190,4 +190,32 @@ instance ValueIrrelevance Phase where
 -----------------------------
 
 
+getPhaseRhs :: PAMRhs l -> Phase
+getPhaseRhs (GenAMLetComputation _ _ rhs) = getPhaseRhs rhs
+getPhaseRhs (GenAMRhs rhs) = getPhasePAMState rhs
+
+getPhasePAMState :: PAMState l -> Phase
+getPhasePAMState (PAMState _ _ p) = p
+
+data ClassifiedPAMRules l = ClassifiedPAMRules { upRules   :: NamedPAMRules l
+                                               , compRules :: NamedPAMRules l
+                                               , downRules :: NamedPAMRules l
+                                               }
+
+classifyPAMRules :: NamedPAMRules l -> ClassifiedPAMRules l
+classifyPAMRules rs = if not (null $ filterRulePattern Up Down rs) then
+                        error "PAMRules has unexpected up-down rule"
+                      else
+                        ClassifiedPAMRules { upRules   = filterRulePattern Up   Up   rs
+                                           , compRules = filterRulePattern Down Up   rs
+                                           , downRules = filterRulePattern Down Down rs
+                                           }
+  where
+    filterRulePattern :: Phase -> Phase -> NamedPAMRules l -> NamedPAMRules l
+    filterRulePattern p1 p2 = filter $ \(NamedPAMRule _ (GenAMRule { genAmBefore = before
+                                                                   , genAmAfter  = after}))
+                                          -> p1 == getPhasePAMState before &&
+                                             p2 == getPhaseRhs      after
+
+-- Current version: Only for inversion in one transition
 --upRulesInvertible :: (Lang l) => NamedPAMRules l -> IO Bool
