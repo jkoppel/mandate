@@ -37,6 +37,7 @@ import Matching
 import Rose
 import Semantics.Abstraction
 import Semantics.Context
+import Semantics.General
 import Semantics.GeneralMachine
 import Semantics.SOS
 import Term
@@ -95,30 +96,41 @@ infNameStream :: ByteString -> InfNameStream
 infNameStream nam = map (\i -> mconcat [nam, "-", BS.pack $ show i]) [1..]
 
 
+----------------------------------- Traversals (sans generic programming) ----------------------------
+
+instance (Matchable (Configuration l), NormalizeBoundVars (Context l)) => NormalizeBoundVars (PAMState l) where
+  normalizeBoundVars' (PAMState c k p) = PAMState <$> fillMatch c <*> normalizeBoundVars' k <*> return p
+
+instance (Matchable (Configuration l), Matchable (ExtComp l), NormalizeBoundVars (PAMState l)) => NormalizeBoundVars (PAMRhs l) where
+  normalizeBoundVars' (GenAMLetComputation cfg comp rhs) = GenAMLetComputation <$> fillMatch cfg
+                                                                               <*> fillMatch comp
+                                                                               <*> normalizeBoundVars' rhs
+
+  normalizeBoundVars' (GenAMRhs st) = GenAMRhs <$> normalizeBoundVars' st
+
+
+
 ----------------------------------- SOS to PAM conversion --------------------------------------------
 
 -- | Strips off the first layer of nesting in a context. All computation up to the first
 -- KStepTo is converted into a PAM RHS. The remainder, if any, is returned for further conversion into the next rule.
-splitFrame :: (Lang l) => PosFrame l -> Context l -> IO (PAMRhs l, Context l, Maybe (Configuration l, PosFrame l))
-splitFrame (KBuild c) k = return (GenAMRhs $ PAMState c k Up, k, Nothing)
--- TODO: Why is this so ugly?
-splitFrame (KStepTo c f@(KInp i pf)) k = fromJust <$> (runMatchUnique $ do
-                                           i' <- withVarAllocator mkNegativeVarAllocator $ refreshVars i
-                                           pf' <- fillMatch pf
-                                           let f' = KInp i' pf'
-                                           let cont = KPush f k
-                                           let cont' = KPush (KInp i' pf') k
-                                           return (GenAMRhs $ PAMState c cont Down, cont', Just (i, pf')))
-splitFrame (KComputation comp (KInp c pf)) k = do (subRhs, ctx, rest) <- splitFrame pf k
-                                                  return (GenAMLetComputation c comp subRhs, ctx, rest)
+splitFrame :: (Lang l) => PosFrame l -> Context l -> (PAMRhs l, Context l, Maybe (Configuration l, PosFrame l))
+splitFrame (KBuild c) k = (GenAMRhs $ PAMState c k Up, k, Nothing)
+splitFrame (KStepTo c f@(KInp i pf)) k =
+    let f' = KInp i pf in
+    let cont = KPush f k in
+    let cont' = KPush (KInp i pf) k in
+    (GenAMRhs $ PAMState c cont Down, cont', Just (i, pf))
+splitFrame (KComputation comp (KInp c pf)) k = let (subRhs, ctx, rest) = splitFrame pf k in
+                                               (GenAMLetComputation c comp subRhs, ctx, rest)
 
 sosRuleToPam' :: (Lang l) => InfNameStream -> PAMState l -> Context l -> PosFrame l -> IO [NamedPAMRule l]
 sosRuleToPam' (nm:nms) st k fr = do
-    (rhs, k', frRest) <- splitFrame fr k
+    let (rhs, k', frRest) = splitFrame fr k
     restRules <- case frRest of
                    Nothing           -> return []
                    Just (conf', fr') -> sosRuleToPam' nms (PAMState conf' k' Up) k fr'
-    let rule = namePAMRule nm $ PAM st rhs
+    rule <- fromJust <$> runMatchUnique (namePAMRule nm <$> (PAM <$> normalizeBoundVars st <*> normalizeBoundVars rhs))
     return (rule : restRules)
 
 

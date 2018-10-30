@@ -5,6 +5,9 @@ module Semantics.Context (
   , Frame(..)
   , Context(..)
   , rhsToFrame
+
+  , NormalizeBoundVars(..)
+  , normalizeBoundVars
   ) where
 
 import Control.Monad ( mzero, forM_ )
@@ -97,6 +100,27 @@ rhsToFrame (Build c)                      = KBuild c
 rhsToFrame (LetStepTo out arg rhs')       = KStepTo arg (KInp out (rhsToFrame rhs'))
 rhsToFrame (LetComputation out comp rhs') = KComputation comp (KInp out (rhsToFrame rhs'))
 
+
+class NormalizeBoundVars f where
+  normalizeBoundVars' :: (MonadMatchable m) => f -> m f
+
+normalizeBoundVars :: (MonadMatchable m, NormalizeBoundVars f) => f -> m f
+normalizeBoundVars f = withFreshCtx $ withVarAllocator mkNegativeVarAllocator $ normalizeBoundVars' f
+
+instance (Matchable (Configuration l), Matchable (ExtComp l)) => NormalizeBoundVars (PosFrame l) where
+  normalizeBoundVars' (KBuild c) = KBuild <$> fillMatch c
+  normalizeBoundVars' (KStepTo c f) = KStepTo <$> fillMatch c <*> normalizeBoundVars' f
+  normalizeBoundVars' (KComputation c f) = KComputation <$> fillMatch c <*> normalizeBoundVars' f
+
+instance (Matchable (Configuration l), NormalizeBoundVars (PosFrame l)) => NormalizeBoundVars (Frame l) where
+  normalizeBoundVars' (KInp arg pf) = withSubCtx $ do
+      refreshVars arg
+      KInp <$> fillMatch arg <*> normalizeBoundVars' pf
+
+instance (Matchable (Configuration l), Matchable (Context l), NormalizeBoundVars (Frame l)) => NormalizeBoundVars (Context l) where
+  normalizeBoundVars' KHalt = return KHalt
+  normalizeBoundVars' (KPush f c) = KPush <$> normalizeBoundVars' f <*> fillMatch c
+  normalizeBoundVars' k@(KVar _) = fillMatch k
 
 -------------------------------------- Matching ------------------------------------------
 

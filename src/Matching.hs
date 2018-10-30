@@ -60,7 +60,7 @@ import Var
 ------ Then, abstractMatch has type:  Pattern x -> y -> m (Pattern x -> m y), satisfying:
 ------         (gamma <$> (abstractMatch p1 (alpha t) <*> p2)) >= (match p1 t <*> p2)
 ------
------- I haven't read the paper on Galois transformers.....but I think match might need to be one. At leat, it should be
+------ I haven't read the paper on Galois transformers.....but I think match might need to be one. At least, it should be
 ------ an endofunctor on the category of lattices (i.e.: preserves monotone maps).
 ------
 ------ An example of abstract terms: terms where some subtrees have been replaced with variables, together with logical
@@ -208,6 +208,8 @@ class (MonadPlus m, MonadVarAllocator m, MonadIO m) => MonadMatchable m where
   getVarMaybe :: Typeable a => MetaVar -> (a -> m b) -> m b -> m b
   getVarDefault :: Typeable a => MetaVar -> m a -> m a
   getVar :: Typeable a => MetaVar -> m a
+
+  withSubCtx   :: m x -> m x
   withFreshCtx :: m x -> m x
 
   withVarAllocator :: VarAllocator -> m x -> m x
@@ -215,6 +217,14 @@ class (MonadPlus m, MonadVarAllocator m, MonadIO m) => MonadMatchable m where
   overrideVar m x = clearVar m >> putVar m x
   getVarDefault v = getVarMaybe v return
   getVar var = getVarDefault var mzero
+
+
+withModCtxState :: (MonadState MatchState m) => (MatchState -> MatchState) -> m x -> m x
+withModCtxState f m = do old <- get
+                         modify f
+                         res <- m
+                         put old
+                         return res
 
 instance {-# OVERLAPPABLE #-} (MonadState MatchState m, MonadVarAllocator m, MonadIO m, MonadPlus m) => MonadMatchable m where
   hasVar var = Map.member var <$> ms_varMap <$> get
@@ -231,18 +241,10 @@ instance {-# OVERLAPPABLE #-} (MonadState MatchState m, MonadVarAllocator m, Mon
                                Nothing -> def
                                Just x  -> maybe def f (fromDynamic x)
 
-  withFreshCtx m = do old <- get
-                      put $ old { ms_varMap = Map.empty }
-                      res <- m
-                      put old
-                      return res
 
-  withVarAllocator va m = do
-      old <- get
-      put $ old { ms_varAlloc = va}
-      res <- m
-      put old
-      return res
+  withSubCtx          = withModCtxState id
+  withFreshCtx        = withModCtxState (\ms -> ms { ms_varMap   = Map.empty })
+  withVarAllocator va = withModCtxState (\ms -> ms { ms_varAlloc = va})
 
 -- Hack to prevent eagerly matching the above instance
 data UnusedMonad a
