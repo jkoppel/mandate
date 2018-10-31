@@ -10,6 +10,7 @@ module Semantics.General (
 import Control.Monad ( guard )
 import Data.Foldable ( fold )
 import Data.List ( intersperse )
+import Data.Set ( union )
 
 import GHC.Generics ( Generic )
 
@@ -51,6 +52,16 @@ instance (LangBase l) => Matchable (ExtComp l) where
 
   refreshVars (ExtComp f ts) = ExtComp f <$> refreshVarsList ts
 
+instance (Matchable a, Matchable b) => Matchable (a, b) where
+  getVars (a,b) = getVars a `union` getVars b
+
+  match (Pattern (a,b)) (Matchee (a',b')) = do
+    match (Pattern a) (Matchee a')
+    match (Pattern b) (Matchee b')
+
+  fillMatch (a, b) = (,) <$> fillMatch a <*> fillMatch b
+
+  refreshVars (a, b) = (,) <$> refreshVars a <*> refreshVars b
 
 
 ---------------------------------------------------------------------
