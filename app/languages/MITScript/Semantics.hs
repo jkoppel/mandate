@@ -33,7 +33,7 @@ import Languages.MITScript.Parse
 
 instance LangBase MITScript where
         -- these are keyed by terms becuase thats what Imp.hs did and it seemed to be rationalized well
-        type RedState MITScript = SimpEnv (Term MITScript) (Term MITScript)
+        type RedState MITScript = (SimpEnv (Term MITScript) (Term MITScript), SimpEnv (Term MITScript) (Term MITScript))
 
         data CompFunc MITScript = Compute | AbsCompute
                                 | AccessField | AbsAccessField
@@ -101,10 +101,10 @@ instance Lang MITScript where
     signature = mitScriptSig
     rules = mitScriptRules
 
-    initConf t = Conf t EmptySimpEnv
+    initConf t = Conf t (EmptySimpEnv, EmptySimpEnv)
 
-conf :: Term MITScript -> MetaVar -> Configuration MITScript
-conf t v = Conf t (WholeSimpEnv v)
+conf :: Term MITScript -> (MetaVar, MetaVar) -> Configuration MITScript
+conf t (stack, heap) = Conf t (WholeSimpEnv stack, WholeSimpEnv heap)
 
 vv :: MetaVar -> Term MITScript
 vv = ValVar
@@ -119,200 +119,227 @@ mitScriptRules :: IO (NamedRules MITScript)
 mitScriptRules = sequence [
      -- Sequential Behaviour
     name "block-cong" $
-    mkRule4 $ \s s' mu mu' ->
+    mkPairRule2 $ \env env' ->
+    mkRule2 $ \s s' ->
         let (ts, ms') = (tv s, mv s') in
-            StepTo (conf (Block ts) mu)
-            (LetStepTo (conf ms' mu') (conf ts mu)
-            (Build (conf (Block ms') mu')))
+            StepTo (conf (Block ts) env)
+            (LetStepTo (conf ms' env') (conf ts env)
+            (Build (conf (Block ms') env')))
 
     , name "block-nil" $
-    mkRule1 $ \mu ->
-        StepTo (conf (Block NilStmt) mu) (Build (conf NilStmt mu))
+    mkPairRule1 $ \env ->
+    mkRule0 $
+        StepTo (conf (Block NilStmt) env) (Build (conf NilStmt env))
 
     , name "seq-cong" $
-    mkRule5 $ \s1 s2 s1' mu mu' ->
+    mkPairRule2 $ \env env' ->
+    mkRule3 $ \s1 s2 s1' ->
         let (ts1, ms2, ms1') = (tv s1, mv s2, mv s1') in
-            StepTo (conf (ConsStmt ts1 ms2) mu)
-            (LetStepTo (conf ms1' mu') (conf ts1 mu)
-            (Build (conf (ConsStmt ms1' ms2) mu')))
+            StepTo (conf (ConsStmt ts1 ms2) env)
+            (LetStepTo (conf ms1' env') (conf ts1 env)
+            (Build (conf (ConsStmt ms1' ms2) env')))
 
     , name "seq-nil" $
-    mkRule2 $ \s mu ->
+    mkPairRule1 $ \env ->
+    mkRule1 $ \s ->
         let ms = mv s in
-            StepTo (conf (ConsStmt NilStmt ms) mu)
-            (Build $ conf ms mu)
+            StepTo (conf (ConsStmt NilStmt ms) env)
+            (Build $ conf ms env)
 
     -- Control Flow
     , name "if-cong" $
-    mkRule6 $ \e e' s t mu mu' ->
+    mkPairRule2 $ \env env' ->
+    mkRule4 $ \e e' s t ->
         let (te, me', ms, mt) = (tv e, mv e', mv s, mv t) in
-            StepTo (conf (If te ms mt) mu)
-            (LetStepTo (conf me' mu') (conf te mu)
-            (Build $ conf (If me' ms mt) mu))
+            StepTo (conf (If te ms mt) env)
+            (LetStepTo (conf me' env') (conf te env)
+            (Build $ conf (If me' ms mt) env))
 
     , name "if-true" $
-    mkRule3 $ \s t mu ->
+    mkPairRule1 $ \env ->
+    mkRule2 $ \s t ->
         let (ms, mt) = (mv s, mv t) in
-            StepTo (conf (If (BConst True) ms mt) mu)
-            (Build $ conf ms mu)
+            StepTo (conf (If (BConst True) ms mt) env)
+            (Build $ conf ms env)
 
     , name "if-false" $
-    mkRule3 $ \s t mu ->
+    mkPairRule1 $ \env ->
+    mkRule2 $ \s t ->
         let (ms, mt) = (mv s, mv t) in
-            StepTo (conf (If (BConst False) ms mt) mu)
-            (Build $ conf mt mu)
+            StepTo (conf (If (BConst False) ms mt) env)
+            (Build $ conf mt env)
 
     , name "while" $
-    mkRule3 $ \e s mu ->
+    mkPairRule1 $ \env ->
+    mkRule2 $ \e s ->
         let (me, ms) = (mv e, mv s) in
-            StepTo (conf (While me ms) mu)
-            (Build $ conf (If me (ConsStmt ms (While me ms)) NilStmt) mu)
+            StepTo (conf (While me ms) env)
+            (Build $ conf (If me (ConsStmt ms (While me ms)) NilStmt) env)
 
     -- Variable Access
     , name "assn-cong" $
-    mkRule5 $ \var e e' mu mu' ->
+    mkPairRule2 $ \env env' ->
+    mkRule3 $ \var e e' ->
         let (mvar, te, me') = (mv var, tv e, mv e') in
-            StepTo (conf (Assign mvar te) mu)
-            (LetStepTo (conf me' mu') (conf te mu)
-            (Build $ conf (Assign mvar me') mu'))
+            StepTo (conf (Assign mvar te) env)
+            (LetStepTo (conf me' env') (conf te env)
+            (Build $ conf (Assign mvar me') env'))
 
     , name "assn-eval" $
-    mkRule3 $ \var val mu ->
+    mkRule4 $ \var val mu h ->
         let (mvar, vval) = (mv var, vv val) in
-            StepTo (conf (Assign (Var mvar) vval) mu)
-            (Build $ Conf NilStmt (AssocOneVal mu mvar vval))
+            StepTo (conf (Assign (Var mvar) vval) (mu, h))
+            (Build $ Conf NilStmt (AssocOneVal mu mvar vval, WholeSimpEnv h))
 
     , name "var-lookup" $
-    mkRule3 $ \var val mu ->
+    mkRule4 $ \var val mu h ->
         let (mvar, vval) = (mv var, vv val) in
-            StepTo (Conf (Var mvar) (AssocOneVal mu mvar vval))
-            (Build $ Conf vval (AssocOneVal mu mvar vval))
+            StepTo (Conf (Var mvar) (AssocOneVal mu mvar vval, WholeSimpEnv h))
+            (Build $ Conf vval (AssocOneVal mu mvar vval, WholeSimpEnv h))
 
     --- Arithmetic Operations
     , name "unary-cong" $
-    mkRule5 $ \e1 e1' mu mu' op ->
+    mkPairRule2 $ \env env' ->
+    mkRule3 $ \e1 e1' op ->
         let (te, me', mop) = (tv e1, mv e1', mv op) in
-            StepTo (conf (UnExp mop te) mu)
-            (LetStepTo (conf me' mu') (conf te mu)
-            (Build $ conf (UnExp mop me') mu'))
+            StepTo (conf (UnExp mop te) env)
+            (LetStepTo (conf me' env') (conf te env)
+            (Build $ conf (UnExp mop me') env'))
 
     , name "unary-eval" $
-    mkRule4 $ \v1 v' mu op ->
+    mkPairRule1 $ \env ->
+    mkRule3 $ \v1 v' op ->
         let (vv1, vv', mop) = (vv v1, vv v', mv op) in
-            StepTo (conf (UnExp mop vv1) mu)
+            StepTo (conf (UnExp mop vv1) env)
             (LetComputation (initConf $ ValVar v') (ExtComp Compute [mop, vv1])
-            (Build $ conf vv' mu))
+            (Build $ conf vv' env))
 
     -- all binary operators are left-associative
     , name "binary-cong-left" $
-    mkRule6 $ \e1 e2 e1' mu mu' op ->
+    mkPairRule2 $ \env env' ->
+    mkRule4 $ \e1 e2 e1' op ->
         let (te1, me2, me1', mop) = (tv e1, mv e2, mv e1', mv op) in
-            StepTo (conf (BinExp te1 mop me2) mu)
-            (LetStepTo (conf me1' mu') (conf te1 mu)
-            (Build $ conf (BinExp me1' mop me2) mu'))
+            StepTo (conf (BinExp te1 mop me2) env)
+            (LetStepTo (conf me1' env') (conf te1 env)
+            (Build $ conf (BinExp me1' mop me2) env'))
 
     , name "binary-cong-right" $
-    mkRule6 $ \v1 e2 e2' mu mu' op ->
+    mkPairRule2 $ \env env' ->
+    mkRule4 $ \v1 e2 e2' op ->
         let (vv1, te2, me2', mop) = (vv v1, tv e2, mv e2', mv op) in
-            StepTo (conf (BinExp vv1 mop te2) mu)
-            (LetStepTo (conf me2' mu') (conf te2 mu)
-            (Build $ conf (BinExp vv1 mop me2') mu'))
+            StepTo (conf (BinExp vv1 mop te2) env)
+            (LetStepTo (conf me2' env') (conf te2 env)
+            (Build $ conf (BinExp vv1 mop me2') env'))
 
     , name "binary-eval" $
-    mkRule5 $ \v1 v2 v' op mu ->
+    mkPairRule1 $ \env ->
+    mkRule4 $ \v1 v2 v' op ->
         let (vv1, vv2, vv', mop) = (vv v1, vv v2, vv v', mv op) in
-            StepTo (conf (BinExp vv1 mop vv2) mu)
+            StepTo (conf (BinExp vv1 mop vv2) env)
             (LetComputation (initConf $ ValVar v') (ExtComp Compute [mop, vv1, vv2])
-            (Build $ conf vv' mu))
+            (Build $ conf vv' env))
 
     -- Records Literals -> Runtime Records
     , name "record-cong" $
-    mkRule4 $ \r r' mu mu' ->
+    mkPairRule2 $ \env env' ->
+    mkRule2 $ \r r' ->
         let (tr, mr') = (tv r, mv r') in
-            StepTo (conf (Record tr) mu)
-            (LetStepTo (conf mr' mu') (conf tr mu)
-            (Build $ conf (Record mr') mu'))
+            StepTo (conf (Record tr) env)
+            (LetStepTo (conf mr' env') (conf tr env)
+            (Build $ conf (Record mr') env'))
 
     , name "record-eval" $
-    mkRule2 $ \mu r ->
+    mkPairRule2 $ \env env' ->
+    mkRule1 $ \r ->
         let vr = vv r in
-            StepTo (conf (Record vr) mu)
-            (Build $ conf (ReducedRecord vr) mu)
+            StepTo (conf (Record vr) env)
+            (Build $ conf (ReducedRecord vr) env)
 
     , name "cons-record-pair-cong-car" $
-    mkRule5 $ \r r' rs mu mu' ->
+    mkPairRule2 $ \env env' ->
+    mkRule3 $ \r r' rs ->
         let (tr, mr', mrs) = (tv r, mv r', mv rs) in
-            StepTo (conf (ConsRecordPair tr mrs) mu)
-            (LetStepTo (conf mr' mu') (conf tr mu)
-            (Build $ conf (ConsRecordPair mr' mrs) mu'))
+            StepTo (conf (ConsRecordPair tr mrs) env)
+            (LetStepTo (conf mr' env') (conf tr env)
+            (Build $ conf (ConsRecordPair mr' mrs) env'))
 
     , name "cons-record-pair-cong-cdr" $
-    mkRule5 $ \r rs rs' mu mu' ->
+    mkPairRule2 $ \env env' ->
+    mkRule3 $ \r rs rs' ->
         let (vr, trs, mrs') = (vv r, tv rs, mv rs') in
-            StepTo (conf (ConsRecordPair vr trs) mu)
-            (LetStepTo (conf mrs' mu') (conf trs mu)
-            (Build $ conf (ConsRecordPair vr mrs') mu'))
+            StepTo (conf (ConsRecordPair vr trs) env)
+            (LetStepTo (conf mrs' env') (conf trs env)
+            (Build $ conf (ConsRecordPair vr mrs') env'))
 
     , name "cons-record-pair-eval" $
-    mkRule3 $ \r rs mu ->
+    mkPairRule1 $ \env ->
+    mkRule2 $ \r rs ->
         let (vr, vrs) = (vv r, vv rs) in
-            StepTo (conf (ConsRecordPair vr vrs) mu)
-            (Build $ conf (ReducedRecordCons vr vrs) mu)
+            StepTo (conf (ConsRecordPair vr vrs) env)
+            (Build $ conf (ReducedRecordCons vr vrs) env)
 
     , name "record-pair-cong" $
-    mkRule5 $ \k v v' mu mu' ->
+    mkPairRule2 $ \env env' ->
+    mkRule3 $ \k v v' ->
         let (mk, tvv, mv') = (mv k, tv v, mv v') in
-            StepTo (conf (RecordPair mk tvv) mu)
-            (LetStepTo (conf mv' mu') (conf tvv mu)
-            (Build $ conf (RecordPair mk mv') mu'))
+            StepTo (conf (RecordPair mk tvv) env)
+            (LetStepTo (conf mv' env') (conf tvv env)
+            (Build $ conf (RecordPair mk mv') env'))
 
     , name "record-pair-eval" $
-    mkRule3 $ \key val mu ->
+    mkPairRule1 $ \env ->
+    mkRule2 $ \key val ->
         let (mkey, vval) = (mv key, vv val) in
-            StepTo (conf (RecordPair mkey vval) mu)
-            (Build $ conf (ReducedRecordPair mkey vval) mu)
+            StepTo (conf (RecordPair mkey vval) env)
+            (Build $ conf (ReducedRecordPair mkey vval) env)
 
     , name "nil-record-pair-eval" $
-    mkRule1 $ \mu ->
-            StepTo (conf NilRecordPair mu)
-            (Build $ conf ReducedRecordNil mu)
+    mkPairRule1 $ \env ->
+    mkRule0 $
+            StepTo (conf NilRecordPair env)
+            (Build $ conf ReducedRecordNil env)
 
     -- Index Access
     , name "index-cong-1" $
-    mkRule5 $ \r i i' mu mu' ->
+    mkPairRule2 $ \env env' ->
+    mkRule3 $ \r i i' ->
         let (mr, ti, mi) = (mv r, tv i, mv i') in
-            StepTo (conf (Index mr ti) mu)
-            (LetStepTo (conf mi mu') (conf ti mu)
-            (Build $ conf (Index mr mi) mu'))
+            StepTo (conf (Index mr ti) env)
+            (LetStepTo (conf mi env') (conf ti env)
+            (Build $ conf (Index mr mi) env'))
 
     , name "index-cong-2" $
-    mkRule5 $ \r r' i mu mu' ->
+    mkPairRule2 $ \env env' ->
+    mkRule3 $ \r r' i ->
         let (tr, mr', vi) = (tv r, mv r', vv i) in
-            StepTo (conf (Index tr vi) mu)
-            (LetStepTo (conf mr' mu') (conf tr mu)
-            (Build $ conf (Index mr' vi) mu'))
+            StepTo (conf (Index tr vi) env)
+            (LetStepTo (conf mr' env') (conf tr env)
+            (Build $ conf (Index mr' vi) env'))
 
     , name "index-eval" $
-    mkRule4 $ \r i v mu ->
+    mkPairRule1 $ \env ->
+    mkRule3 $ \r i v  ->
         let (vr, vi, v') = (vv r, vv i, vv v) in
-            StepTo (conf (Index vr vi) mu)
+            StepTo (conf (Index vr vi) env)
             (LetComputation (initConf v') (ExtComp AccessIndex [vr, vi])
-            (Build $ conf v' mu))
+            (Build $ conf v' env))
 
     -- Field Access
     , name "field-cong" $
-    mkRule5 $ \r r' f mu mu' ->
+    mkPairRule2 $ \env env' ->
+    mkRule3 $ \r r' f ->
         let (tr, mr, mf) = (tv r, mv r', mv f) in
-            StepTo (conf (FieldAccess tr mf) mu)
-            (LetStepTo (conf mr mu') (conf tr mu)
-            (Build $ conf (FieldAccess mr mf) mu'))
+            StepTo (conf (FieldAccess tr mf) env)
+            (LetStepTo (conf mr env') (conf tr env)
+            (Build $ conf (FieldAccess mr mf) env'))
 
     , name "field-eval" $
-    mkRule4 $ \r f v mu ->
+    mkPairRule1 $ \env ->
+    mkRule3 $ \r f v ->
         let (vr, mf, v') = (vv r, mv f, vv v) in
-            StepTo (conf (FieldAccess vr mf) mu)
+            StepTo (conf (FieldAccess vr mf) env)
             (LetComputation (initConf v') (ExtComp AccessField [vr, mf])
-            (Build $ conf v' mu))
+            (Build $ conf v' env))
     ]
 
 ibsToString :: InternedByteString -> String

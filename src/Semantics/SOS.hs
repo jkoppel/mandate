@@ -14,6 +14,7 @@ module Semantics.SOS (
   , mkRule0, mkRule1, mkRule2
   , mkRule3, mkRule4, mkRule5
   , mkRule6
+  , mkPairRule1, mkPairRule2
 
   , checkRule
   , checkRules
@@ -138,6 +139,20 @@ mkRule5 f = f <$> nextVar <*> nextVar <*> nextVar <*> nextVar <*> nextVar
 
 mkRule6 :: (MetaVar -> MetaVar -> MetaVar -> MetaVar -> MetaVar -> MetaVar -> StepTo l) -> IO (StepTo l)
 mkRule6 f = f <$> nextVar <*> nextVar <*> nextVar <*> nextVar <*> nextVar <*> nextVar
+
+mkPairRule1 :: ((MetaVar, MetaVar) -> IO (StepTo l)) -> IO (StepTo l)
+mkPairRule1 f = do
+  car <- nextVar
+  cdr <- nextVar
+  f (car, cdr)
+
+mkPairRule2 :: ((MetaVar, MetaVar) -> (MetaVar, MetaVar) -> IO (StepTo l)) -> IO (StepTo l)
+mkPairRule2 f = do
+  car1 <- nextVar
+  cdr1 <- nextVar
+  car2 <- nextVar
+  cdr2 <- nextVar
+  f (car1, cdr1) (car2, cdr2)
 
 -------------------------------- Sort checking ------------------------------
 
