@@ -81,6 +81,8 @@ mitScriptSig = Signature [ StrSig "Name" "Name"
 
                          , ValSig "ReducedRecordNil" [] "ReducedRecordPairList"
                          , ValSig "ReducedRecordCons" ["ReducedRecordPair", "ReducedRecordPairList"] "ReducedRecordPairList"
+                         , NodeSig "HeapAlloc"   ["Expr"] "Expr"
+                         , NodeSig "ReferenceVal"  ["Expr"] "Expr"
              ]
 
 --------------------------------------------------------------------------------------------------------------------
@@ -234,3 +236,9 @@ pattern ReducedRecordNil = Val "ReducedRecordNil" []
 
 pattern ReducedRecordCons :: Term MITScript -> Term MITScript -> Term MITScript
 pattern ReducedRecordCons a b = Val "ReducedRecordCons" [a, b]
+
+pattern ReferenceVal :: Term MITScript -> Term MITScript
+pattern ReferenceVal a = Val "ReferenceVal" [a]
+
+pattern HeapAlloc :: Term MITScript -> Term MITScript
+pattern HeapAlloc a = Node "HeapAlloc" [a]

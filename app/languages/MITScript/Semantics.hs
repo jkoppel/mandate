@@ -16,6 +16,8 @@ import Data.Interned ( unintern )
 import Data.Interned.ByteString ( InternedByteString(..) )
 import Data.Hashable ( Hashable )
 import Data.String ( fromString )
+import Data.IORef
+import System.IO.Unsafe ( unsafePerformIO )
 
 import Configuration
 import Lang
@@ -35,14 +37,16 @@ instance LangBase MITScript where
         -- these are keyed by terms becuase thats what Imp.hs did and it seemed to be rationalized well
         type RedState MITScript = (SimpEnv (Term MITScript) (Term MITScript), SimpEnv (Term MITScript) (Term MITScript))
 
-        data CompFunc MITScript = Compute | AbsCompute
+        data CompFunc MITScript = Compute     | AbsCompute
                                 | AccessField | AbsAccessField
                                 | AccessIndex | AbsAccessIndex
+                                | AllocAddress| AbsAllocAddress
             deriving ( Eq, Generic )
 
         compFuncName Compute = "compute"
         compFuncName AccessField = "accessField"
         compFuncName AccessIndex = "accessIndex"
+        compFuncName AllocAddress = "allocAddress"
 
         runCompFunc Compute [UMINUS, NumConst (ConstInt n1)] = returnInt $ negate n1
         runCompFunc Compute [NOT, BConst b]                  = returnBool $ not $ toMetaBool b
@@ -73,6 +77,8 @@ instance LangBase MITScript where
         runCompFunc AccessField [ReducedRecord r, Name f] = return $ initConf $ accessField r (ibsToString f)
         runCompFunc AccessIndex [ReducedRecord r, i]      = return $ initConf $ accessField r (toString i)
 
+        runCompFunc AllocAddress [] = initConf <$> NumConst <$> ConstInt <$> generateHeapAddress
+
         runCompFunc AbsCompute [GStar _, _]    = return $ initConf ValStar
         runCompFunc AbsCompute [_, GStar _]    = return $ initConf ValStar
         runCompFunc AbsCompute [GStar _, _, _] = return $ initConf ValStar
@@ -85,6 +91,7 @@ instance LangBase MITScript where
         runCompFunc AbsAccessIndex [GStar _, _] = return $ initConf ValStar
         runCompFunc AbsAccessIndex [_, GStar _] = return $ initConf ValStar
 
+        runCompFunc AbsAllocAddress [] = return $ initConf ValStar
 
 instance Hashable (CompFunc MITScript)
 
@@ -92,10 +99,12 @@ instance ValueIrrelevance (CompFunc MITScript) where
     valueIrrelevance Compute     = AbsCompute
     valueIrrelevance AccessIndex = AbsAccessIndex
     valueIrrelevance AccessField = AbsAccessField
+    valueIrrelevance AllocAddress = AbsAllocAddress
 
     valueIrrelevance AbsCompute = AbsCompute
     valueIrrelevance AbsAccessField = AbsAccessField
     valueIrrelevance AbsAccessIndex = AbsAccessIndex
+    valueIrrelevance AbsAllocAddress = AbsAllocAddress
 
 instance Lang MITScript where
     signature = mitScriptSig
@@ -239,7 +248,23 @@ mitScriptRules = sequence [
             (LetComputation (initConf $ ValVar v') (ExtComp Compute [mop, vv1, vv2])
             (Build $ conf vv' env))
 
-    -- Records Literals -> Runtime Records
+    -- Heap Stuff
+    , name "heap-alloc-cong" $
+    mkPairRule2 $ \env env' ->
+    mkRule2 $ \val val' ->
+        let (tval, mval) = (tv val, mv val') in
+            StepTo (conf (HeapAlloc tval) env)
+            (LetStepTo (conf mval env') (conf tval env)
+            (Build $ conf (HeapAlloc mval) env'))
+
+    , name "heap-alloc-eval" $
+    mkRule4 $ \h mu val addr ->
+        let (vval, vaddr) = (vv val, vv addr) in
+            StepTo (conf (HeapAlloc vval) (mu, h))
+            (LetComputation (initConf vaddr) (ExtComp AllocAddress [])
+            (Build $ Conf (ReferenceVal vaddr) (WholeSimpEnv mu, AssocOneVal h vaddr vval)))
+
+    -- Record Literals -> Runtime Records
     , name "record-cong" $
     mkPairRule2 $ \env env' ->
     mkRule2 $ \r r' ->
@@ -253,7 +278,7 @@ mitScriptRules = sequence [
     mkRule1 $ \r ->
         let vr = vv r in
             StepTo (conf (Record vr) env)
-            (Build $ conf (ReducedRecord vr) env)
+            (Build $ conf (HeapAlloc (ReducedRecord vr)) env)
 
     , name "cons-record-pair-cong-car" $
     mkPairRule2 $ \env env' ->
@@ -317,12 +342,11 @@ mitScriptRules = sequence [
             (Build $ conf (Index mr' vi) env'))
 
     , name "index-eval" $
-    mkPairRule1 $ \env ->
-    mkRule3 $ \r i v  ->
-        let (vr, vi, v') = (vv r, vv i, vv v) in
-            StepTo (conf (Index vr vi) env)
-            (LetComputation (initConf v') (ExtComp AccessIndex [vr, vi])
-            (Build $ conf v' env))
+    mkRule6 $ \r i v ref mu h ->
+        let (vr, vi, v', vref) = (vv r, vv i, vv v, vv ref) in
+            StepTo (Conf (Index (ReferenceVal vr) vi) (WholeSimpEnv mu, AssocOneVal h vr vref))
+            (LetComputation (initConf v') (ExtComp AccessIndex [vref, vi])
+            (Build $ Conf v' (WholeSimpEnv mu, AssocOneVal h vr vref)))
 
     -- Field Access
     , name "field-cong" $
@@ -334,12 +358,11 @@ mitScriptRules = sequence [
             (Build $ conf (FieldAccess mr mf) env'))
 
     , name "field-eval" $
-    mkPairRule1 $ \env ->
-    mkRule3 $ \r f v ->
-        let (vr, mf, v') = (vv r, mv f, vv v) in
-            StepTo (conf (FieldAccess vr mf) env)
-            (LetComputation (initConf v') (ExtComp AccessField [vr, mf])
-            (Build $ conf v' env))
+    mkRule6 $ \r f v ref mu h ->
+        let (vr, mf, vref, v') = (vv r, mv f, vv v, vv ref) in
+            StepTo (Conf (FieldAccess (ReferenceVal vr) mf) (WholeSimpEnv mu, AssocOneVal h vr vref))
+            (LetComputation (initConf v') (ExtComp AccessField [vref, mf])
+            (Build $ Conf v' (WholeSimpEnv mu, AssocOneVal h vr vref)))
     ]
 
 ibsToString :: InternedByteString -> String
@@ -378,3 +401,10 @@ returnBool x = return $ initConf $ BConst $ fromMetaBool x
 
 returnString :: Monad m => String -> m (GConfiguration (RedState MITScript) MITScript)
 returnString x = return $ initConf $ Str $ ConstStr $ fromString x
+
+heapAddressGenerator :: IORef Integer
+heapAddressGenerator = unsafePerformIO (newIORef 0)
+{-# NOINLINE heapAddressGenerator #-}
+
+generateHeapAddress :: MatchEffect Integer
+generateHeapAddress = MatchEffect $ atomicModifyIORef heapAddressGenerator (\x -> (x+1, x))
