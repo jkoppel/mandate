@@ -15,6 +15,8 @@ module Semantics.PAM (
   , pamEvaluationTreeDepth
   , pamEvaluationTree
   , abstractPamCfg
+
+  , upRulesInvertible
   ) where
 
 import Control.Monad ( MonadPlus(..), guard, liftM )
@@ -51,6 +53,10 @@ data Phase = Up | Down
   deriving (Eq, Ord, Generic)
 
 instance Hashable Phase
+
+flipPhase :: Phase -> Phase
+flipPhase Up = Down
+flipPhase Down = Up
 
 instance Show Phase where
   showsPrec _ Up   = showString "up"
@@ -126,6 +132,7 @@ splitFrame (KComputation comp (KInp c pf)) k = let (subRhs, ctx, rest) = splitFr
 
 sosRuleToPam' :: (Lang l) => InfNameStream -> PAMState l -> Context l -> PosFrame l -> IO [NamedPAMRule l]
 sosRuleToPam' (nm:nms) st k fr = do
+    debugM $ show fr
     let (rhs, k', frRest) = splitFrame fr k
     restRules <- case frRest of
                    Nothing           -> return []
@@ -217,5 +224,35 @@ classifyPAMRules rs = if not (null $ filterRulePattern Up Down rs) then
                                           -> p1 == getPhasePAMState before &&
                                              p2 == getPhaseRhs      after
 
+allM :: (Monad m) => (a -> m Bool) -> [a] -> m Bool
+allM f l = and <$> mapM f l
+
+swapPhase :: PAMState l -> PAMState l
+swapPhase (PAMState c k p) = PAMState c k (flipPhase p)
+
 -- Current version: Only for inversion in one transition
---upRulesInvertible :: (Lang l) => NamedPAMRules l -> IO Bool
+--  and assumes the LHS of an up rule has a single variable in term position
+--  (and no structure on the conf)
+--
+-- I think I'm discovering that I actually need unification now rather than matching...
+upRulesInvertible :: (Lang l) => NamedPAMRules l -> IO Bool
+upRulesInvertible rs = allM upRuleInvertible (upRules $ classifyPAMRules rs)
+  where
+    -- upRuleInvertible :: NamedPAMRule l -> IO Bool
+    upRuleInvertible (NamedPAMRule nm (PAM left (GenAMRhs right))) = do
+      debugM $ "Trying to invert rule " ++ BS.unpack nm
+      t <- nextVar
+      let (PAMState (Conf startT _) _ _) = left
+      (startState, upState) <- fmap fromJust $ runMatchUnique $ do
+        match (Pattern startT) (Matchee (NonvalVar t))
+        startSt <- fillMatch left
+        nextSt  <- fillMatch right
+        return (startSt, nextSt)
+
+      nextSt <- stepPam1 rs (swapPhase upState)
+      case nextSt of
+        Nothing -> return False
+        Just st -> do res <- fmap fromJust $ runMatchUnique $ alphaEq (swapPhase st) startState
+                      debugM $ "Invert successful: " ++ show res
+                      return res
+

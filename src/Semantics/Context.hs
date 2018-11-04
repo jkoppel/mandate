@@ -8,6 +8,7 @@ module Semantics.Context (
 
   , NormalizeBoundVars(..)
   , normalizeBoundVars
+  , alphaEq
   ) where
 
 import Control.Monad ( mzero, forM_ )
@@ -64,10 +65,10 @@ data Context l = KHalt
                | KVar !MetaVar                  -- E.g.: the "K" in the pattern `[\x -> x +5 ] . K`
   deriving ( Generic )
 
+deriving instance (Eq (Frame l)) => Eq (Context l)
 
 --------------------------------------- Equality, printing, hashing ------------------------------------------
 
-deriving instance (Eq (Configuration l), LangBase l) => Eq (Context l)
 
 instance (Hashable (Configuration l), LangBase l) => Hashable (PosFrame l)
 instance (Hashable (Configuration l), LangBase l) => Hashable (Frame l)
@@ -101,6 +102,8 @@ rhsToFrame (LetStepTo out arg rhs')       = KStepTo arg (KInp out (rhsToFrame rh
 rhsToFrame (LetComputation out comp rhs') = KComputation comp (KInp out (rhsToFrame rhs'))
 
 
+--------------------------------- Machinery for higher-order terms ----------------------
+
 class NormalizeBoundVars f where
   normalizeBoundVars' :: (MonadMatchable m) => f -> m f
 
@@ -121,6 +124,10 @@ instance (Matchable (Configuration l), Matchable (Context l), NormalizeBoundVars
   normalizeBoundVars' KHalt = return KHalt
   normalizeBoundVars' (KPush f c) = KPush <$> normalizeBoundVars' f <*> fillMatch c
   normalizeBoundVars' k@(KVar _) = fillMatch k
+
+
+alphaEq :: (MonadMatchable m, NormalizeBoundVars f, Eq f, Show f) => f -> f -> m Bool
+alphaEq a b = (==) <$> (normalizeBoundVars a) <*> (normalizeBoundVars b)
 
 -------------------------------------- Matching ------------------------------------------
 
@@ -152,7 +159,10 @@ instance (LangBase l, Matchable (Configuration l)) => Matchable (Frame l) where
     forM_ (Set.toList $ getVars c1) $ \v -> clearVar v
 
   refreshVars (KInp c pf) = KInp <$> refreshVars c <*> refreshVars pf
-  fillMatch   (KInp c pf) = KInp <$> fillMatch   c <*> fillMatch   pf
+
+  fillMatch   (KInp c pf) = withSubCtx $ do
+    forM_ (Set.toList $ getVars c) $ \v -> clearVar v
+    KInp c <$> fillMatch pf
 
 instance (LangBase l, Matchable (Configuration l)) => Matchable (Context l) where
   getVars KHalt       = Set.empty
