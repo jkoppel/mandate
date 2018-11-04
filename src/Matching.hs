@@ -21,7 +21,7 @@ module Matching (
   , EmptyState(..)
   ) where
 
-import Control.Monad ( MonadPlus(..), guard, forM_ )
+import Control.Monad ( MonadPlus(..), guard, forM_, (=<<) )
 import Control.Monad.IO.Class ( MonadIO(..) )
 import Control.Monad.State ( MonadState(..), StateT, evalStateT, modify )
 import Control.Monad.Trans ( lift )
@@ -214,9 +214,12 @@ class (MonadPlus m, MonadVarAllocator m, MonadIO m) => MonadMatchable m where
 
   withVarAllocator :: VarAllocator -> m x -> m x
 
+  debugVars :: m ()
+
   overrideVar m x = clearVar m >> putVar m x
   getVarDefault v = getVarMaybe v return
   getVar var = getVarDefault var mzero
+
 
 
 withModCtxState :: (MonadState MatchState m) => (MatchState -> MatchState) -> m x -> m x
@@ -246,6 +249,8 @@ instance {-# OVERLAPPABLE #-} (MonadState MatchState m, MonadVarAllocator m, Mon
   withFreshCtx        = withModCtxState (\ms -> ms { ms_varMap   = Map.empty })
   withVarAllocator va = withModCtxState (\ms -> ms { ms_varAlloc = va})
 
+  debugVars = debugM =<< (show <$> ms_varMap <$> get)
+
 -- Hack to prevent eagerly matching the above instance
 data UnusedMonad a
 instance {-# OVERLAPPING #-} (MonadPlus UnusedMonad, MonadVarAllocator UnusedMonad, MonadIO UnusedMonad) => MonadMatchable UnusedMonad where
@@ -253,8 +258,10 @@ instance {-# OVERLAPPING #-} (MonadPlus UnusedMonad, MonadVarAllocator UnusedMon
   putVar = error "Using UnusedMonad"
   clearVar = error "Using UnusedMonad"
   getVarMaybe = error "Using UnusedMonad"
+  withSubCtx = error "Using UnusedMonad"
   withFreshCtx = error "Using UnusedMonad"
   withVarAllocator = error "Using UnusedMonad"
+  debugVars = error "Using UnusedMonads"
 
 refreshVar :: (MonadMatchable m, Typeable a, Eq a) => (MetaVar -> a) -> MetaVar -> m MetaVar
 refreshVar f v = do v' <- allocVarM
@@ -378,7 +385,7 @@ instance (LangBase l) => Matchable (Term l) where
     where
       refresh :: (MonadMatchable m, MonadVarAllocator m, LangBase l) => MetaVar -> MatchType -> m (Term l)
       refresh v mt = GMetaVar <$> refreshVar (\v' -> GMetaVar @l v' mt) v <*> pure mt
-  fillMatch = fillMatchTermGen (\v _ -> getVarMaybe v return (return $ MetaVar v))
+  fillMatch = fillMatchTermGen (\v mt -> getVarMaybe v return (return $ GMetaVar v mt))
 
 
 instance {-# OVERLAPPABLE #-} (Matchable (Term l), Matchable s) => Matchable (GConfiguration s l) where
