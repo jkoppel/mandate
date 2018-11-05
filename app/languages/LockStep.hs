@@ -12,6 +12,7 @@ import Configuration
 import Lang
 import Matching
 import Semantics.General
+import Semantics.Conversion
 import Semantics.PAM
 import Semantics.SOS
 import Term

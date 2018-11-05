@@ -4,6 +4,7 @@
 import Control.DeepSeq
 import Configuration
 import Rose
+import Semantics.Conversion
 import Semantics.PAM
 import Term
 rules <- addMulLangRules

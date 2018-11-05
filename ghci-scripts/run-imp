@@ -5,6 +5,7 @@ import Control.DeepSeq
 import Configuration
 import Graph
 import Rose
+import Semantics.Conversion
 import Semantics.PAM
 import Term
 rules <- impLangRules
