@@ -13,7 +13,7 @@ module Semantics.SOS (
   , name
   , mkRule0, mkRule1, mkRule2
   , mkRule3, mkRule4, mkRule5
-  , mkRule6
+  , mkRule6, mkRule7, mkRule8
   , mkPairRule1, mkPairRule2
 
   , checkRule
@@ -139,6 +139,12 @@ mkRule5 f = f <$> nextVar <*> nextVar <*> nextVar <*> nextVar <*> nextVar
 
 mkRule6 :: (MetaVar -> MetaVar -> MetaVar -> MetaVar -> MetaVar -> MetaVar -> StepTo l) -> IO (StepTo l)
 mkRule6 f = f <$> nextVar <*> nextVar <*> nextVar <*> nextVar <*> nextVar <*> nextVar
+
+mkRule7 :: (MetaVar -> MetaVar -> MetaVar -> MetaVar -> MetaVar -> MetaVar -> MetaVar -> StepTo l) -> IO (StepTo l)
+mkRule7 f = f <$> nextVar <*> nextVar <*> nextVar <*> nextVar <*> nextVar <*> nextVar <*> nextVar
+
+mkRule8 :: (MetaVar -> MetaVar -> MetaVar -> MetaVar -> MetaVar -> MetaVar -> MetaVar -> MetaVar -> StepTo l) -> IO (StepTo l)
+mkRule8 f = f <$> nextVar <*> nextVar <*> nextVar <*> nextVar <*> nextVar <*> nextVar <*> nextVar <*> nextVar
 
 mkPairRule1 :: ((MetaVar, MetaVar) -> IO (StepTo l)) -> IO (StepTo l)
 mkPairRule1 f = do

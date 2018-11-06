@@ -1,1 +1,6 @@
 x = {y: 8; z: 9; };
+x.y = 5 + 5;
+x[34] = 12;
+x["henlo"] = 12;
+hello = x[534];
+helnlo = x.wer;

@@ -12,7 +12,7 @@ import GHC.Generics ( Generic )
 
 import Data.ByteString.Char8 ( ByteString )
 import qualified Data.ByteString.Char8 as BS
-import Data.Interned ( unintern )
+import Data.Interned ( unintern, intern )
 import Data.Interned.ByteString ( InternedByteString(..) )
 import Data.Hashable ( Hashable )
 import Data.String ( fromString )
@@ -38,14 +38,18 @@ instance LangBase MITScript where
         type RedState MITScript = (SimpEnv (Term MITScript) (Term MITScript), SimpEnv (Term MITScript) (Term MITScript))
 
         data CompFunc MITScript = Compute     | AbsCompute
-                                | AccessField | AbsAccessField
-                                | AccessIndex | AbsAccessIndex
+                                | ReadField   | AbsReadField
+                                | ReadIndex   | AbsReadIndex
+                                | WriteField  | AbsWriteField
+                                | WriteIndex  | AbsWriteIndex
                                 | AllocAddress| AbsAllocAddress
             deriving ( Eq, Generic )
 
         compFuncName Compute = "compute"
-        compFuncName AccessField = "accessField"
-        compFuncName AccessIndex = "accessIndex"
+        compFuncName ReadField = "readField"
+        compFuncName ReadIndex = "readIndex"
+        compFuncName WriteField = "writeField"
+        compFuncName WriteIndex = "writeIndex"
         compFuncName AllocAddress = "allocAddress"
 
         runCompFunc Compute [UMINUS, NumConst (ConstInt n1)] = returnInt $ negate n1
@@ -74,8 +78,11 @@ instance LangBase MITScript where
         runCompFunc Compute [OR, BConst False, BConst False]  = returnBool Prelude.False
         runCompFunc Compute [OR, BConst l, BConst r]          = returnBool Prelude.True
 
-        runCompFunc AccessField [ReducedRecord r, Name f] = return $ initConf $ accessField r (ibsToString f)
-        runCompFunc AccessIndex [ReducedRecord r, i]      = return $ initConf $ accessField r (toString i)
+        runCompFunc ReadField [ReducedRecord r, Name f] = return $ initConf $ readField r (ibsToString f)
+        runCompFunc ReadIndex [ReducedRecord r, i]      = return $ initConf $ readField r (toString i)
+
+        runCompFunc WriteField [ReducedRecord r, Name f, val] = return $ initConf $ writeField r (ibsToString f) val
+        runCompFunc WriteIndex [ReducedRecord r, i,      val] = return $ initConf $ writeField r (toString i)    val
 
         runCompFunc AllocAddress [] = initConf <$> NumConst <$> ConstInt <$> generateHeapAddress
 
@@ -85,11 +92,11 @@ instance LangBase MITScript where
         runCompFunc AbsCompute [_, GStar _, _] = return $ initConf ValStar
         runCompFunc AbsCompute [_, _, GStar _] = return $ initConf ValStar
 
-        runCompFunc AbsAccessField [GStar _, _] = return $ initConf ValStar
-        runCompFunc AbsAccessField [_, GStar _] = return $ initConf ValStar
+        runCompFunc AbsReadField [GStar _, _] = return $ initConf ValStar
+        runCompFunc AbsReadField [_, GStar _] = return $ initConf ValStar
 
-        runCompFunc AbsAccessIndex [GStar _, _] = return $ initConf ValStar
-        runCompFunc AbsAccessIndex [_, GStar _] = return $ initConf ValStar
+        runCompFunc AbsReadIndex [GStar _, _] = return $ initConf ValStar
+        runCompFunc AbsReadIndex [_, GStar _] = return $ initConf ValStar
 
         runCompFunc AbsAllocAddress [] = return $ initConf ValStar
 
@@ -97,13 +104,13 @@ instance Hashable (CompFunc MITScript)
 
 instance ValueIrrelevance (CompFunc MITScript) where
     valueIrrelevance Compute     = AbsCompute
-    valueIrrelevance AccessIndex = AbsAccessIndex
-    valueIrrelevance AccessField = AbsAccessField
+    valueIrrelevance ReadIndex = AbsReadIndex
+    valueIrrelevance ReadField = AbsReadField
     valueIrrelevance AllocAddress = AbsAllocAddress
 
     valueIrrelevance AbsCompute = AbsCompute
-    valueIrrelevance AbsAccessField = AbsAccessField
-    valueIrrelevance AbsAccessIndex = AbsAccessIndex
+    valueIrrelevance AbsReadField = AbsReadField
+    valueIrrelevance AbsReadIndex = AbsReadIndex
     valueIrrelevance AbsAllocAddress = AbsAllocAddress
 
 instance Lang MITScript where
@@ -185,8 +192,16 @@ mitScriptRules = sequence [
             StepTo (conf (While me ms) env)
             (Build $ conf (If me (ConsStmt ms (While me ms)) NilStmt) env)
 
-    -- Variable Access
-    , name "assn-cong" $
+    -- Variable Things
+    -- Read
+    , name "var-lookup" $
+    mkRule4 $ \var val mu h ->
+        let (mvar, vval) = (mv var, vv val) in
+            StepTo (Conf (Var mvar) (AssocOneVal mu mvar vval, WholeSimpEnv h))
+            (Build $ Conf vval (AssocOneVal mu mvar vval, WholeSimpEnv h))
+
+    -- Write
+    , name "generic-assn-cong" $
     mkPairRule2 $ \env env' ->
     mkRule3 $ \var e e' ->
         let (mvar, te, me') = (mv var, tv e, mv e') in
@@ -194,17 +209,49 @@ mitScriptRules = sequence [
             (LetStepTo (conf me' env') (conf te env)
             (Build $ conf (Assign mvar me') env'))
 
-    , name "assn-eval" $
+    , name "stack-assn-eval" $
     mkRule4 $ \var val mu h ->
         let (mvar, vval) = (mv var, vv val) in
             StepTo (conf (Assign (Var mvar) vval) (mu, h))
             (Build $ Conf NilStmt (AssocOneVal mu mvar vval, WholeSimpEnv h))
 
-    , name "var-lookup" $
-    mkRule4 $ \var val mu h ->
-        let (mvar, vval) = (mv var, vv val) in
-            StepTo (Conf (Var mvar) (AssocOneVal mu mvar vval, WholeSimpEnv h))
-            (Build $ Conf vval (AssocOneVal mu mvar vval, WholeSimpEnv h))
+    , name "field-assn-cong" $
+    mkPairRule2 $ \env env' ->
+    mkRule4 $ \field val re re'  ->
+        let (mfield, vval, tre, mre) = (mv field, vv val, tv re, mv re') in
+            StepTo (conf (Assign (FieldAccess tre mfield) vval) env)
+            (LetStepTo (conf mre env') (conf tre env)
+            (Build $ conf (Assign (FieldAccess mre mfield) vval) env'))
+
+    , name "field-assn-eval" $
+    mkRule7 $ \val field ref mu h re re'->
+        let (vval, vref, mfield, vre, vre') = (vv val, vv ref, mv field, vv re, vv re') in
+            StepTo (Conf (Assign (FieldAccess (ReferenceVal vref) mfield) vval) (WholeSimpEnv mu, AssocOneVal h vref vre))
+            (LetComputation (initConf vre') (ExtComp WriteField [vre, mfield, vval])
+            (Build $ Conf NilStmt (WholeSimpEnv mu, AssocOneVal h vref vre')))
+
+    , name "index-assn-cong-1" $
+    mkPairRule2 $ \env env' ->
+    mkRule4 $ \index val re re'  ->
+        let (mindex, vval, tre, mre) = (mv index, vv val, tv re, mv re') in
+            StepTo (conf (Assign (Index tre mindex) vval) env)
+            (LetStepTo (conf mre env') (conf tre env)
+            (Build $ conf (Assign (Index mre mindex) vval) env'))
+
+    , name "index-assn-cong-2" $
+    mkPairRule2 $ \env env' ->
+    mkRule4 $ \index val re index'  ->
+        let (tindex, vval, vre, mindex) = (tv index, vv val, vv re, mv index') in
+            StepTo (conf (Assign (Index vre tindex) vval) env)
+            (LetStepTo (conf mindex env') (conf tindex env)
+            (Build $ conf (Assign (Index vre mindex) vval) env'))
+
+    , name "index-assn-eval" $
+    mkRule7 $ \val index ref mu h re re'->
+        let (vval, vref, mindex, vre, vre') = (vv val, vv ref, mv index, vv re, vv re') in
+            StepTo (Conf (Assign (Index (ReferenceVal vref) mindex) vval) (WholeSimpEnv mu, AssocOneVal h vref vre))
+            (LetComputation (initConf vre') (ExtComp WriteIndex [vre, mindex, vval])
+            (Build $ Conf NilStmt (WholeSimpEnv mu, AssocOneVal h vref vre')))
 
     --- Arithmetic Operations
     , name "unary-cong" $
@@ -345,7 +392,7 @@ mitScriptRules = sequence [
     mkRule6 $ \r i v ref mu h ->
         let (vr, vi, v', vref) = (vv r, vv i, vv v, vv ref) in
             StepTo (Conf (Index (ReferenceVal vr) vi) (WholeSimpEnv mu, AssocOneVal h vr vref))
-            (LetComputation (initConf v') (ExtComp AccessIndex [vref, vi])
+            (LetComputation (initConf v') (ExtComp ReadIndex [vref, vi])
             (Build $ Conf v' (WholeSimpEnv mu, AssocOneVal h vr vref)))
 
     -- Field Access
@@ -361,16 +408,29 @@ mitScriptRules = sequence [
     mkRule6 $ \r f v ref mu h ->
         let (vr, mf, vref, v') = (vv r, mv f, vv v, vv ref) in
             StepTo (Conf (FieldAccess (ReferenceVal vr) mf) (WholeSimpEnv mu, AssocOneVal h vr vref))
-            (LetComputation (initConf v') (ExtComp AccessField [vref, mf])
+            (LetComputation (initConf v') (ExtComp ReadField [vref, mf])
             (Build $ Conf v' (WholeSimpEnv mu, AssocOneVal h vr vref)))
     ]
 
 ibsToString :: InternedByteString -> String
 ibsToString = BS.unpack . unintern
 
-accessField :: Term MITScript -> String ->  Term MITScript
-accessField (ReducedRecordCons (ReducedRecordPair (Name k) v) rps) field = if ibsToString k == field then v else accessField rps field
-accessField _ _ = None
+stringToIbs :: String -> InternedByteString
+stringToIbs = intern . BS.pack
+
+readField :: Term MITScript -> String ->  Term MITScript
+readField (ReducedRecordCons (ReducedRecordPair (Name k) v) rps) field = if ibsToString k == field then v else readField rps field
+readField _ _ = None
+
+writeField' :: Term MITScript -> String -> Term MITScript -> Term MITScript
+writeField' (ReducedRecordCons (ReducedRecordPair (Name k) v) rps) field val =
+    if ibsToString k == field then ReducedRecordCons (ReducedRecordPair (Name k) val) rps
+                              else ReducedRecordCons (ReducedRecordPair (Name k) v) (writeField' rps field val)
+writeField' ReducedRecordNil field val = ReducedRecordCons (ReducedRecordPair (Name (stringToIbs field)) val) ReducedRecordNil
+
+writeField :: Term MITScript -> String -> Term MITScript -> Term MITScript
+writeField x y z = ReducedRecord (writeField' x y z)
+
 
 toMetaBool :: Term MITScript -> Bool
 toMetaBool True = Prelude.True
