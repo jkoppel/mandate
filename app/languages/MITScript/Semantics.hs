@@ -169,7 +169,7 @@ mitScriptRules = sequence [
         let (te, me', ms, mt) = (tv e, mv e', mv s, mv t) in
             StepTo (conf (If te ms mt) env)
             (LetStepTo (conf me' env') (conf te env)
-            (Build $ conf (If me' ms mt) env))
+            (Build $ conf (If me' ms mt) env'))
 
     , name "if-true" $
     mkPairRule1 $ \env ->
