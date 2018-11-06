@@ -15,6 +15,8 @@ module Semantics.PAM (
   , pamEvaluationTreeDepth
   , pamEvaluationTree
   , abstractPamCfg
+
+  , upRulesInvertible
   ) where
 
 import Control.Monad ( MonadPlus(..), guard, liftM )
@@ -37,6 +39,7 @@ import Matching
 import Rose
 import Semantics.Abstraction
 import Semantics.Context
+import Semantics.General
 import Semantics.GeneralMachine
 import Semantics.SOS
 import Term
@@ -50,6 +53,10 @@ data Phase = Up | Down
   deriving (Eq, Ord, Generic)
 
 instance Hashable Phase
+
+flipPhase :: Phase -> Phase
+flipPhase Up = Down
+flipPhase Down = Up
 
 instance Show Phase where
   showsPrec _ Up   = showString "up"
@@ -95,30 +102,42 @@ infNameStream :: ByteString -> InfNameStream
 infNameStream nam = map (\i -> mconcat [nam, "-", BS.pack $ show i]) [1..]
 
 
+----------------------------------- Traversals (sans generic programming) ----------------------------
+
+instance (Matchable (Configuration l), NormalizeBoundVars (Context l)) => NormalizeBoundVars (PAMState l) where
+  normalizeBoundVars' (PAMState c k p) = PAMState <$> fillMatch c <*> normalizeBoundVars' k <*> return p
+
+instance (Matchable (Configuration l), Matchable (ExtComp l), NormalizeBoundVars (PAMState l)) => NormalizeBoundVars (PAMRhs l) where
+  normalizeBoundVars' (GenAMLetComputation cfg comp rhs) = GenAMLetComputation <$> fillMatch cfg
+                                                                               <*> fillMatch comp
+                                                                               <*> normalizeBoundVars' rhs
+
+  normalizeBoundVars' (GenAMRhs st) = GenAMRhs <$> normalizeBoundVars' st
+
+
+
 ----------------------------------- SOS to PAM conversion --------------------------------------------
 
 -- | Strips off the first layer of nesting in a context. All computation up to the first
 -- KStepTo is converted into a PAM RHS. The remainder, if any, is returned for further conversion into the next rule.
-splitFrame :: (Lang l) => PosFrame l -> Context l -> IO (PAMRhs l, Context l, Maybe (Configuration l, PosFrame l))
-splitFrame (KBuild c) k = return (GenAMRhs $ PAMState c k Up, k, Nothing)
--- TODO: Why is this so ugly?
-splitFrame (KStepTo c f@(KInp i pf)) k = fromJust <$> (runMatchUnique $ do
-                                           i' <- refreshVars i
-                                           pf' <- fillMatch pf
-                                           let f' = KInp i' pf'
-                                           let cont = KPush f k
-                                           let cont' = KPush (KInp i' pf') k
-                                           return (GenAMRhs $ PAMState c cont Down, cont', Just (i, pf')))
-splitFrame (KComputation comp (KInp c pf)) k = do (subRhs, ctx, rest) <- splitFrame pf k
-                                                  return (GenAMLetComputation c comp subRhs, ctx, rest)
+splitFrame :: (Lang l) => PosFrame l -> Context l -> (PAMRhs l, Context l, Maybe (Configuration l, PosFrame l))
+splitFrame (KBuild c) k = (GenAMRhs $ PAMState c k Up, k, Nothing)
+splitFrame (KStepTo c f@(KInp i pf)) k =
+    let f' = KInp i pf in
+    let cont = KPush f k in
+    let cont' = KPush (KInp i pf) k in
+    (GenAMRhs $ PAMState c cont Down, cont', Just (i, pf))
+splitFrame (KComputation comp (KInp c pf)) k = let (subRhs, ctx, rest) = splitFrame pf k in
+                                               (GenAMLetComputation c comp subRhs, ctx, rest)
 
 sosRuleToPam' :: (Lang l) => InfNameStream -> PAMState l -> Context l -> PosFrame l -> IO [NamedPAMRule l]
 sosRuleToPam' (nm:nms) st k fr = do
-    (rhs, k', frRest) <- splitFrame fr k
+    debugM $ show fr
+    let (rhs, k', frRest) = splitFrame fr k
     restRules <- case frRest of
                    Nothing           -> return []
                    Just (conf', fr') -> sosRuleToPam' nms (PAMState conf' k' Up) k fr'
-    let rule = namePAMRule nm $ PAM st rhs
+    rule <- fromJust <$> runMatchUnique (namePAMRule nm <$> (PAM <$> normalizeBoundVars st <*> normalizeBoundVars rhs))
     return (rule : restRules)
 
 
@@ -178,4 +197,62 @@ instance ValueIrrelevance Phase where
 -----------------------------
 
 
---upRulesInvertible :: (Lang l) => NamedPAMRules l -> IO Bool
+getPhaseRhs :: PAMRhs l -> Phase
+getPhaseRhs (GenAMLetComputation _ _ rhs) = getPhaseRhs rhs
+getPhaseRhs (GenAMRhs rhs) = getPhasePAMState rhs
+
+getPhasePAMState :: PAMState l -> Phase
+getPhasePAMState (PAMState _ _ p) = p
+
+data ClassifiedPAMRules l = ClassifiedPAMRules { upRules   :: NamedPAMRules l
+                                               , compRules :: NamedPAMRules l
+                                               , downRules :: NamedPAMRules l
+                                               }
+
+classifyPAMRules :: NamedPAMRules l -> ClassifiedPAMRules l
+classifyPAMRules rs = if not (null $ filterRulePattern Up Down rs) then
+                        error "PAMRules has unexpected up-down rule"
+                      else
+                        ClassifiedPAMRules { upRules   = filterRulePattern Up   Up   rs
+                                           , compRules = filterRulePattern Down Up   rs
+                                           , downRules = filterRulePattern Down Down rs
+                                           }
+  where
+    filterRulePattern :: Phase -> Phase -> NamedPAMRules l -> NamedPAMRules l
+    filterRulePattern p1 p2 = filter $ \(NamedPAMRule _ (GenAMRule { genAmBefore = before
+                                                                   , genAmAfter  = after}))
+                                          -> p1 == getPhasePAMState before &&
+                                             p2 == getPhaseRhs      after
+
+allM :: (Monad m) => (a -> m Bool) -> [a] -> m Bool
+allM f l = and <$> mapM f l
+
+swapPhase :: PAMState l -> PAMState l
+swapPhase (PAMState c k p) = PAMState c k (flipPhase p)
+
+-- Current version: Only for inversion in one transition
+--  and assumes the LHS of an up rule has a single variable in term position
+--  (and no structure on the conf)
+--
+-- I think I'm discovering that I actually need unification now rather than matching...
+upRulesInvertible :: (Lang l) => NamedPAMRules l -> IO Bool
+upRulesInvertible rs = allM upRuleInvertible (upRules $ classifyPAMRules rs)
+  where
+    -- upRuleInvertible :: NamedPAMRule l -> IO Bool
+    upRuleInvertible (NamedPAMRule nm (PAM left (GenAMRhs right))) = do
+      debugM $ "Trying to invert rule " ++ BS.unpack nm
+      t <- nextVar
+      let (PAMState (Conf startT _) _ _) = left
+      (startState, upState) <- fmap fromJust $ runMatchUnique $ do
+        match (Pattern startT) (Matchee (NonvalVar t))
+        startSt <- fillMatch left
+        nextSt  <- fillMatch right
+        return (startSt, nextSt)
+
+      nextSt <- stepPam1 rs (swapPhase upState)
+      case nextSt of
+        Nothing -> return False
+        Just st -> do res <- fmap fromJust $ runMatchUnique $ alphaEq (swapPhase st) startState
+                      debugM $ "Invert successful: " ++ show res
+                      return res
+

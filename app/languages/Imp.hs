@@ -208,7 +208,7 @@ impLangRules = sequence [
                              let (te, me', ms, mt) = (tv e, mv e', mv s, mv t) in
                              StepTo (conf (If te ms mt) mu)
                                (LetStepTo (conf me' mu') (conf te mu)
-                               (Build $ conf (If me' ms mt) mu))
+                               (Build $ conf (If me' ms mt) mu'))
 
                  , name "if-true" $
                    mkRule3 $ \s t mu ->
