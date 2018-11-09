@@ -42,10 +42,9 @@ instance LangBase MITScript where
                                 | ReadIndex   | AbsReadIndex
                                 | WriteField  | AbsWriteField
                                 | WriteIndex  | AbsWriteIndex
-                                | AllocAddress| AbsAllocAddress
             deriving ( Eq, Generic )
 
-        data StatefulFunc MITScript = Void
+        data StatefulFunc MITScript = AllocAddress | AbsAllocAddress
             deriving ( Eq, Generic )
 
         compFuncName Compute = "compute"
@@ -53,7 +52,8 @@ instance LangBase MITScript where
         compFuncName ReadIndex = "readIndex"
         compFuncName WriteField = "writeField"
         compFuncName WriteIndex = "writeIndex"
-        compFuncName AllocAddress = "allocAddress"
+
+        statefulFuncName AllocAddress = "allocAddress"
 
         runCompFunc Compute [UMINUS, NumConst (ConstInt n1)] = returnInt $ negate n1
         runCompFunc Compute [NOT, BConst b]                  = returnBool $ not $ toMetaBool b
@@ -87,8 +87,6 @@ instance LangBase MITScript where
         runCompFunc WriteField [ReducedRecord r, Name f, val] = return $ initConf $ writeField r (ibsToString f) val
         runCompFunc WriteIndex [ReducedRecord r, i,      val] = return $ initConf $ writeField r (toString i)    val
 
-        runCompFunc AllocAddress [] = initConf <$> NumConst <$> ConstInt <$> generateHeapAddress
-
         runCompFunc AbsCompute [GStar _, _]    = return $ initConf ValStar
         runCompFunc AbsCompute [_, GStar _]    = return $ initConf ValStar
         runCompFunc AbsCompute [GStar _, _, _] = return $ initConf ValStar
@@ -101,7 +99,9 @@ instance LangBase MITScript where
         runCompFunc AbsReadIndex [GStar _, _] = return $ initConf ValStar
         runCompFunc AbsReadIndex [_, GStar _] = return $ initConf ValStar
 
-        runCompFunc AbsAllocAddress [] = return $ initConf ValStar
+        runStatefulFunc AllocAddress [Conf stmt (stack, heap)] = return $ Conf (NumConst $ ConstInt $ size heap) (stack, heap)
+
+        runStatefulFunc AbsAllocAddress [] = return $ initConf ValStar
 
 instance Hashable (CompFunc MITScript)
 instance Hashable (StatefulFunc MITScript)
@@ -110,15 +110,14 @@ instance ValueIrrelevance (CompFunc MITScript) where
     valueIrrelevance Compute     = AbsCompute
     valueIrrelevance ReadIndex = AbsReadIndex
     valueIrrelevance ReadField = AbsReadField
-    valueIrrelevance AllocAddress = AbsAllocAddress
 
     valueIrrelevance AbsCompute = AbsCompute
     valueIrrelevance AbsReadField = AbsReadField
     valueIrrelevance AbsReadIndex = AbsReadIndex
-    valueIrrelevance AbsAllocAddress = AbsAllocAddress
 
 instance ValueIrrelevance (StatefulFunc MITScript) where
-    valueIrrelevance Void = Void
+    valueIrrelevance AllocAddress = AbsAllocAddress
+    valueIrrelevance AbsAllocAddress = AbsAllocAddress
 
 
 instance Lang MITScript where
@@ -313,11 +312,12 @@ mitScriptRules = sequence [
             (Build $ conf (HeapAlloc mval) env'))
 
     , name "heap-alloc-eval" $
-    mkRule4 $ \h mu val addr ->
+    mkPairRule1 $ \env ->
+    mkRule4 $ \h' mu' val addr ->
         let (vval, vaddr) = (vv val, vv addr) in
-            StepTo (conf (HeapAlloc vval) (mu, h))
-            (LetComputation (initConf vaddr) (ExtComp AllocAddress [])
-            (Build $ Conf (ReferenceVal vaddr) (WholeSimpEnv mu, AssocOneVal h vaddr vval)))
+            StepTo (conf (HeapAlloc vval) env)
+            (LetComputation (conf vaddr (mu', h')) (ExtStatefulComp AllocAddress [conf NilStmt env])
+            (Build $ Conf (ReferenceVal vaddr) (WholeSimpEnv mu', AssocOneVal h' vaddr vval)))
 
     -- Record Literals -> Runtime Records
     , name "record-cong" $
@@ -473,6 +473,3 @@ returnString x = return $ initConf $ Str $ ConstStr $ fromString x
 heapAddressGenerator :: IORef Integer
 heapAddressGenerator = unsafePerformIO (newIORef 0)
 {-# NOINLINE heapAddressGenerator #-}
-
-generateHeapAddress :: MatchEffect Integer
-generateHeapAddress = MatchEffect $ atomicModifyIORef heapAddressGenerator (\x -> (x+1, x))

@@ -16,10 +16,12 @@ module Configuration (
   , pattern EmptySimpEnv
   , pattern WholeSimpEnv
   , pattern AssocOneVal
+  , Configuration.lookup, Configuration.size
   ) where
 
 import Data.Map ( Map )
 import qualified Data.Map as Map
+import Data.Map ( lookup, size )
 import Data.Typeable ( Typeable, eqT )
 
 import GHC.Generics ( Generic )
@@ -134,3 +136,11 @@ instance (Hashable a, Hashable b) => Hashable (SimpEnv a b) where
   hashWithSalt s (JustSimpMap m)   = s `hashWithSalt` m
 
 -- TODO: Hash-cons SimpEnv
+
+lookup :: Ord k => k -> SimpEnv k a -> Maybe a
+lookup k (SimpEnvRest _ _) = Nothing
+lookup k (JustSimpMap (SimpEnvMap m)) = Map.lookup k m
+
+size :: SimpEnv k a -> Integer
+size (SimpEnvRest _ _) = 0
+size (JustSimpMap (SimpEnvMap m)) = toInteger $ Map.size m
