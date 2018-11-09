@@ -462,15 +462,11 @@ toString (ReducedRecordCons rp rps) = toString rp ++ toString rps
 toString ReducedRecordNil = ""
 toString (ReducedRecordPair (Name n) v) = ibsToString n ++ ":" ++ toString v ++ " "
 
-returnInt :: Monad m => Integer -> m (GConfiguration (RedState MITScript) MITScript)
+returnInt :: Monad m => Integer -> m (Configuration MITScript)
 returnInt x = return $ initConf $ NumConst $ ConstInt x
 
-returnBool :: Monad m => Bool -> m (GConfiguration (RedState MITScript) MITScript)
+returnBool :: Monad m => Bool -> m (Configuration MITScript)
 returnBool x = return $ initConf $ BConst $ fromMetaBool x
 
-returnString :: Monad m => String -> m (GConfiguration (RedState MITScript) MITScript)
+returnString :: Monad m => String -> m (Configuration MITScript)
 returnString x = return $ initConf $ Str $ ConstStr $ fromString x
-
-heapAddressGenerator :: IORef Integer
-heapAddressGenerator = unsafePerformIO (newIORef 0)
-{-# NOINLINE heapAddressGenerator #-}
