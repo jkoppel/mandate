@@ -3,6 +3,7 @@
 module Semantics.Abstraction (
     Abstraction
   , AbstractCompFuncs(..)
+  , AbstractStatefulCompFuncs(..)
   , ValueIrrelevance(..)
   ) where
 
@@ -18,6 +19,9 @@ type Abstraction t = t -> t
 
 class AbstractCompFuncs t l where
   abstractCompFuncs :: Abstraction (CompFunc l) -> t -> t
+
+class AbstractStatefulCompFuncs t l where
+  abstractStatefulCompFuncs :: Abstraction (StatefulFunc l) -> t -> t
 
 --------------------------------------------------------------------------------------------------------
 
@@ -45,8 +49,9 @@ instance (ValueIrrelevance b) => ValueIrrelevance (SimpEnv a b) where
   valueIrrelevance (JustSimpMap m)   = JustSimpMap (valueIrrelevance m)
   valueIrrelevance (SimpEnvRest v m) = SimpEnvRest v (valueIrrelevance m)
 
-instance (ValueIrrelevance (CompFunc l), ValueIrrelevance (Configuration l)) => ValueIrrelevance (ExtComp l) where
+instance (ValueIrrelevance (CompFunc l), ValueIrrelevance (StatefulFunc l), ValueIrrelevance (Configuration l)) => ValueIrrelevance (ExtComp l) where
   valueIrrelevance (ExtComp f args) = ExtComp (valueIrrelevance f) (map valueIrrelevance args)
+  valueIrrelevance (ExtStatefulComp f args) = ExtStatefulComp (valueIrrelevance f) (map valueIrrelevance args)
 
 instance (ValueIrrelevance (ExtComp l), ValueIrrelevance (Configuration l)) => ValueIrrelevance (PosFrame l) where
   valueIrrelevance (KBuild       c  ) = KBuild       (valueIrrelevance c)

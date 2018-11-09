@@ -38,7 +38,6 @@ import Control.Monad.Logic ( LogicT(..), runLogicT, observeAllT )
 
 import Configuration
 import Debug
-import LangBase
 import MatchEffect
 import Term
 import Var
@@ -338,7 +337,7 @@ fillMatchList :: (Matchable f, MonadMatchable m) => [f] -> m [f]
 fillMatchList = mapM fillMatch
 
 
-fillMatchTermGen :: (MonadMatchable m, LangBase l) => (MetaVar -> MatchType -> m (Term l)) -> Term l -> m (Term l)
+fillMatchTermGen :: (MonadMatchable m, Typeable l) => (MetaVar -> MatchType -> m (Term l)) -> Term l -> m (Term l)
 fillMatchTermGen f (Node s ts)     = Node s <$> (mapM (fillMatchTermGen f) ts)
 fillMatchTermGen f (Val  s ts)     = Val s <$> (mapM (fillMatchTermGen f) ts)
 fillMatchTermGen f (IntNode s i)   = return (IntNode s i) -- This could just be unsafeCoerce....or hopefully just coerce
@@ -346,7 +345,7 @@ fillMatchTermGen f (StrNode s x)   = return (StrNode s x) -- This could just be 
 fillMatchTermGen f (GMetaVar v mt) = f v mt
 fillMatchTermGen f (GStar mt)      = return (GStar mt)
 
-instance (LangBase l) => Matchable (Term l) where
+instance (Typeable l) => Matchable (Term l) where
   getVars (Node _ ts)    = fold $ map getVars ts
   getVars (Val _ ts)     = fold $ map getVars ts
   getVars (GMetaVar v _) = Set.singleton v
@@ -383,7 +382,7 @@ instance (LangBase l) => Matchable (Term l) where
 
   refreshVars = fillMatchTermGen (\v mt -> getVarMaybe v return (refresh v mt))
     where
-      refresh :: (MonadMatchable m, MonadVarAllocator m, LangBase l) => MetaVar -> MatchType -> m (Term l)
+      refresh :: (MonadMatchable m, MonadVarAllocator m, Typeable l) => MetaVar -> MatchType -> m (Term l)
       refresh v mt = GMetaVar <$> refreshVar (\v' -> GMetaVar @l v' mt) v <*> pure mt
   fillMatch = fillMatchTermGen (\v mt -> getVarMaybe v return (return $ GMetaVar v mt))
 
@@ -398,13 +397,13 @@ instance {-# OVERLAPPABLE #-} (Matchable (Term l), Matchable s) => Matchable (GC
   refreshVars (Conf t s) = Conf <$> refreshVars t <*> refreshVars s
   fillMatch   (Conf t s) = Conf <$> fillMatch   t <*> fillMatch   s
 
--- Hack to prevent over-eagerly expanding (Matchable (Configuration l)) constraints
-data UnusedLanguage
-instance {-# OVERLAPPING #-} (Show s) => Matchable (GConfiguration s UnusedLanguage) where
-  getVars = error "Matching UnusedLanguage"
-  match = error "Matching UnusedLanguage"
-  refreshVars = error "Matching UnusedLanguage"
-  fillMatch = error "Matching UnusedLanguage"
+-- -- Hack to prevent over-eagerly expanding (Matchable (Configuration l)) constraints
+-- data UnusedLanguage
+-- instance {-# OVERLAPPING #-} (Show s) => Matchable (GConfiguration s UnusedLanguage) where
+--   getVars = error "Matching UnusedLanguage"
+--   match = error "Matching UnusedLanguage"
+--   refreshVars = error "Matching UnusedLanguage"
+--   fillMatch = error "Matching UnusedLanguage"
 
 instance Matchable EmptyState where
   getVars EmptyState = Set.empty

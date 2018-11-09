@@ -1,11 +1,10 @@
 {-# LANGUAGE DeriveGeneric, FlexibleContexts, FlexibleInstances, GADTs, PatternSynonyms, ScopedTypeVariables, StandaloneDeriving, TypeApplications, TypeFamilies, ViewPatterns #-}
 
 module Configuration (
-  -- These should be here, but are defined in LangBase. Re-exporting
+  -- These should be here, but are defined in GConfiguration. Re-exporting
     GConfiguration(..)
   , confTerm
   , confState
-  , Configuration
 
   , EmptyState(..)
   , SimpEnv(..)
@@ -27,7 +26,8 @@ import GHC.Generics ( Generic )
 
 import Data.Hashable ( Hashable(..) )
 
-import LangBase
+import GConfiguration
+import Term
 import Var
 
 

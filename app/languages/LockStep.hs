@@ -27,10 +27,13 @@ instance LangBase LockstepLang where
   data CompFunc LockstepLang = RunAdd
     deriving ( Eq, Generic )
 
+  data StatefulFunc LockstepLang = Void deriving ( Eq, Generic )
+
   compFuncName RunAdd = "runAdd"
   runCompFunc RunAdd [Const n1, Const n2] = return $ initConf $ Const (n1+n2)
 
 instance Hashable (CompFunc LockstepLang)
+instance Hashable (StatefulFunc LockstepLang)
 
 instance Lang LockstepLang where
   signature = lockstepSig

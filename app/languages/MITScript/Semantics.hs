@@ -34,7 +34,7 @@ import Languages.MITScript.Translate
 import Languages.MITScript.Parse
 
 instance LangBase MITScript where
-        -- these are keyed by terms becuase thats what Imp.hs did and it seemed to be rationalized well
+
         type RedState MITScript = (SimpEnv (Term MITScript) (Term MITScript), SimpEnv (Term MITScript) (Term MITScript))
 
         data CompFunc MITScript = Compute     | AbsCompute
@@ -43,6 +43,9 @@ instance LangBase MITScript where
                                 | WriteField  | AbsWriteField
                                 | WriteIndex  | AbsWriteIndex
                                 | AllocAddress| AbsAllocAddress
+            deriving ( Eq, Generic )
+
+        data StatefulFunc MITScript = Void
             deriving ( Eq, Generic )
 
         compFuncName Compute = "compute"
@@ -101,6 +104,7 @@ instance LangBase MITScript where
         runCompFunc AbsAllocAddress [] = return $ initConf ValStar
 
 instance Hashable (CompFunc MITScript)
+instance Hashable (StatefulFunc MITScript)
 
 instance ValueIrrelevance (CompFunc MITScript) where
     valueIrrelevance Compute     = AbsCompute
@@ -112,6 +116,10 @@ instance ValueIrrelevance (CompFunc MITScript) where
     valueIrrelevance AbsReadField = AbsReadField
     valueIrrelevance AbsReadIndex = AbsReadIndex
     valueIrrelevance AbsAllocAddress = AbsAllocAddress
+
+instance ValueIrrelevance (StatefulFunc MITScript) where
+    valueIrrelevance Void = Void
+
 
 instance Lang MITScript where
     signature = mitScriptSig

@@ -27,6 +27,7 @@ import Term
 ------------------------------- External / meta-level computations ---------------------------------------
 
 data ExtComp l = ExtComp (CompFunc l) [Term l]
+               | ExtStatefulComp (StatefulFunc l) [Configuration l]
   deriving ( Generic )
 
 deriving instance (LangBase l) => Eq (ExtComp l)
@@ -36,12 +37,21 @@ instance (LangBase l) => Hashable (ExtComp l)
 runExtComp :: (LangBase l) => ExtComp l -> Match (Configuration l)
 runExtComp (ExtComp f ts) = do ts' <- fillMatchList ts
                                runMatchEffect $ runCompFunc f ts'
+runExtComp (ExtStatefulComp f ts) = do ts' <- fillMatchList ts
+                                       runMatchEffect $ runStatefulFunc f ts'
 
 instance (LangBase l) => Show (ExtComp l) where
   showsPrec d (ExtComp f ts) = showString (BS.unpack $ compFuncName f) . showsPrec (d+1) ts
+  showsPrec d (ExtStatefulComp f ts) = showString (BS.unpack $ statefulFuncName f) . showsPrec (d+1) ts
 
 instance (LangBase l) => Matchable (ExtComp l) where
   getVars (ExtComp f ts) = fold (map getVars ts)
+  getVars (ExtStatefulComp f ts) = fold (map getVars ts)
+
+  match (Pattern (ExtStatefulComp f1 ts1)) (Matchee (ExtStatefulComp f2 ts2)) = do
+    guard (f1 == f2)
+    guard (length ts1 == length ts2)
+    matchList (Pattern ts1) (Matchee ts2)
 
   match (Pattern (ExtComp f1 ts1)) (Matchee (ExtComp f2 ts2)) = do
     guard (f1 == f2)
@@ -49,8 +59,10 @@ instance (LangBase l) => Matchable (ExtComp l) where
     matchList (Pattern ts1) (Matchee ts2)
 
   fillMatch (ExtComp f ts) = ExtComp f <$> fillMatchList ts
+  fillMatch (ExtStatefulComp f ts) = ExtStatefulComp f <$> fillMatchList ts
 
   refreshVars (ExtComp f ts) = ExtComp f <$> refreshVarsList ts
+  refreshVars (ExtStatefulComp f ts) = ExtStatefulComp f <$> refreshVarsList ts
 
 instance (Matchable a, Matchable b) => Matchable (a, b) where
   getVars (a,b) = getVars a `union` getVars b

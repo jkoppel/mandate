@@ -35,6 +35,8 @@ data ImpLang
 instance LangBase ImpLang where
   type RedState ImpLang = SimpEnv (Term ImpLang) (Term ImpLang)
 
+  data StatefulFunc ImpLang = Void deriving ( Eq, Generic )
+
   data CompFunc ImpLang = RunAdd    | RunLT    | DoReadInt    | DoWriteInt
                         | AbsRunAdd | AbsRunLT | AbsDoReadInt | AbsDoWriteInt
     deriving ( Eq, Generic )
@@ -59,6 +61,7 @@ instance LangBase ImpLang where
   runCompFunc AbsDoWriteInt [_] = return $ initConf Skip
 
 instance Hashable (CompFunc ImpLang)
+instance Hashable (StatefulFunc ImpLang)
 
 instance ValueIrrelevance (CompFunc ImpLang) where
   valueIrrelevance RunAdd     = AbsRunAdd
@@ -70,6 +73,9 @@ instance ValueIrrelevance (CompFunc ImpLang) where
   valueIrrelevance AbsRunLT      = AbsRunLT
   valueIrrelevance AbsDoReadInt  = AbsDoReadInt
   valueIrrelevance AbsDoWriteInt = AbsDoWriteInt
+
+instance ValueIrrelevance (StatefulFunc ImpLang) where
+  valueIrrelevance Void = Void
 
 instance Lang ImpLang where
   signature = impLangSig

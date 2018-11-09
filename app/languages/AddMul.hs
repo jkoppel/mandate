@@ -25,6 +25,7 @@ data AddMulLang
 instance LangBase AddMulLang where
   type RedState AddMulLang = EmptyState
 
+  data StatefulFunc AddMulLang = Void deriving ( Eq, Generic )
   data CompFunc AddMulLang = RunAdd | AbsRunAdd | RunMul | AbsRunMul
     deriving ( Eq, Generic )
 
@@ -45,7 +46,11 @@ instance ValueIrrelevance (CompFunc AddMulLang) where
   valueIrrelevance RunMul    = AbsRunMul
   valueIrrelevance AbsRunMul = AbsRunMul
 
+instance ValueIrrelevance (StatefulFunc AddMulLang) where
+  valueIrrelevance Void = Void
+
 instance Hashable (CompFunc AddMulLang)
+instance Hashable (StatefulFunc AddMulLang)
 
 instance Lang AddMulLang where
   signature = addMulLangSig

@@ -1,12 +1,8 @@
-{-# LANGUAGE FlexibleContexts, GADTs, StandaloneDeriving, TypeFamilies #-}
+{-# LANGUAGE FlexibleContexts, GADTs, TypeFamilies #-}
 
 module LangBase (
-    GConfiguration(..)
-  , confTerm
-  , confState
-  , Configuration
-
-  , LangBase(..)
+    LangBase(..)
+   , Configuration
   ) where
 
 import Data.ByteString.Char8 ( ByteString)
@@ -15,30 +11,18 @@ import Data.Typeable
 
 import Data.Hashable ( Hashable(..) )
 
+import Matching
 import MatchEffect
 import Term
+import GConfiguration
 
 --------------------------------------------------------------------------------------------------------
 
 -- | The 'LangBase' typeclass contains information associated with a language that do not involve configurations
 -- or semantics. Most modules should rely on 'Lang' instead.
 
--- The following definitions really should be in Configuration, but.....breaking circular dependencies
 
-data GConfiguration s l where
-  Conf :: Typeable s => Term l -> s -> GConfiguration s l
-
-deriving instance (Eq (Term l), Eq s) => Eq (GConfiguration s l)
-deriving instance (Ord (Term l), Ord s) => Ord (GConfiguration s l)
-
-instance (Hashable s) => Hashable (GConfiguration s l) where
-  hashWithSalt s (Conf t st) = s `hashWithSalt` t `hashWithSalt` s
-
-confTerm :: GConfiguration s l -> Term l
-confTerm (Conf t _) = t
-
-confState :: GConfiguration s l -> s
-confState (Conf _ s) = s
+-- This definition really should be in Configuration, but.....breaking circular dependencies
 
 -- | The configuration is the object of the transition system defined by
 -- a language's semantics. It contains a term together with the extra information
@@ -48,7 +32,7 @@ type Configuration l = GConfiguration (RedState l) l
 -- This file is how we break the circular dependence between Lang and Semantics
 -- Semantics are defined relative to a language, but
 
-class (Typeable l, Typeable (RedState l), Eq (CompFunc l), Eq (RedState l), Show (RedState l), Hashable (CompFunc l)) => LangBase l where
+class (Typeable l, Typeable (RedState l), Eq (CompFunc l), Eq (StatefulFunc l), Eq (RedState l), Show (RedState l), Hashable (CompFunc l), Hashable (StatefulFunc l), Matchable (RedState l), Hashable (RedState l)) => LangBase l where
   -- | The "reduction state" of all extra information that is maintained about a program when executing it.
   -- E.g.: the mutable store, installed exception handlers, etc
   type RedState l :: *
@@ -64,13 +48,17 @@ class (Typeable l, Typeable (RedState l), Eq (CompFunc l), Eq (RedState l), Show
   -- Note that all semantics functions must be well-behaved when given abstract terms
 
   data CompFunc l
+  data StatefulFunc l
 
   -- | Gives a human-readable name for the input meta-level operations. Used when displaying rules.
   compFuncName :: CompFunc l -> ByteString
+  statefulFuncName :: StatefulFunc l -> ByteString
 
-  -- TODO: Funcs need to be able to depend on state
-  -- |
   runCompFunc  :: CompFunc l -> [Term l] -> MatchEffect (Configuration l)
+  runStatefulFunc  :: StatefulFunc l -> [Configuration l] -> MatchEffect (Configuration l)
 
 instance LangBase l => Show (CompFunc l) where
   show = BS.unpack . compFuncName
+
+instance LangBase l => Show (StatefulFunc l) where
+  show = BS.unpack . statefulFuncName
