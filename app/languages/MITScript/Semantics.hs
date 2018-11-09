@@ -37,87 +37,51 @@ instance LangBase MITScript where
 
         type RedState MITScript = (SimpEnv (Term MITScript) (Term MITScript), SimpEnv (Term MITScript) (Term MITScript))
 
-        data CompFunc MITScript = Compute     | AbsCompute
-                                | ReadField   | AbsReadField
-                                | ReadIndex   | AbsReadIndex
+        -- State-free external computations
+        data CompFunc MITScript =  ReadField   | AbsReadField
                                 | WriteField  | AbsWriteField
-                                | WriteIndex  | AbsWriteIndex
             deriving ( Eq, Generic )
 
-        data StatefulFunc MITScript = AllocAddress | AbsAllocAddress
-            deriving ( Eq, Generic )
-
-        compFuncName Compute = "compute"
         compFuncName ReadField = "readField"
-        compFuncName ReadIndex = "readIndex"
         compFuncName WriteField = "writeField"
-        compFuncName WriteIndex = "writeIndex"
-
-        statefulFuncName AllocAddress = "allocAddress"
-
-        runCompFunc Compute [UMINUS, NumConst (ConstInt n1)] = returnInt $ negate n1
-        runCompFunc Compute [NOT, BConst b]                  = returnBool $ not $ toMetaBool b
-
-        runCompFunc Compute [PLUS,  NumConst (ConstInt n1), NumConst (ConstInt n2)] = returnInt $ n1 + n2
-        runCompFunc Compute [PLUS,  vv1@(Str (ConstStr s1)), vv2]                   = returnString $ toString vv1 ++ toString vv2
-        runCompFunc Compute [PLUS,  vv1, vv2@(Str (ConstStr s1))]                   = returnString $ toString vv1 ++ toString vv2
-
-        runCompFunc Compute [MINUS, NumConst (ConstInt n1), NumConst (ConstInt n2)] = returnInt $ n1 - n2
-        runCompFunc Compute [TIMES, NumConst (ConstInt n1), NumConst (ConstInt n2)] = returnInt $ n1 * n2
-        runCompFunc Compute [DIV,   NumConst (ConstInt n1), NumConst (ConstInt n2)] = returnInt $ n1 `div` n2
-
-        runCompFunc Compute [GT,  NumConst (ConstInt n1), NumConst (ConstInt n2)]  = returnBool $ n1 > n2
-        runCompFunc Compute [GTE, NumConst (ConstInt n1), NumConst (ConstInt n2)]  = returnBool $ n1 >= n2
-
-        runCompFunc Compute [EQ, NumConst (ConstInt n1), NumConst (ConstInt n2)]   = returnBool $ n1 == n2
-        runCompFunc Compute [EQ, BConst l, BConst r]                               = returnBool $ l == r
-        runCompFunc Compute [EQ, None, None]                                       = returnBool Prelude.True
-        runCompFunc Compute [EQ, ReferenceVal p1, ReferenceVal  p2]                = returnBool $ p1 == p2
-        runCompFunc Compute [EQ, vv1@(Str (ConstStr s1)), vv2@(Str (ConstStr s2))] = returnBool $ toString vv1 == toString vv2
-        runCompFunc Compute [EQ, _, _]                                             = returnBool Prelude.False
-
-        runCompFunc Compute [AND, BConst True, BConst True]   = returnBool Prelude.True
-        runCompFunc Compute [AND, BConst l, BConst r]         = returnBool Prelude.False
-
-        runCompFunc Compute [OR, BConst False, BConst False]  = returnBool Prelude.False
-        runCompFunc Compute [OR, BConst l, BConst r]          = returnBool Prelude.True
 
         runCompFunc ReadField [ReducedRecord r, Name f] = return $ initConf $ readField r (ibsToString f)
-        runCompFunc ReadIndex [ReducedRecord r, i]      = return $ initConf $ readField r (toString i)
-
         runCompFunc WriteField [ReducedRecord r, Name f, val] = return $ initConf $ writeField r (ibsToString f) val
-        runCompFunc WriteIndex [ReducedRecord r, i,      val] = return $ initConf $ writeField r (toString i)    val
 
-        runCompFunc AbsCompute [GStar _, _]    = return $ initConf ValStar
-        runCompFunc AbsCompute [_, GStar _]    = return $ initConf ValStar
-        runCompFunc AbsCompute [GStar _, _, _] = return $ initConf ValStar
-        runCompFunc AbsCompute [_, GStar _, _] = return $ initConf ValStar
-        runCompFunc AbsCompute [_, _, GStar _] = return $ initConf ValStar
+        runCompFunc func [GStar _, _] = return $ initConf ValStar
+        runCompFunc func [_, GStar _] = return $ initConf ValStar
+        runCompFunc func [GStar _, _, _] = return $ initConf ValStar
+        runCompFunc func [_, GStar _, _] = return $ initConf ValStar
+        runCompFunc func [_, _, GStar _] = return $ initConf ValStar
 
-        runCompFunc AbsReadField [GStar _, _] = return $ initConf ValStar
-        runCompFunc AbsReadField [_, GStar _] = return $ initConf ValStar
+        -- State-dependent external computations
+        data StatefulFunc MITScript = AllocAddress | AbsAllocAddress
+                                    | Compute      | AbsCompute
+                                    | WriteIndex   | AbsWriteIndex
+                                    | ReadIndex    | AbsReadIndex
+            deriving ( Eq, Generic )
 
-        runCompFunc AbsReadIndex [GStar _, _] = return $ initConf ValStar
-        runCompFunc AbsReadIndex [_, GStar _] = return $ initConf ValStar
+        statefulFuncName AllocAddress = "allocAddress"
+        statefulFuncName Compute = "compute"
+        statefulFuncName ReadIndex = "readIndex"
+        statefulFuncName WriteIndex = "writeIndex"
 
-        runStatefulFunc AllocAddress [Conf stmt (stack, heap)] = return $ Conf (HeapAddr $ size heap) (stack, heap)
-
-        runStatefulFunc AbsAllocAddress [] = return $ initConf ValStar
+        runStatefulFunc func (c:cs)  = runStatefulComputation func (confState c) (map confTerm (c:cs))
 
 instance Hashable (CompFunc MITScript)
 instance Hashable (StatefulFunc MITScript)
 
 instance ValueIrrelevance (CompFunc MITScript) where
-    valueIrrelevance Compute     = AbsCompute
-    valueIrrelevance ReadIndex = AbsReadIndex
     valueIrrelevance ReadField = AbsReadField
-
-    valueIrrelevance AbsCompute = AbsCompute
     valueIrrelevance AbsReadField = AbsReadField
-    valueIrrelevance AbsReadIndex = AbsReadIndex
 
 instance ValueIrrelevance (StatefulFunc MITScript) where
+    valueIrrelevance Compute   = AbsCompute
+    valueIrrelevance ReadIndex = AbsReadIndex
     valueIrrelevance AllocAddress = AbsAllocAddress
+
+    valueIrrelevance AbsCompute = AbsCompute
+    valueIrrelevance AbsReadIndex = AbsReadIndex
     valueIrrelevance AbsAllocAddress = AbsAllocAddress
 
 
@@ -258,8 +222,9 @@ mitScriptRules = sequence [
     mkRule7 $ \val index ref mu h re re'->
         let (vval, mref, mindex, vre, vre') = (vv val, mv ref, mv index, vv re, vv re') in
             StepTo (Conf (Assign (Index (ReferenceVal mref) mindex) vval) (WholeSimpEnv mu, AssocOneVal h mref vre))
-            (LetComputation (initConf vre') (ExtComp WriteIndex [vre, mindex, vval])
-            (Build $ Conf NilStmt (WholeSimpEnv mu, AssocOneVal h mref vre')))
+            (LetComputation (initConf vre')
+                (ExtStatefulComp WriteIndex $ map (\term -> Conf term (WholeSimpEnv mu, AssocOneVal h mref vre)) [vre, mindex, vval])
+                (Build $ Conf NilStmt (WholeSimpEnv mu, AssocOneVal h mref vre')))
 
     --- Arithmetic Operations
     , name "unary-cong" $
@@ -275,7 +240,7 @@ mitScriptRules = sequence [
     mkRule3 $ \v1 v' op ->
         let (vv1, vv', mop) = (vv v1, vv v', mv op) in
             StepTo (conf (UnExp mop vv1) env)
-            (LetComputation (initConf $ ValVar v') (ExtComp Compute [mop, vv1])
+            (LetComputation (initConf $ ValVar v') (ExtStatefulComp Compute $ map (\term -> conf term env) [mop, vv1])
             (Build $ conf vv' env))
 
     -- all binary operators are left-associative
@@ -300,7 +265,7 @@ mitScriptRules = sequence [
     mkRule4 $ \v1 v2 v' op ->
         let (vv1, vv2, vv', mop) = (vv v1, vv v2, vv v', mv op) in
             StepTo (conf (BinExp vv1 mop vv2) env)
-            (LetComputation (initConf $ ValVar v') (ExtComp Compute [mop, vv1, vv2])
+            (LetComputation (initConf $ ValVar v') (ExtStatefulComp Compute $ map (\term -> conf term env) [mop, vv1, vv2])
             (Build $ conf vv' env))
 
     -- Heap Stuff
@@ -401,7 +366,7 @@ mitScriptRules = sequence [
     mkRule6 $ \r i v ref mu h ->
         let (vr, vi, v', mref) = (vv r, vv i, vv v, mv ref) in
             StepTo (Conf (Index (ReferenceVal mref) vi) (WholeSimpEnv mu, AssocOneVal h mref vr))
-            (LetComputation (initConf v') (ExtComp ReadIndex [vr, vi])
+            (LetComputation (initConf v') (ExtStatefulComp ReadIndex $ map (\term -> Conf term (WholeSimpEnv mu, AssocOneVal h mref vr)) [vr, vi])
             (Build $ Conf v' (WholeSimpEnv mu, AssocOneVal h mref vr)))
 
     -- Field Access
@@ -448,19 +413,18 @@ toMetaBool False = Prelude.False
 fromMetaBool :: Bool -> Term MITScript
 fromMetaBool Prelude.True = True
 fromMetaBool Prelude.False = False
-
-removeQuotes :: String -> String
-removeQuotes s = take (length s - 2) $ drop 1 s
-
-toString :: Term MITScript -> String
-toString (BConst b) = show $ toMetaBool b
-toString (NumConst (ConstInt n1)) = show n1
-toString (Str (ConstStr s)) = ibsToString s
-toString None = "None"
-toString (ReducedRecord rs) = "{" ++ toString rs ++ "}"
-toString (ReducedRecordCons rp rps) = toString rp ++ toString rps
-toString ReducedRecordNil = ""
-toString (ReducedRecordPair (Name n) v) = ibsToString n ++ ":" ++ toString v ++ " "
+toString :: Term MITScript -> SimpEnv (Term MITScript) (Term MITScript) -> String
+toString (BConst b) heap = show $ toMetaBool b
+toString (NumConst (ConstInt n1)) heap = show n1
+toString (Str (ConstStr s)) heap = ibsToString s
+toString None heap = "None"
+toString (ReducedRecord rs) heap = "{" ++ toString rs heap ++ "}"
+toString (ReducedRecordCons rp rps) heap = toString rp heap ++ toString rps heap
+toString ReducedRecordNil heap = ""
+toString (ReducedRecordPair (Name n) v) heap = ibsToString n ++ ":" ++ toString v heap ++ " "
+toString (ReferenceVal p) heap = case Configuration.lookup p heap of
+                                                Just term -> toString term heap
+                                                Nothing -> "ERR: Dangling Pointer"
 
 returnInt :: Monad m => Integer -> m (Configuration MITScript)
 returnInt x = return $ initConf $ NumConst $ ConstInt x
@@ -470,3 +434,43 @@ returnBool x = return $ initConf $ BConst $ fromMetaBool x
 
 returnString :: Monad m => String -> m (Configuration MITScript)
 returnString x = return $ initConf $ Str $ ConstStr $ fromString x
+
+runStatefulComputation :: Monad m => StatefulFunc MITScript -> RedState MITScript -> [Term MITScript] -> m (Configuration MITScript)
+runStatefulComputation Compute state [UMINUS, NumConst (ConstInt n1)] = returnInt $ negate n1
+runStatefulComputation Compute state [NOT, BConst b]                  = returnBool $ not $ toMetaBool b
+
+runStatefulComputation Compute state [PLUS,  NumConst (ConstInt n1), NumConst (ConstInt n2)] = returnInt $ n1 + n2
+runStatefulComputation Compute (stack, heap) [PLUS,  vv1@(Str (ConstStr s1)), vv2]                   = returnString $ toString vv1 heap ++ toString vv2 heap
+runStatefulComputation Compute (stack, heap) [PLUS,  vv1, vv2@(Str (ConstStr s1))]                   = returnString $ toString vv1 heap ++ toString vv2 heap
+
+runStatefulComputation Compute state [MINUS, NumConst (ConstInt n1), NumConst (ConstInt n2)] = returnInt $ n1 - n2
+runStatefulComputation Compute state [TIMES, NumConst (ConstInt n1), NumConst (ConstInt n2)] = returnInt $ n1 * n2
+runStatefulComputation Compute state [DIV,   NumConst (ConstInt n1), NumConst (ConstInt n2)] = returnInt $ n1 `div` n2
+
+runStatefulComputation Compute state [GT,  NumConst (ConstInt n1), NumConst (ConstInt n2)]  = returnBool $ n1 > n2
+runStatefulComputation Compute state [GTE, NumConst (ConstInt n1), NumConst (ConstInt n2)]  = returnBool $ n1 >= n2
+
+runStatefulComputation Compute state [EQ, NumConst (ConstInt n1), NumConst (ConstInt n2)]   = returnBool $ n1 == n2
+runStatefulComputation Compute state [EQ, BConst l, BConst r]                               = returnBool $ l == r
+runStatefulComputation Compute state [EQ, None, None]                                       = returnBool Prelude.True
+runStatefulComputation Compute state [EQ, ReferenceVal p1, ReferenceVal  p2]                = returnBool $ p1 == p2
+runStatefulComputation Compute (stack, heap) [EQ, vv1@(Str (ConstStr s1)), vv2@(Str (ConstStr s2))] = returnBool $ toString vv1 heap == toString vv2 heap
+runStatefulComputation Compute state [EQ, _, _]                                             = returnBool Prelude.False
+
+runStatefulComputation Compute state [AND, BConst True, BConst True]   = returnBool Prelude.True
+runStatefulComputation Compute state [AND, BConst l, BConst r]         = returnBool Prelude.False
+
+runStatefulComputation Compute state [OR, BConst False, BConst False]  = returnBool Prelude.False
+runStatefulComputation Compute state [OR, BConst l, BConst r]          = returnBool Prelude.True
+
+runStatefulComputation AllocAddress (stack, heap) _ = return $ Conf (HeapAddr $ size heap) (stack, heap)
+
+runStatefulComputation ReadIndex (stack, heap)  [ReducedRecord r, i]      = return $ initConf $ readField r (toString i heap)
+runStatefulComputation WriteIndex (stack, heap) [ReducedRecord r, i, val] = return $ initConf $ writeField r (toString i heap) val
+
+runStatefulComputation func state [GStar _]    = return $ initConf ValStar
+runStatefulComputation func state [GStar _, _]    = return $ initConf ValStar
+runStatefulComputation func state [_, GStar _]    = return $ initConf ValStar
+runStatefulComputation func state [GStar _, _, _] = return $ initConf ValStar
+runStatefulComputation func state [_, GStar _, _] = return $ initConf ValStar
+runStatefulComputation func state [_, _, GStar _] = return $ initConf ValStar
