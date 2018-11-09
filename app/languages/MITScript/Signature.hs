@@ -15,7 +15,7 @@ mitScriptSorts = [ "Name",  "NameList", "Stmt", "StmtList"
                 , "BinOp", "UnOp", "Expr", "ExprList"
                 , "RecordPair", "RecordPairList"
                 , "ReducedRecordPair", "ReducedRecordPairList"
-                , "Bool", "ConstInt", "ConstStr"
+                , "Bool", "ConstInt", "ConstStr", "HeapAddr"
                 ]
 
 
@@ -53,6 +53,7 @@ mitScriptSig = Signature [ StrSig "Name" "Name"
                          , NodeSig "BinExp"      ["Expr", "BinOp", "Expr"] "Expr"
                          , NodeSig "UnExp"       ["UnOp", "Expr"]          "Expr"
                          , ValSig  "NumConst"    ["ConstInt"]              "Expr"
+                         , ValSig  "ReferenceVal" ["HeapAddr"]              "Expr"
                          , ValSig  "BConst"      ["Bool"]                  "Expr"
                          , ValSig  "None"        []                        "Expr"
                          , ValSig  "Str"         ["ConstStr"]              "Expr"
@@ -74,6 +75,7 @@ mitScriptSig = Signature [ StrSig "Name" "Name"
                          , ValSig "True" [] "Bool"
                          , ValSig "False" [] "Bool"
                          , IntSig "ConstInt" "ConstInt"
+                         , IntSig "HeapAddr" "HeapAddr"
                          , StrSig "ConstStr" "ConstStr"
 
                          , ValSig "ReducedRecord" ["ReducedRecordPairList"] "Expr"
@@ -82,7 +84,6 @@ mitScriptSig = Signature [ StrSig "Name" "Name"
                          , ValSig "ReducedRecordNil" [] "ReducedRecordPairList"
                          , ValSig "ReducedRecordCons" ["ReducedRecordPair", "ReducedRecordPairList"] "ReducedRecordPairList"
                          , NodeSig "HeapAlloc"   ["Expr"] "Expr"
-                         , NodeSig "ReferenceVal"  ["Expr"] "Expr"
              ]
 
 --------------------------------------------------------------------------------------------------------------------
@@ -218,6 +219,9 @@ pattern False = Val "False" []
 
 pattern ConstInt :: Integer -> Term MITScript
 pattern ConstInt n = IntNode "ConstInt" n
+
+pattern HeapAddr :: Integer -> Term MITScript
+pattern HeapAddr n = IntNode "HeapAddr" n
 
 pattern ConstStr :: InternedByteString -> Term MITScript
 pattern ConstStr s = StrNode "ConstStr" s

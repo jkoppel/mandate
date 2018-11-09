@@ -72,6 +72,7 @@ instance LangBase MITScript where
         runCompFunc Compute [EQ, NumConst (ConstInt n1), NumConst (ConstInt n2)]   = returnBool $ n1 == n2
         runCompFunc Compute [EQ, BConst l, BConst r]                               = returnBool $ l == r
         runCompFunc Compute [EQ, None, None]                                       = returnBool Prelude.True
+        runCompFunc Compute [EQ, ReferenceVal p1, ReferenceVal  p2]                = returnBool $ p1 == p2
         runCompFunc Compute [EQ, vv1@(Str (ConstStr s1)), vv2@(Str (ConstStr s2))] = returnBool $ toString vv1 == toString vv2
         runCompFunc Compute [EQ, _, _]                                             = returnBool Prelude.False
 
@@ -99,7 +100,7 @@ instance LangBase MITScript where
         runCompFunc AbsReadIndex [GStar _, _] = return $ initConf ValStar
         runCompFunc AbsReadIndex [_, GStar _] = return $ initConf ValStar
 
-        runStatefulFunc AllocAddress [Conf stmt (stack, heap)] = return $ Conf (NumConst $ ConstInt $ size heap) (stack, heap)
+        runStatefulFunc AllocAddress [Conf stmt (stack, heap)] = return $ Conf (HeapAddr $ size heap) (stack, heap)
 
         runStatefulFunc AbsAllocAddress [] = return $ initConf ValStar
 
@@ -232,10 +233,10 @@ mitScriptRules = sequence [
 
     , name "field-assn-eval" $
     mkRule7 $ \val field ref mu h re re'->
-        let (vval, vref, mfield, vre, vre') = (vv val, vv ref, mv field, vv re, vv re') in
-            StepTo (Conf (Assign (FieldAccess (ReferenceVal vref) mfield) vval) (WholeSimpEnv mu, AssocOneVal h vref vre))
+        let (vval, mref, mfield, vre, vre') = (vv val, mv ref, mv field, vv re, vv re') in
+            StepTo (Conf (Assign (FieldAccess (ReferenceVal mref) mfield) vval) (WholeSimpEnv mu, AssocOneVal h mref vre))
             (LetComputation (initConf vre') (ExtComp WriteField [vre, mfield, vval])
-            (Build $ Conf NilStmt (WholeSimpEnv mu, AssocOneVal h vref vre')))
+            (Build $ Conf NilStmt (WholeSimpEnv mu, AssocOneVal h mref vre')))
 
     , name "index-assn-cong-1" $
     mkPairRule2 $ \env env' ->
@@ -255,10 +256,10 @@ mitScriptRules = sequence [
 
     , name "index-assn-eval" $
     mkRule7 $ \val index ref mu h re re'->
-        let (vval, vref, mindex, vre, vre') = (vv val, vv ref, mv index, vv re, vv re') in
-            StepTo (Conf (Assign (Index (ReferenceVal vref) mindex) vval) (WholeSimpEnv mu, AssocOneVal h vref vre))
+        let (vval, mref, mindex, vre, vre') = (vv val, mv ref, mv index, vv re, vv re') in
+            StepTo (Conf (Assign (Index (ReferenceVal mref) mindex) vval) (WholeSimpEnv mu, AssocOneVal h mref vre))
             (LetComputation (initConf vre') (ExtComp WriteIndex [vre, mindex, vval])
-            (Build $ Conf NilStmt (WholeSimpEnv mu, AssocOneVal h vref vre')))
+            (Build $ Conf NilStmt (WholeSimpEnv mu, AssocOneVal h mref vre')))
 
     --- Arithmetic Operations
     , name "unary-cong" $
@@ -313,11 +314,11 @@ mitScriptRules = sequence [
 
     , name "heap-alloc-eval" $
     mkPairRule1 $ \env ->
-    mkRule4 $ \h' mu' val addr ->
-        let (vval, vaddr) = (vv val, vv addr) in
+    mkRule4 $ \h' mu' val ref ->
+        let (vval, mref) = (vv val, mv ref) in
             StepTo (conf (HeapAlloc vval) env)
-            (LetComputation (conf vaddr (mu', h')) (ExtStatefulComp AllocAddress [conf NilStmt env])
-            (Build $ Conf (ReferenceVal vaddr) (WholeSimpEnv mu', AssocOneVal h' vaddr vval)))
+            (LetComputation (conf mref (mu', h')) (ExtStatefulComp AllocAddress [conf NilStmt env])
+            (Build $ Conf (ReferenceVal mref) (WholeSimpEnv mu', AssocOneVal h' mref vval)))
 
     -- Record Literals -> Runtime Records
     , name "record-cong" $
@@ -398,10 +399,10 @@ mitScriptRules = sequence [
 
     , name "index-eval" $
     mkRule6 $ \r i v ref mu h ->
-        let (vr, vi, v', vref) = (vv r, vv i, vv v, vv ref) in
-            StepTo (Conf (Index (ReferenceVal vr) vi) (WholeSimpEnv mu, AssocOneVal h vr vref))
-            (LetComputation (initConf v') (ExtComp ReadIndex [vref, vi])
-            (Build $ Conf v' (WholeSimpEnv mu, AssocOneVal h vr vref)))
+        let (vr, vi, v', mref) = (vv r, vv i, vv v, mv ref) in
+            StepTo (Conf (Index (ReferenceVal mref) vi) (WholeSimpEnv mu, AssocOneVal h mref vr))
+            (LetComputation (initConf v') (ExtComp ReadIndex [vr, vi])
+            (Build $ Conf v' (WholeSimpEnv mu, AssocOneVal h mref vr)))
 
     -- Field Access
     , name "field-cong" $
@@ -414,10 +415,10 @@ mitScriptRules = sequence [
 
     , name "field-eval" $
     mkRule6 $ \r f v ref mu h ->
-        let (vr, mf, vref, v') = (vv r, mv f, vv v, vv ref) in
-            StepTo (Conf (FieldAccess (ReferenceVal vr) mf) (WholeSimpEnv mu, AssocOneVal h vr vref))
-            (LetComputation (initConf v') (ExtComp ReadField [vref, mf])
-            (Build $ Conf v' (WholeSimpEnv mu, AssocOneVal h vr vref)))
+        let (vr, mf, v', mref) = (vv r, mv f, vv v, mv ref) in
+            StepTo (Conf (FieldAccess (ReferenceVal mref) mf) (WholeSimpEnv mu, AssocOneVal h mref vr))
+            (LetComputation (initConf v') (ExtComp ReadField [vr, mf])
+            (Build $ Conf v' (WholeSimpEnv mu, AssocOneVal h mref vr)))
     ]
 
 ibsToString :: InternedByteString -> String

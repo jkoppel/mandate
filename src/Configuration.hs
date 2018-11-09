@@ -36,7 +36,7 @@ import Var
 -- | Combining terms with the auxiliary state for the language
 --
 -- The core datatypes of this file are GConfiguration and Configuration. However, for reasons of avoiding
--- circular dependencies, these are actually defined in LangBase.hs
+-- circular dependencies, these are actually defined in LangBase.hs / GConfiguration.hs
 
 ------------------------------------------ Pretty-printing ---------------------------------------------------------
 
