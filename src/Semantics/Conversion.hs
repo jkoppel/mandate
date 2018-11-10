@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE FlexibleInstances, MultiParamTypeClasses, OverloadedStrings, TypeSynonymInstances #-}
 
 module Semantics.Conversion (
     sosToPam
@@ -9,7 +9,7 @@ module Semantics.Conversion (
   ) where
 
 
-import Data.Maybe ( fromJust )
+import Data.Maybe ( isJust, fromJust )
 
 import Data.ByteString.Char8 ( ByteString )
 import qualified Data.ByteString.Char8 as BS
@@ -81,13 +81,28 @@ fillPAMRhs (GenAMRhs (GenAMState t c p)) = GenAMRhs <$> (GenAMState <$> fillMatc
 
 
 -- The input term must not have overlapping var names as the rule; we're combining namespaces here
-specializeRuleForStartTerm :: (Lang l) => Term l -> PAMRule l -> IO (PAMRule l)
-specializeRuleForStartTerm startT (PAM left rhs) = fromJust <$> (runMatchUnique $ do
+-- This also only works if the LHS term is a single variable, which is the case in up rules
+specializeUpRuleForStartTerm :: (Lang l) => Term l -> PAMRule l -> IO (PAMRule l)
+specializeUpRuleForStartTerm startT (PAM left rhs) = fromJust <$> (runMatchUnique $ do
   let (GenAMState (Conf leftT leftSt) _ _) = left
   match (Pattern leftT) (Matchee startT)
   left' <- fillMatch left
   rhs'  <- fillPAMRhs rhs
   return $ PAM left' rhs')
+
+findM :: (Monad m) => (a -> m Bool) -> [a] -> m (Maybe a)
+findM f l = go l
+  where
+    go []     = return Nothing
+    go (x:xs) = do b <- f x
+                   if b then return (Just x) else go xs
+
+lhsMatches :: (Lang l) => PAMState l -> NamedPAMRule l -> IO Bool
+lhsMatches st (NamedPAMRule _ (PAM lhs _)) = isJust <$> runMatchUnique (match (Pattern lhs) (Matchee st))
+
+findMatchingLhs :: (Lang l) => NamedPAMRules l -> PAMState l -> IO (Maybe (NamedPAMRule l))
+findMatchingLhs rs st = findM (lhsMatches st) rs
+
 
 ----------------------------------- Transforming PAM ----------------------------------------
 
@@ -141,7 +156,7 @@ upRulesInvertible rs = allM upRuleInvertible (upRules $ classifyPAMRules rs)
     upRuleInvertible (NamedPAMRule nm r) = do
       debugM $ "Trying to invert rule " ++ BS.unpack nm
       t <- nextVar
-      (PAM startState (GenAMRhs upState)) <- specializeRuleForStartTerm (NonvalVar t) r
+      (PAM startState (GenAMRhs upState)) <- specializeUpRuleForStartTerm (NonvalVar t) r
 
       nextSt <- stepPam1 rs (swapPhase upState)
       case nextSt of
@@ -153,12 +168,49 @@ upRulesInvertible rs = allM upRuleInvertible (upRules $ classifyPAMRules rs)
 
 -------------------------------------------------------------------------------------------------------
 
-mergePAMRule :: (Lang l) => NamedPAMRules l -> NamedPAMRule l -> IO (NamedAMRule l)
-mergePAMRule rs (NamedPAMRule _ (PAM left rhs)) = error "todo"
+pamStateToAMState :: PAMState l -> AMState l
+pamStateToAMState (PAMState t c _) = AMState t c
+
+class DropPhase f g where
+  dropPhase :: f l -> g l
+
+instance DropPhase NamedPAMRule NamedAMRule where
+  dropPhase (NamedPAMRule nm p) = NamedAMRule nm (dropPhase p)
+
+instance DropPhase PAMRule AMRule where
+  dropPhase (PAM left rhs) = AM (dropPhase left) (dropPhase rhs)
+
+instance DropPhase PAMState AMState where
+  dropPhase (PAMState c k _) = AMState c k
+
+instance DropPhase PAMRhs AMRhs where
+  dropPhase (GenAMLetComputation c comp r) = GenAMLetComputation c comp (dropPhase r)
+  dropPhase (GenAMRhs x) = GenAMRhs (dropPhase x)
+
+
+mergePAMUpRule :: (Lang l) => NamedPAMRules l -> NamedPAMRule l -> IO (NamedAMRule l)
+mergePAMUpRule rs (NamedPAMRule nm1 r) = do
+    debugM $ "Trying to merge rule " ++ BS.unpack nm1
+    t <- nextVar
+    (PAM startState (GenAMRhs upState)) <- specializeUpRuleForStartTerm (ValVar t) r
+
+    nextRule <- findMatchingLhs rs (swapPhase upState)
+    case nextRule of
+      Nothing -> return $ NamedAMRule nm1 (AM (dropPhase startState) (GenAMRhs $ dropPhase upState))
+      Just (NamedPAMRule nm2 (PAM left2 rhs2)) -> fromJust <$> (runMatchUnique $ do
+        match (Pattern left2) (Matchee (swapPhase upState))
+        let nm' = BS.concat [nm1, "-", nm2]
+        rhs2' <- fillPAMRhs rhs2
+        return $ NamedAMRule nm' (AM (dropPhase startState) (dropPhase rhs2')))
+
+
 
 pamToAM :: (Lang l) => NamedPAMRules l -> IO (NamedAMRules l)
 pamToAM rs = do canTrans <- upRulesInvertible rs
                 if not canTrans then
                   error "Up-rules not invertible; cannot convert PAM to abstract machine"
-                else
-                  mapM (mergePAMRule rs) rs
+                else do
+                  upRules' <- mapM (mergePAMUpRule rs) upRules
+                  return $ upRules' ++ map dropPhase compRules ++ map dropPhase downRules
+  where
+    ClassifiedPAMRules {upRules=upRules, compRules=compRules, downRules=downRules} = classifyPAMRules rs
