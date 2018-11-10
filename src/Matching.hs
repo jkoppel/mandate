@@ -4,6 +4,7 @@ module Matching (
     MonadMatchable(..)
   , refreshVar
   , Match
+  , matchChoose
   , runMatch
   , runMatchFirst
   , runMatchUnique
@@ -21,7 +22,7 @@ module Matching (
   , EmptyState(..)
   ) where
 
-import Control.Monad ( MonadPlus(..), guard, forM_, (=<<) )
+import Control.Monad ( MonadPlus(..), guard, forM_, (=<<), msum )
 import Control.Monad.IO.Class ( MonadIO(..) )
 import Control.Monad.State ( MonadState(..), StateT, evalStateT, modify )
 import Control.Monad.Trans ( lift )
@@ -220,7 +221,8 @@ class (MonadPlus m, MonadVarAllocator m, MonadIO m) => MonadMatchable m where
   getVarDefault v = getVarMaybe v return
   getVar var = getVarDefault var mzero
 
-
+matchChoose :: (MonadMatchable m) => [a] -> m a
+matchChoose as = msum (map return as)
 
 withModCtxState :: (MonadState MatchState m) => (MatchState -> MatchState) -> m x -> m x
 withModCtxState f m = do old <- get
