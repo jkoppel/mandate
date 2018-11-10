@@ -73,7 +73,23 @@ sosToPam rs = concat <$> mapM sosRuleToPam rs
 
 
 
------------------------------
+----------------------------------- Pattern matching on PAM ---------------------------------
+
+fillPAMRhs :: (Lang l) => PAMRhs l -> Match (PAMRhs l)
+fillPAMRhs (GenAMLetComputation c comp r) = GenAMLetComputation <$> fillMatch c <*> fillMatch comp <*> fillPAMRhs r
+fillPAMRhs (GenAMRhs (GenAMState t c p)) = GenAMRhs <$> (GenAMState <$> fillMatch t <*> fillMatch c <*> pure p)
+
+
+-- The input term must not have overlapping var names as the rule; we're combining namespaces here
+specializeRuleForStartTerm :: (Lang l) => Term l -> PAMRule l -> IO (PAMRule l)
+specializeRuleForStartTerm startT (PAM left rhs) = fromJust <$> (runMatchUnique $ do
+  let (GenAMState (Conf leftT leftSt) _ _) = left
+  match (Pattern leftT) (Matchee startT)
+  left' <- fillMatch left
+  rhs'  <- fillPAMRhs rhs
+  return $ PAM left' rhs')
+
+----------------------------------- Transforming PAM ----------------------------------------
 
 
 getPhaseRhs :: PAMRhs l -> Phase
@@ -122,15 +138,10 @@ upRulesInvertible :: (Lang l) => NamedPAMRules l -> IO Bool
 upRulesInvertible rs = allM upRuleInvertible (upRules $ classifyPAMRules rs)
   where
     -- upRuleInvertible :: NamedPAMRule l -> IO Bool
-    upRuleInvertible (NamedPAMRule nm (PAM left (GenAMRhs right))) = do
+    upRuleInvertible (NamedPAMRule nm r) = do
       debugM $ "Trying to invert rule " ++ BS.unpack nm
       t <- nextVar
-      let (PAMState (Conf startT _) _ _) = left
-      (startState, upState) <- fmap fromJust $ runMatchUnique $ do
-        match (Pattern startT) (Matchee (NonvalVar t))
-        startSt <- fillMatch left
-        nextSt  <- fillMatch right
-        return (startSt, nextSt)
+      (PAM startState (GenAMRhs upState)) <- specializeRuleForStartTerm (NonvalVar t) r
 
       nextSt <- stepPam1 rs (swapPhase upState)
       case nextSt of
