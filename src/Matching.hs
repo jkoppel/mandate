@@ -1,4 +1,4 @@
-{-# LANGUAGE EmptyDataDecls, FlexibleContexts, FlexibleInstances, GADTs, ScopedTypeVariables, TupleSections, TypeApplications, UndecidableInstances #-}
+{-# LANGUAGE EmptyDataDecls, FlexibleContexts, FlexibleInstances, GADTs, Rank2Types, ScopedTypeVariables, TupleSections, TypeApplications, UndecidableInstances #-}
 
 module Matching (
     MonadMatchable(..)
@@ -168,7 +168,7 @@ import Var
 ------------------------------------------------------------------
 
 data AnyMatchable where
-  AnyMatchable :: (Matchable m) => m -> AnyMatchable
+  AnyMatchable :: (Matchable m, Eq m) => m -> AnyMatchable
 
 instance Show AnyMatchable where
   showsPrec d (AnyMatchable x) = showsPrec d x
@@ -215,6 +215,8 @@ class (MonadPlus m, MonadVarAllocator m, MonadIO m) => MonadMatchable m where
   getVarDefault :: Matchable a => MetaVar -> m a -> m a
   getVar :: Matchable a => MetaVar -> m a
 
+  modifyVars :: (forall a. (Matchable a, Eq a) => MetaVar -> a -> m a) -> m ()
+
   withSubCtx   :: m x -> m x
   withFreshCtx :: m x -> m x
 
@@ -251,6 +253,9 @@ instance {-# OVERLAPPABLE #-} (MonadState MatchState m, MonadVarAllocator m, Mon
                                Nothing              -> def
                                Just (AnyMatchable x) -> maybe def f (cast x)
 
+  modifyVars f = do m <- get
+                    vm' <- Map.traverseWithKey (\v (AnyMatchable x) -> AnyMatchable <$> f v x) (ms_varMap m)
+                    put (m {ms_varMap = vm' })
 
   withSubCtx          = withModCtxState id
   withFreshCtx        = withModCtxState (\ms -> ms { ms_varMap   = Map.empty })
