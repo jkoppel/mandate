@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveGeneric, FlexibleContexts, FlexibleInstances, GADTs, PatternSynonyms, ScopedTypeVariables, StandaloneDeriving, TypeApplications, TypeFamilies, ViewPatterns #-}
+{-# LANGUAGE DeriveGeneric, FlexibleContexts, FlexibleInstances, GADTs, PatternSynonyms, ScopedTypeVariables, StandaloneDeriving, TupleSections, TypeApplications, TypeFamilies, ViewPatterns #-}
 
 module Configuration (
   -- These should be here, but are defined in LangBase. Re-exporting
@@ -6,6 +6,8 @@ module Configuration (
   , confTerm
   , confState
   , Configuration
+
+  , mapKeysM
 
   , EmptyState(..)
   , SimpEnv(..)
@@ -55,6 +57,13 @@ instance (Show s) => Show (GConfiguration s l) where
                              Just _  -> showsPrec d t
                              Nothing -> showString "(" . showsPrec d t . showString "; " . showsPrec d s . showString ")"
 
+
+------------------------------------------ Map utils -------------------------------------------------------
+
+-- FIXME: I think I can write this better using traverseWithKey
+-- Curses for this not existing; will give a not-so-efficient implementation
+mapKeysM :: (Ord k2, Applicative m) => (k1 -> m k2) -> Map k1 a -> m (Map k2 a)
+mapKeysM f mp = Map.fromList <$> traverse (\(k,v) -> (,v) <$> f k) (Map.toList mp)
 
 ------------------------------------------ SimpEnv ---------------------------------------------------------
 

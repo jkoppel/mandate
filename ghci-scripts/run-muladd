@@ -4,8 +4,12 @@
 import Control.DeepSeq
 import Configuration
 import Rose
+import Semantics.AbstractMachine
+import Semantics.Conversion
 import Semantics.PAM
 import Term
 rules <- addMulLangRules
 pamRules <- sosToPam rules
+amRules <- pamToAM pamRules
 putStrLn "Try this: evaluationSequenceL (initConf term1) >>= mapM_ (putStrLn.show)"
+putStrLn "Or this: abstractAmCfg valueIrrelevance valueIrrelevance amRules term1"

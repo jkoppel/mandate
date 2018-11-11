@@ -24,6 +24,9 @@ class AbstractCompFuncs t l where
 class ValueIrrelevance t where
   valueIrrelevance :: t -> t
 
+instance ValueIrrelevance () where
+  valueIrrelevance () = ()
+
 instance (ValueIrrelevance s) => ValueIrrelevance (GConfiguration s l) where
   valueIrrelevance (Conf t s) = Conf (valueIrrelevance t) (valueIrrelevance s)
 

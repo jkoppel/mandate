@@ -17,10 +17,10 @@ import LangBase
 import Matching
 import Semantics.SOS
 import Term
-
+import Unification
 
 -- |
-class (LangBase l, Hashable (Configuration l), Matchable (Configuration l)) => Lang l where
+class (LangBase l, Hashable (Configuration l), Unifiable (Configuration l)) => Lang l where
 
   -- | A language's syntax definition
   signature :: Signature l

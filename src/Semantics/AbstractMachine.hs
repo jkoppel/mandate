@@ -9,7 +9,6 @@ module Semantics.AbstractMachine (
   , NamedAMRule
   , pattern AM
   , pattern NamedAMRule
-  , nameAMRule
   , NamedAMRules
 
   , amEvaluationSequence
@@ -51,9 +50,6 @@ pattern AM left right = GenAMRule left right
 
 pattern NamedAMRule :: ByteString -> AMRule l -> NamedAMRule l
 pattern NamedAMRule s r = NamedGenAMRule s r
-
-nameAMRule :: ByteString -> AMRule l -> NamedAMRule l
-nameAMRule = NamedAMRule
 
 type NamedAMRules l = [NamedAMRule l]
 
