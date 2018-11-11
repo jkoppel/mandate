@@ -370,8 +370,8 @@ instance (LangBase l) => Matchable (Term l) where
   match (Pattern (MetaVar v))      (Matchee t@(Val      _ _)) = putVar v t
   match (Pattern (MetaVar v))      (Matchee t@(Node     _ _)) = putVar v t
   match (Pattern (MetaVar v))      (Matchee t@(GMetaVar _ _)) = putVar v t
-  --match (Pattern (MetaVar v))      (Matchee t@(IntNode  _ _)) = putVar v t
-  --match (Pattern (MetaVar v))      (Matchee t@(StrNode  _ _)) = putVar v t
+  match (Pattern (MetaVar v))      (Matchee t@(IntNode  _ _)) = putVar v t
+  match (Pattern (MetaVar v))      (Matchee t@(StrNode  _ _)) = putVar v t
   match (Pattern (GMetaVar v mt1)) (Matchee t@(GStar    mt2)) = guard (matchTypeCompat mt1 mt2) >> putVar v t
 
   match (Pattern (Node _ _))      (Matchee ValStar   ) = mzero
