@@ -50,7 +50,7 @@ instance (Lang l, Matchable (payload l)) => Matchable (GenAMRhs payload l) where
   fillMatch (GenAMLetComputation c f p) = GenAMLetComputation <$> fillMatch c <*> fillMatch f <*> fillMatch p
   fillMatch (GenAMRhs p) = GenAMRhs <$> fillMatch p
 
-instance (Show (Configuration l), Show (payload l), LangBase l) => Show (GenAMRhs payload l) where
+instance (Show (Configuration l), Show (payload l), Lang l) => Show (GenAMRhs payload l) where
   showsPrec d (GenAMLetComputation conf c r) = showString "let " . showsPrec d conf .
                                                showString " = " . showsPrec d c . showString " in " .
                                                showsPrec d r
@@ -87,7 +87,7 @@ data GenAMRule t l = GenAMRule { genAmBefore :: GenAMState t l
                                , genAmAfter  :: GenAMRhs (GenAMState t) l
                                }
 
-instance (Show (Configuration l), LangBase l, Show (GenAMState t l)) => Show (GenAMRule t l) where
+instance (Show (Configuration l), Lang l, Show (GenAMState t l)) => Show (GenAMRule t l) where
   showsPrec d (GenAMRule before after) = showsPrec d before . showString "  ---->  " . showsPrec d after
 
 data NamedGenAMRule t l = NamedGenAMRule { genAmRuleName :: ByteString
@@ -96,7 +96,7 @@ data NamedGenAMRule t l = NamedGenAMRule { genAmRuleName :: ByteString
 
 type NamedGenAMRules t l = [NamedGenAMRule t l]
 
-instance (Show (Configuration l), LangBase l, Show (GenAMRule t l)) => Show (NamedGenAMRule t l) where
+instance (Show (Configuration l), Lang l, Show (GenAMRule t l)) => Show (NamedGenAMRule t l) where
   showsPrec d (NamedGenAMRule nm r) = showString (BS.unpack nm) . showString ":\n" . showsPrec (d+1) r
   showList rs = showRules rs
 

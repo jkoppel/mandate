@@ -54,9 +54,10 @@ instance Hashable (StatefulFunc AddMulLang)
 
 instance Lang AddMulLang where
   signature = addMulLangSig
-  rules = addMulLangRules
-
   initConf t = Conf t EmptyState
+
+instance HasSOS AddMulLang where
+  rules = addMulLangRules
 
 addMulLangSig :: Signature AddMulLang
 addMulLangSig = Signature [ NodeSig "+" ["Exp", "Exp"] "Exp"

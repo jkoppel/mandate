@@ -32,7 +32,7 @@ type Configuration l = GConfiguration (RedState l) l
 -- This file is how we break the circular dependence between Lang and Semantics
 -- Semantics are defined relative to a language, but
 
-class (Typeable l, Typeable (RedState l), Eq (CompFunc l), Eq (StatefulFunc l), Eq (RedState l), Show (RedState l), Hashable (CompFunc l), Hashable (StatefulFunc l), Matchable (RedState l), Hashable (RedState l)) => LangBase l where
+class (Typeable l, Typeable (RedState l), Eq (CompFunc l), Eq (StatefulFunc l), Eq (RedState l), Show (RedState l), Hashable (CompFunc l), Hashable (StatefulFunc l)) => LangBase l where
   -- | The "reduction state" of all extra information that is maintained about a program when executing it.
   -- E.g.: the mutable store, installed exception handlers, etc
   type RedState l :: *

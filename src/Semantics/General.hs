@@ -19,7 +19,7 @@ import qualified Data.ByteString.Char8 as BS
 import Data.Hashable ( Hashable )
 
 import Configuration
-import LangBase
+import Lang
 import Matching
 import Term
 
@@ -30,21 +30,21 @@ data ExtComp l = ExtComp (CompFunc l) [Term l]
                | ExtStatefulComp (StatefulFunc l) [Configuration l]
   deriving ( Generic )
 
-deriving instance (LangBase l) => Eq (ExtComp l)
+deriving instance (Lang l) => Eq (ExtComp l)
 
-instance (LangBase l) => Hashable (ExtComp l)
+instance (Lang l) => Hashable (ExtComp l)
 
-runExtComp :: (LangBase l) => ExtComp l -> Match (Configuration l)
+runExtComp :: (Lang l) => ExtComp l -> Match (Configuration l)
 runExtComp (ExtComp f ts) = do ts' <- fillMatchList ts
                                runMatchEffect $ runCompFunc f ts'
 runExtComp (ExtStatefulComp f ts) = do ts' <- fillMatchList ts
                                        runMatchEffect $ runStatefulFunc f ts'
 
-instance (LangBase l) => Show (ExtComp l) where
+instance (Lang l) => Show (ExtComp l) where
   showsPrec d (ExtComp f ts) = showString (BS.unpack $ compFuncName f) . showsPrec (d+1) ts
   showsPrec d (ExtStatefulComp f ts) = showString (BS.unpack $ statefulFuncName f) . showsPrec (d+1) ts
 
-instance (LangBase l) => Matchable (ExtComp l) where
+instance (Lang l) => Matchable (ExtComp l) where
   getVars (ExtComp f ts) = fold (map getVars ts)
   getVars (ExtStatefulComp f ts) = fold (map getVars ts)
 

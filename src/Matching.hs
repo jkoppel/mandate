@@ -397,13 +397,13 @@ instance {-# OVERLAPPABLE #-} (Matchable (Term l), Matchable s) => Matchable (GC
   refreshVars (Conf t s) = Conf <$> refreshVars t <*> refreshVars s
   fillMatch   (Conf t s) = Conf <$> fillMatch   t <*> fillMatch   s
 
--- -- Hack to prevent over-eagerly expanding (Matchable (Configuration l)) constraints
--- data UnusedLanguage
--- instance {-# OVERLAPPING #-} (Show s) => Matchable (GConfiguration s UnusedLanguage) where
---   getVars = error "Matching UnusedLanguage"
---   match = error "Matching UnusedLanguage"
---   refreshVars = error "Matching UnusedLanguage"
---   fillMatch = error "Matching UnusedLanguage"
+-- Hack to prevent over-eagerly expanding (Matchable (Configuration l)) constraints
+data UnusedLanguage
+instance {-# OVERLAPPING #-} (Show s) => Matchable (GConfiguration s UnusedLanguage) where
+  getVars = error "Matching UnusedLanguage"
+  match = error "Matching UnusedLanguage"
+  refreshVars = error "Matching UnusedLanguage"
+  fillMatch = error "Matching UnusedLanguage"
 
 instance Matchable EmptyState where
   getVars EmptyState = Set.empty

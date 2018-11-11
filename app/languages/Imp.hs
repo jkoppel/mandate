@@ -79,9 +79,10 @@ instance ValueIrrelevance (StatefulFunc ImpLang) where
 
 instance Lang ImpLang where
   signature = impLangSig
-  rules = impLangRules
-
   initConf t = Conf t EmptySimpEnv
+
+instance HasSOS ImpLang where
+  rules = impLangRules
 
 impLangSig :: Signature ImpLang
 impLangSig = Signature [ NodeSig ":=" ["Var", "Exp"] "Stmt"

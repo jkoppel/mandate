@@ -20,7 +20,7 @@ import GHC.Generics ( Generic )
 import Data.Hashable ( Hashable )
 
 import Configuration
-import LangBase
+import Lang
 import Matching
 import Semantics.General
 import Semantics.SOS
@@ -44,7 +44,7 @@ data PosFrame l = KBuild  !(Configuration l)
                 | KComputation !(ExtComp l) !(Frame l)
   deriving ( Generic )
 
-deriving instance (Eq (Configuration l), LangBase l) => Eq (PosFrame l)
+deriving instance (Eq (Configuration l), Lang l) => Eq (PosFrame l)
 
 -- | A frame awaits the result of some computation as input, binds it to a variable, and
 -- then performs another computation.
@@ -57,7 +57,7 @@ data Frame l = KInp !(Configuration l) -- this is a binder
                     !(PosFrame l)
   deriving ( Generic )
 
-deriving instance (Eq (Configuration l), LangBase l) => Eq (Frame l)
+deriving instance (Eq (Configuration l), Lang l) => Eq (Frame l)
 
 
 data Context l = KHalt
@@ -70,13 +70,13 @@ deriving instance (Eq (Frame l)) => Eq (Context l)
 --------------------------------------- Equality, printing, hashing ------------------------------------------
 
 
-instance (Hashable (Configuration l), LangBase l) => Hashable (PosFrame l)
-instance (Hashable (Configuration l), LangBase l) => Hashable (Frame l)
-instance (Hashable (Configuration l), LangBase l) => Hashable (Context l)
+instance (Hashable (Configuration l), Lang l) => Hashable (PosFrame l)
+instance (Hashable (Configuration l), Lang l) => Hashable (Frame l)
+instance (Hashable (Configuration l), Lang l) => Hashable (Context l)
 
 -- TODO: Intern
 
-instance (Show (Configuration l), LangBase l) => Show (PosFrame l) where
+instance (Show (Configuration l), Lang l) => Show (PosFrame l) where
   showsPrec d (KBuild t) = showsPrec (d+1) t
   showsPrec d (KStepTo c f) = showString "step(" . showsPrec (d+1) c .
                                 showString ") => " .
@@ -84,10 +84,10 @@ instance (Show (Configuration l), LangBase l) => Show (PosFrame l) where
   showsPrec d (KComputation c r) = showsPrec d c . showString " => " . showsPrec d r
 
 
-instance (Show (Configuration l), LangBase l) => Show (Frame l) where
+instance (Show (Configuration l), Lang l) => Show (Frame l) where
   showsPrec d (KInp c pf) = showString "[\\" . showsPrec d c . showString " -> " . showsPrec d pf . showString "]"
 
-instance (Show (Configuration l), LangBase l) => Show (Context l) where
+instance (Show (Configuration l), Lang l) => Show (Context l) where
   showsPrec d KHalt = showString "[]"
   showsPrec d (KPush f c) = showsPrec d f . showString "." . showsPrec d c
   showsPrec d (KVar v) = showsPrec d v
@@ -96,7 +96,7 @@ instance (Show (Configuration l), LangBase l) => Show (Context l) where
 
 -- | Performs a CPS conversion of on SOS RHS into a context.
 -- Since our SOS rules are already essentially in A-normal form, this is easy.
-rhsToFrame :: (LangBase l) => Rhs l -> PosFrame l
+rhsToFrame :: (Lang l) => Rhs l -> PosFrame l
 rhsToFrame (Build c)                      = KBuild c
 rhsToFrame (LetStepTo out arg rhs')       = KStepTo arg (KInp out (rhsToFrame rhs'))
 rhsToFrame (LetComputation out comp rhs') = KComputation comp (KInp out (rhsToFrame rhs'))
@@ -131,7 +131,7 @@ alphaEq a b = (==) <$> (normalizeBoundVars a) <*> (normalizeBoundVars b)
 
 -------------------------------------- Matching ------------------------------------------
 
-instance (LangBase l, Matchable (Configuration l)) => Matchable (PosFrame l) where
+instance (Lang l, Matchable (Configuration l)) => Matchable (PosFrame l) where
   getVars (KBuild       c  ) = getVars c
   getVars (KStepTo      c f) = getVars c `Set.union` getVars f
   getVars (KComputation c f) = getVars c `Set.union` getVars f
@@ -149,7 +149,7 @@ instance (LangBase l, Matchable (Configuration l)) => Matchable (PosFrame l) whe
   fillMatch (KStepTo      c f) = KStepTo      <$> fillMatch c <*> fillMatch f
   fillMatch (KComputation c f) = KComputation <$> fillMatch c <*> fillMatch f
 
-instance (LangBase l, Matchable (Configuration l)) => Matchable (Frame l) where
+instance (Lang l, Matchable (Configuration l)) => Matchable (Frame l) where
   getVars (KInp c pf) = getVars c `Set.union` getVars pf
 
   -- The vars in the input are bound. Note that we clear them!
@@ -164,7 +164,7 @@ instance (LangBase l, Matchable (Configuration l)) => Matchable (Frame l) where
     forM_ (Set.toList $ getVars c) $ \v -> clearVar v
     KInp c <$> fillMatch pf
 
-instance (LangBase l, Matchable (Configuration l)) => Matchable (Context l) where
+instance (Lang l, Matchable (Configuration l)) => Matchable (Context l) where
   getVars KHalt       = Set.empty
   getVars (KPush f c) = getVars f `Set.union` getVars c
   getVars (KVar v)    = Set.singleton v

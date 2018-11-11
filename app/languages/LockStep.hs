@@ -37,9 +37,10 @@ instance Hashable (StatefulFunc LockstepLang)
 
 instance Lang LockstepLang where
   signature = lockstepSig
-  rules = lockstepRules
-
   initConf t = Conf t EmptyState
+
+instance HasSOS LockstepLang where
+  rules = lockstepRules
 
 lockstepSig :: Signature LockstepLang
 lockstepSig = Signature [ NodeSig "LockstepComp" ["Exp", "Exp"] "Exp"

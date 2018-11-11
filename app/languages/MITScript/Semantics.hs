@@ -87,9 +87,13 @@ instance ValueIrrelevance (StatefulFunc MITScript) where
 
 instance Lang MITScript where
     signature = mitScriptSig
-    rules = mitScriptRules
 
     initConf t = Conf t (EmptySimpEnv, EmptySimpEnv)
+
+
+instance HasSOS MITScript where
+    rules = mitScriptRules
+
 
 conf :: Term MITScript -> (MetaVar, MetaVar) -> Configuration MITScript
 conf t (stack, heap) = Conf t (WholeSimpEnv stack, WholeSimpEnv heap)
