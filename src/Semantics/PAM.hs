@@ -47,6 +47,7 @@ import Semantics.General
 import Semantics.GeneralMachine
 import Term
 import TransitionSystem
+import Unification
 
 
 ----------------------------- PAM rule type ----------------------------------
@@ -65,6 +66,9 @@ instance Matchable Phase where
   refreshVars t = return t
   match (Pattern x) (Matchee y) = guard (x == y)
   fillMatch t = return t
+
+instance Unifiable Phase where
+  unify x y = guard (x == y)
 
 type PAMState = GenAMState Phase
 

@@ -9,7 +9,7 @@ module Semantics.Conversion (
   ) where
 
 
-import Control.Monad ( (>=>), void, forM_, liftM )
+import Control.Monad ( (>=>), void, forM_, liftM, filterM, forM )
 import Control.Monad.Writer ( Writer, tell, execWriter )
 import Data.Maybe ( isJust, fromJust )
 import Data.Set ( Set )
@@ -29,6 +29,7 @@ import Semantics.GeneralMachine
 import Semantics.PAM
 import Semantics.SOS
 import Term
+import Unification
 import Var
 
 
@@ -85,27 +86,19 @@ fillPAMRhs (GenAMRhs (GenAMState t c p)) = GenAMRhs <$> (GenAMState <$> fillMatc
 
 
 -- The input term must not have overlapping var names as the rule; we're combining namespaces here
--- This also only works if the LHS term is a single variable, which is the case in up rules
 specializeUpRuleForStartTerm :: (Lang l) => Term l -> PAMRule l -> IO (PAMRule l)
 specializeUpRuleForStartTerm startT (PAM left rhs) = liftM fromJust $ runMatchUnique $ do
   let (GenAMState (Conf leftT leftSt) _ _) = left
-  match (Pattern leftT) (Matchee startT)
+  unify leftT startT
   left' <- fillMatch left
   rhs'  <- fillPAMRhs rhs
   return $ PAM left' rhs'
 
-findM :: (Monad m) => (a -> m Bool) -> [a] -> m (Maybe a)
-findM f l = go l
-  where
-    go []     = return Nothing
-    go (x:xs) = do b <- f x
-                   if b then return (Just x) else go xs
+lhsUnifies :: (Lang l) => PAMState l -> NamedPAMRule l -> IO Bool
+lhsUnifies st (NamedPAMRule _ (PAM lhs _)) = isJust <$> runMatchUnique (unify lhs st)
 
-lhsMatches :: (Lang l) => PAMState l -> NamedPAMRule l -> IO Bool
-lhsMatches st (NamedPAMRule _ (PAM lhs _)) = isJust <$> runMatchUnique (match (Pattern lhs) (Matchee st))
-
-findMatchingLhs :: (Lang l) => NamedPAMRules l -> PAMState l -> IO (Maybe (NamedPAMRule l))
-findMatchingLhs rs st = findM (lhsMatches st) rs
+findUnifyingLhs :: (Lang l) => NamedPAMRules l -> PAMState l -> IO (NamedPAMRules l)
+findUnifyingLhs rs st = filterM (lhsUnifies st) rs
 
 
 ----------------------------------- Transforming PAM ----------------------------------------
@@ -191,56 +184,19 @@ instance DropPhase PAMRhs AMRhs where
   dropPhase (GenAMLetComputation c comp r) = GenAMLetComputation c comp (dropPhase r)
   dropPhase (GenAMRhs x) = GenAMRhs (dropPhase x)
 
-
--- FIXME: Utter deadline hack; I think it's time to add some real generic programming to Mandate
-class GetKnownMTVars f where
-  getKnownMTVars' :: f l -> Writer (Set MetaVar) ()
-
-instance GetKnownMTVars Context where
-  getKnownMTVars' (KVar _) = return ()
-  getKnownMTVars' KHalt = return ()
-  getKnownMTVars' (KPush f k) = getKnownMTVars' f >> getKnownMTVars' k
-
-instance GetKnownMTVars Frame where
-  getKnownMTVars' (KInp _ pf) = getKnownMTVars' pf
-
-instance GetKnownMTVars PosFrame where
-  getKnownMTVars' (KBuild (Conf t _)) = void $ traverseTerm outputKnownMTVar t
-    where
-      outputKnownMTVar t@(ValVar    v) = tell (Set.singleton v) >> return t
-      outputKnownMTVar t@(NonvalVar v) = tell (Set.singleton v) >> return t
-      outputKnownMTVar t               = return t
-
-getKnownMTVars :: Context l -> Set MetaVar
-getKnownMTVars k = execWriter $ getKnownMTVars' k
-
-partitionContextVals :: forall l. (Lang l) => NamedPAMRule l -> IO (NamedPAMRules l)
-partitionContextVals (NamedPAMRule nm (PAM (PAMState c k p) rhs)) = liftM (map (NamedPAMRule nm)) $ runMatch $ do
-  let cVars = getVars c
-  let kTermVarsRaw = freeTermVars k
-  let kTermVars = Set.toList ((kTermVarsRaw `Set.difference` cVars) `Set.difference` getKnownMTVars k)
-
-  forM_ kTermVars $ \v -> do
-    mt <- matchChoose [ValueOnly, NonvalOnly]
-    putVar v (GMetaVar @l v mt)
-
-  PAM <$> (PAMState c <$> fillMatch k <*> pure p) <*> fillPAMRhs rhs
-
-
-mergePAMUpRule :: (Lang l) => NamedPAMRules l -> NamedPAMRule l -> IO (NamedAMRule l)
+mergePAMUpRule :: (Lang l) => NamedPAMRules l -> NamedPAMRule l -> IO (NamedAMRules l)
 mergePAMUpRule rs (NamedPAMRule nm1 r) = do
     debugM $ "Trying to merge rule " ++ BS.unpack nm1
     t <- nextVar
     (PAM startState (GenAMRhs upState)) <- specializeUpRuleForStartTerm (ValVar t) r
 
-    nextRule <- findMatchingLhs rs (swapPhase upState)
-    case nextRule of
-      Nothing -> return $ NamedAMRule nm1 (AM (dropPhase startState) (GenAMRhs $ dropPhase upState))
-      Just (NamedPAMRule nm2 (PAM left2 rhs2)) -> fromJust <$> (runMatchUnique $ do
-        match (Pattern left2) (Matchee (swapPhase upState))
-        let nm' = BS.concat [nm1, "-", nm2]
-        rhs2' <- fillPAMRhs rhs2
-        return $ NamedAMRule nm' (AM (dropPhase startState) (dropPhase rhs2')))
+    nextRules <- findUnifyingLhs rs (swapPhase upState)
+    forM nextRules $ \(NamedPAMRule nm2 (PAM left2 rhs2)) -> fromJust <$> (runMatchUnique $ do
+      unify left2 (swapPhase upState)
+      let nm' = BS.concat [nm1, "-", nm2]
+      startState' <- fillMatch startState
+      rhs2' <- fillPAMRhs rhs2
+      return $ NamedAMRule nm' (AM (dropPhase startState') (dropPhase rhs2')))
 
 
 
@@ -249,8 +205,8 @@ pamToAM rs = do canTrans <- upRulesInvertible rs
                 if not canTrans then
                   error "Up-rules not invertible; cannot convert PAM to abstract machine"
                 else do
-                  upRulesSplit <- concat <$> mapM partitionContextVals upRules
-                  upRules' <- mapM (mergePAMUpRule rs) upRulesSplit
+                  --upRulesSplit <- concat <$> mapM partitionContextVals upRules
+                  upRules' <- concat <$> mapM (mergePAMUpRule rs) upRules
                   return $ upRules' ++ map dropPhase compRules ++ map dropPhase downRules
   where
     ClassifiedPAMRules {upRules=upRules, compRules=compRules, downRules=downRules} = classifyPAMRules rs

@@ -1,4 +1,4 @@
-{-# LANGUAGE EmptyDataDecls, FlexibleContexts, FlexibleInstances, GADTs, Rank2Types, ScopedTypeVariables, TupleSections, TypeApplications, UndecidableInstances #-}
+{-# LANGUAGE EmptyDataDecls, FlexibleContexts, FlexibleInstances, GADTs, Rank2Types, ScopedTypeVariables, TypeApplications, UndecidableInstances #-}
 
 module Matching (
     MonadMatchable(..)
@@ -463,11 +463,6 @@ instance Matchable () where
 -- as well as the operational semantics of the linear lambda calculus (which are almost the same as that of the
 -- simply-typed lambda calculus with sums and products).
 
-
-
--- Curses for this not existing; will give a not-so-efficient implementation
-mapKeysM :: (Ord k2, Applicative m) => (k1 -> m k2) -> Map k1 a -> m (Map k2 a)
-mapKeysM f mp = Map.fromList <$> traverse (\(k,v) -> (,v) <$> f k) (Map.toList mp)
 
 -- |
 -- Important notes on matching maps:

@@ -27,6 +27,7 @@ import Matching
 import Semantics.General
 import Semantics.SOS
 import Term
+import Unification
 import Var
 
 
@@ -202,3 +203,22 @@ instance (LangBase l, Matchable (Configuration l)) => Matchable (Context l) wher
   fillMatch KHalt       = return KHalt
   fillMatch (KPush f c) = KPush <$> fillMatch f <*> fillMatch c
   fillMatch (KVar v)    = getVarMaybe v return (return $ KVar v)
+
+-------------------------------------- Unification ----------------------------------------
+
+instance (LangBase l, Unifiable (Configuration l)) => Unifiable (PosFrame l) where
+  unify (KBuild c1) (KBuild c2) = unify c1 c2
+  unify _ _ = error "Not implementing: Unifying two PosFrame's other than KBuild"
+
+instance (LangBase l, Unifiable (Configuration l)) => Unifiable (Frame l) where
+  unify (KInp c1 pf1) (KInp c2 pf2) = do
+    unify c1 c2
+    unify pf1 pf2
+    forM_ (Set.toList $ getVars c1) $ \v -> clearVar v
+
+instance (LangBase l, Unifiable (Configuration l)) => Unifiable (Context l) where
+  unify KHalt         KHalt         = return ()
+  unify (KVar v)      x             = elimVar v x
+  unify x             (KVar v)      = elimVar v x
+  unify (KPush f1 c1) (KPush f2 c2) = unify f1 f2 >> unify c1 c2
+  unify _             _             = mzero
