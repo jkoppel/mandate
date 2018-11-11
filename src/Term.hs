@@ -118,6 +118,9 @@ data Signature l = Signature [SigNode]
 -- * May never be reduced
 -- * The Abstract Machine Generator will never create a rule that has a non-root
 --   Val on the LHS.
+--
+-- Note that StrNode/IntNode's exist outside the Val/Nonval hierarchy.
+-- If you must match them with a Valvar / NonvalVar, then wrap them in a Val or Node
 
 data MatchType = ValueOnly | NonvalOnly | TermOrValue
   deriving ( Eq, Ord, Show, Generic )
