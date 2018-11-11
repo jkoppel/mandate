@@ -124,6 +124,7 @@ data MatchType = ValueOnly | NonvalOnly | TermOrValue
 
 instance Hashable MatchType
 
+-- FIXME: This is currently symmetric. I'm not sure it should be.
 matchTypeCompat :: MatchType -> MatchType -> Bool
 matchTypeCompat ValueOnly  NonvalOnly = False
 matchTypeCompat NonvalOnly ValueOnly  = False

@@ -370,8 +370,8 @@ instance (LangBase l) => Matchable (Term l) where
   match (Pattern (MetaVar v))      (Matchee t@(Val      _ _)) = putVar v t
   match (Pattern (MetaVar v))      (Matchee t@(Node     _ _)) = putVar v t
   match (Pattern (MetaVar v))      (Matchee t@(GMetaVar _ _)) = putVar v t
-  match (Pattern (MetaVar v))      (Matchee t@(IntNode  _ _)) = putVar v t
-  match (Pattern (MetaVar v))      (Matchee t@(StrNode  _ _)) = putVar v t
+  --match (Pattern (MetaVar v))      (Matchee t@(IntNode  _ _)) = putVar v t
+  --match (Pattern (MetaVar v))      (Matchee t@(StrNode  _ _)) = putVar v t
   match (Pattern (GMetaVar v mt1)) (Matchee t@(GStar    mt2)) = guard (matchTypeCompat mt1 mt2) >> putVar v t
 
   match (Pattern (Node _ _))      (Matchee ValStar   ) = mzero
@@ -387,7 +387,19 @@ instance (LangBase l) => Matchable (Term l) where
     where
       refresh :: (MonadMatchable m, MonadVarAllocator m, LangBase l) => MetaVar -> MatchType -> m (Term l)
       refresh v mt = GMetaVar <$> refreshVar (\v' -> GMetaVar @l v' mt) v <*> pure mt
-  fillMatch = fillMatchTermGen (\v mt -> getVarMaybe v return (return $ GMetaVar v mt))
+
+  fillMatch = fillMatchTermGen (\v mt -> getVarMaybe v (guardValMatches mt) (return $ GMetaVar v mt))
+    where
+      guardValMatches :: (MonadMatchable m, LangBase l) => MatchType -> Term l -> m (Term l)
+      guardValMatches TermOrValue t                 = return t
+      guardValMatches ValueOnly   t@(Val       _ _) = return t
+      guardValMatches ValueOnly   t@(ValVar      _) = return t
+      guardValMatches ValueOnly   t@(GStar mt)      = guard (matchTypeCompat ValueOnly mt) >> return t
+
+      guardValMatches NonvalOnly  t@(Node      _ _) = return t
+      guardValMatches NonvalOnly  t@(NonvalVar   _) = return t
+      guardValMatches NonvalOnly  t@(GStar mt)      = guard (matchTypeCompat ValueOnly mt) >> return t
+      guardValMatches _           _                 = mzero
 
 
 instance {-# OVERLAPPABLE #-} (Matchable (Term l), Matchable s) => Matchable (GConfiguration s l) where
