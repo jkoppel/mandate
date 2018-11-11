@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveGeneric, FlexibleContexts, StandaloneDeriving, UndecidableInstances #-}
+{-# LANGUAGE DeriveGeneric, FlexibleContexts, ScopedTypeVariables, StandaloneDeriving, TypeApplications, UndecidableInstances #-}
 
 module Semantics.Context (
     PosFrame(..)
@@ -197,7 +197,7 @@ instance (LangBase l, Matchable (Configuration l)) => Matchable (Context l) wher
 
   refreshVars KHalt       = return KHalt
   refreshVars (KPush f c) = KPush <$> refreshVars f <*> refreshVars c
-  refreshVars (KVar v)    = KVar  <$> refreshVar id v
+  refreshVars (KVar v)    = KVar  <$> refreshVar (\v -> KVar @l v) v
 
   fillMatch KHalt       = return KHalt
   fillMatch (KPush f c) = KPush <$> fillMatch f <*> fillMatch c

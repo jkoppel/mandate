@@ -21,6 +21,7 @@ import GHC.Generics ( Generic )
 import Data.ByteString.Char8 ( ByteString )
 import qualified Data.ByteString.Char8 as BS
 import Data.Hashable ( Hashable )
+import Data.Typeable ( Typeable )
 
 import Configuration
 import Debug
@@ -36,7 +37,7 @@ import Semantics.General
 data GenAMRhs payload l = GenAMLetComputation (Configuration l) (ExtComp l) (GenAMRhs payload l)
                         | GenAMRhs (payload l)
 
-instance (Lang l, Matchable (payload l)) => Matchable (GenAMRhs payload l) where
+instance (Lang l, Typeable payload, Matchable (payload l)) => Matchable (GenAMRhs payload l) where
   getVars (GenAMLetComputation c f r) = getVars c `Set.union` getVars f `Set.union` getVars r
   getVars (GenAMRhs p) = getVars p
 
