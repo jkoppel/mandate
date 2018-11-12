@@ -186,8 +186,8 @@ pamEvaluationTree rules t = transitionTree (stepPam rules) (initPamState t)
 
 ----------------------------
 
-abstractPamCfg :: (Lang l) => Abstraction (StatefulFunc l) -> Abstraction (CompFunc l) -> Abstraction (PAMState l) -> NamedPAMRules l -> Term l -> IO (Graph (PAMState l))
-abstractPamCfg absStateFunc absFunc abs rules t = transitionGraph (liftM (map abs) . stepPam (map (abstractStatefulCompFuncs absStateFunc . abstractCompFuncs absFunc) rules))  (abs $ initPamState t)
+abstractPamCfg :: (Lang l) => Abstraction (CompFunc l) -> Abstraction (PAMState l) -> NamedPAMRules l -> Term l -> IO (Graph (PAMState l))
+abstractPamCfg absFunc abs rules t = transitionGraph (liftM (map abs) . stepPam (map (abstractCompFuncs absFunc) rules))  (abs $ initPamState t)
 
 ----------------------------
 

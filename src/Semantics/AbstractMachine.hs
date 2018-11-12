@@ -79,7 +79,7 @@ amEvaluationTree rules t = transitionTree (stepAm rules) (initAmState t)
 
 ----------------------------
 
-abstractAmCfg :: (Lang l) => Abstraction (StatefulFunc l) -> Abstraction (CompFunc l) -> Abstraction (AMState l) -> NamedAMRules l -> Term l -> IO (Graph (AMState l))
-abstractAmCfg absStateFunc absFunc abs rules t = transitionGraph (liftM (map abs) . stepAm (map (abstractStatefulCompFuncs absStateFunc . abstractCompFuncs absFunc) rules)) (abs $ initAmState t)
+abstractAmCfg :: (Lang l) => Abstraction (CompFunc l) -> Abstraction (AMState l) -> NamedAMRules l -> Term l -> IO (Graph (AMState l))
+abstractAmCfg absFunc abs rules t = transitionGraph (liftM (map abs) . stepAm (map (abstractCompFuncs absFunc) rules)) (abs $ initAmState t)
 
 -----------------------------

@@ -32,7 +32,7 @@ type Configuration l = GConfiguration (RedState l) l
 -- This file is how we break the circular dependence between Lang and Semantics
 -- Semantics are defined relative to a language, but
 
-class (Typeable l, Typeable (RedState l), Eq (CompFunc l), Eq (StatefulFunc l), Eq (RedState l), Show (RedState l), Hashable (CompFunc l), Hashable (StatefulFunc l)) => LangBase l where
+class (Typeable l, Typeable (RedState l), Eq (CompFunc l), Eq (RedState l), Show (RedState l), Hashable (CompFunc l)) => LangBase l where
   -- | The "reduction state" of all extra information that is maintained about a program when executing it.
   -- E.g.: the mutable store, installed exception handlers, etc
   type RedState l :: *
@@ -48,17 +48,11 @@ class (Typeable l, Typeable (RedState l), Eq (CompFunc l), Eq (StatefulFunc l), 
   -- Note that all semantics functions must be well-behaved when given abstract terms
 
   data CompFunc l
-  data StatefulFunc l
 
   -- | Gives a human-readable name for the input meta-level operations. Used when displaying rules.
   compFuncName :: CompFunc l -> ByteString
-  statefulFuncName :: StatefulFunc l -> ByteString
 
-  runCompFunc  :: CompFunc l -> [Term l] -> MatchEffect (Configuration l)
-  runStatefulFunc  :: StatefulFunc l -> [Configuration l] -> MatchEffect (Configuration l)
+  runCompFunc  :: CompFunc l -> [Configuration l] -> MatchEffect (Configuration l)
 
 instance LangBase l => Show (CompFunc l) where
   show = BS.unpack . compFuncName
-
-instance LangBase l => Show (StatefulFunc l) where
-  show = BS.unpack . statefulFuncName

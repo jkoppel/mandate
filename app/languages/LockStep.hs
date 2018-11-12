@@ -18,7 +18,6 @@ import Term
 import Var
 
 
-
 data LockstepLang
 
 instance LangBase LockstepLang where
@@ -27,13 +26,11 @@ instance LangBase LockstepLang where
   data CompFunc LockstepLang = RunAdd
     deriving ( Eq, Generic )
 
-  data StatefulFunc LockstepLang = Void deriving ( Eq, Generic )
-
   compFuncName RunAdd = "runAdd"
-  runCompFunc RunAdd [Const n1, Const n2] = return $ initConf $ Const (n1+n2)
+
+  runCompFunc func (c:cs)  = runExternalComputation func (confState c) (map confTerm (c:cs))
 
 instance Hashable (CompFunc LockstepLang)
-instance Hashable (StatefulFunc LockstepLang)
 
 instance Lang LockstepLang where
   signature = lockstepSig
@@ -100,9 +97,15 @@ lockstepRules = sequence [
                     mkRule3 $ \v1 v2 v' ->
                               let (mv1, mv2, mv') = (mv v1, mv v2, mv v') in
                               StepTo (conf $ Plus (EVal mv1) (EVal mv2))
-                                (LetComputation (conf $ MetaVar v') (ExtComp RunAdd [mv1, mv2])
+                                (LetComputation (conf $ MetaVar v') (extComp RunAdd EmptyState [mv1, mv2])
                                 (Build $ conf $ EVal mv'))
                 ]
+
+
+runExternalComputation :: Monad m => CompFunc LockstepLang -> RedState LockstepLang -> [Term LockstepLang] -> m (Configuration LockstepLang)
+runExternalComputation RunAdd state [Const n1, Const n2]     = return $ initConf $ Const (n1+n2)
+runExternalComputation RunAdd state [GStar _, _]    = return $ initConf ValStar
+runExternalComputation RunAdd state [_, GStar _]    = return $ initConf ValStar
 
 -----------
 
