@@ -15,10 +15,9 @@ import Configuration
 import LangBase
 import Matching
 import Term
+import Unification
 
-
--- |
-class (LangBase l, Hashable (Configuration l), Matchable (Configuration l), Matchable (RedState l), Hashable (RedState l)) => Lang l where
+class (LangBase l, Hashable (Configuration l), Unifiable (Configuration l), Matchable (RedState l), Hashable (RedState l)) => Lang l where
 
   -- | A language's syntax definition
   signature :: Signature l

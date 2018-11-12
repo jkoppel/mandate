@@ -21,6 +21,7 @@ import GHC.Generics ( Generic )
 import Data.ByteString.Char8 ( ByteString )
 import qualified Data.ByteString.Char8 as BS
 import Data.Hashable ( Hashable )
+import Data.Typeable ( Typeable )
 
 import Configuration
 import Debug
@@ -29,6 +30,7 @@ import Matching
 import Semantics.Abstraction
 import Semantics.Context
 import Semantics.General
+import Unification
 
 
 -- TODO; I think, given my generalization of everything else,
@@ -36,7 +38,7 @@ import Semantics.General
 data GenAMRhs payload l = GenAMLetComputation (Configuration l) (ExtComp l) (GenAMRhs payload l)
                         | GenAMRhs (payload l)
 
-instance (Lang l, Matchable (payload l)) => Matchable (GenAMRhs payload l) where
+instance (Lang l, Typeable payload, Matchable (payload l)) => Matchable (GenAMRhs payload l) where
   getVars (GenAMLetComputation c f r) = getVars c `Set.union` getVars f `Set.union` getVars r
   getVars (GenAMRhs p) = getVars p
 
@@ -75,6 +77,9 @@ instance (Lang l, Matchable t, Show (GenAMState t l)) => Matchable (GenAMState t
   match _ _ = mzero
   refreshVars (GenAMState c k e) = GenAMState <$> refreshVars c <*> refreshVars k <*> refreshVars e
   fillMatch   (GenAMState c k e) = GenAMState <$> fillMatch   c <*> fillMatch   k <*> fillMatch e
+
+instance (Lang l, Show (GenAMState t l), Unifiable t) => Unifiable (GenAMState t l) where
+  unify (GenAMState c1 k1 e1) (GenAMState c2 k2 e2) = unify c1 c2 >> unify k1 k2 >> unify e1 e2
 
 instance (Show (Configuration l), Show (Context l)) => Show (GenAMState () l) where
   showsPrec d (GenAMState c k ()) = showString "<" . showsPrec d c . showString " | " .

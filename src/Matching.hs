@@ -1,9 +1,10 @@
-{-# LANGUAGE EmptyDataDecls, FlexibleContexts, FlexibleInstances, GADTs, ScopedTypeVariables, TupleSections, TypeApplications, UndecidableInstances #-}
+{-# LANGUAGE EmptyDataDecls, FlexibleContexts, FlexibleInstances, GADTs, Rank2Types, ScopedTypeVariables, TypeApplications, UndecidableInstances #-}
 
 module Matching (
     MonadMatchable(..)
   , refreshVar
   , Match
+  , matchChoose
   , runMatch
   , runMatchFirst
   , runMatchUnique
@@ -21,23 +22,23 @@ module Matching (
   , EmptyState(..)
   ) where
 
-import Control.Monad ( MonadPlus(..), guard, forM_, (=<<) )
+import Control.Monad ( MonadPlus(..), guard, forM_, (=<<), msum )
 import Control.Monad.IO.Class ( MonadIO(..) )
 import Control.Monad.State ( MonadState(..), StateT, evalStateT, modify )
 import Control.Monad.Trans ( lift )
 
-import Data.Dynamic ( Dynamic, toDyn, fromDynamic)
 import Data.Foldable ( fold )
 import Data.Map ( Map, (!) )
 import qualified Data.Map as Map
 import Data.Set ( Set )
 import qualified Data.Set as Set
-import Data.Typeable ( Typeable )
+import Data.Typeable ( Typeable, cast )
 
 import Control.Monad.Logic ( LogicT(..), runLogicT, observeAllT )
 
 import Configuration
 import Debug
+import LangBase
 import MatchEffect
 import Term
 import Var
@@ -166,11 +167,17 @@ import Var
 ------
 ------------------------------------------------------------------
 
-data MatchState = MatchState { ms_varMap   :: Map MetaVar Dynamic
+data AnyMatchable where
+  AnyMatchable :: (Matchable m, Eq m) => m -> AnyMatchable
+
+instance Show AnyMatchable where
+  showsPrec d (AnyMatchable x) = showsPrec d x
+
+data MatchState = MatchState { ms_varMap   :: Map MetaVar AnyMatchable
                              , ms_varAlloc :: VarAllocator
                              }
 
-modVarMap :: (Map MetaVar Dynamic -> Map MetaVar Dynamic) -> MatchState -> MatchState
+modVarMap :: (Map MetaVar AnyMatchable -> Map MetaVar AnyMatchable) -> MatchState -> MatchState
 modVarMap f m = m { ms_varMap = f (ms_varMap m) }
 
 
@@ -201,12 +208,14 @@ instance MonadVarAllocator Match where
 
 class (MonadPlus m, MonadVarAllocator m, MonadIO m) => MonadMatchable m where
   hasVar :: MetaVar -> m Bool
-  putVar :: (Typeable a, Eq a) => MetaVar -> a -> m ()
+  putVar :: (Matchable a, Eq a) => MetaVar -> a -> m ()
   clearVar :: MetaVar -> m ()
-  overrideVar :: (Typeable a, Eq a) => MetaVar -> a -> m ()
-  getVarMaybe :: Typeable a => MetaVar -> (a -> m b) -> m b -> m b
-  getVarDefault :: Typeable a => MetaVar -> m a -> m a
-  getVar :: Typeable a => MetaVar -> m a
+  overrideVar :: (Matchable a, Eq a) => MetaVar -> a -> m ()
+  getVarMaybe :: Matchable a => MetaVar -> (a -> m b) -> m b -> m b
+  getVarDefault :: Matchable a => MetaVar -> m a -> m a
+  getVar :: Matchable a => MetaVar -> m a
+
+  modifyVars :: (forall a. (Matchable a, Eq a) => MetaVar -> a -> m a) -> m ()
 
   withSubCtx   :: m x -> m x
   withFreshCtx :: m x -> m x
@@ -219,7 +228,8 @@ class (MonadPlus m, MonadVarAllocator m, MonadIO m) => MonadMatchable m where
   getVarDefault v = getVarMaybe v return
   getVar var = getVarDefault var mzero
 
-
+matchChoose :: (MonadMatchable m) => [a] -> m a
+matchChoose as = msum (map return as)
 
 withModCtxState :: (MonadState MatchState m) => (MatchState -> MatchState) -> m x -> m x
 withModCtxState f m = do old <- get
@@ -233,16 +243,19 @@ instance {-# OVERLAPPABLE #-} (MonadState MatchState m, MonadVarAllocator m, Mon
   putVar var val = do curVal <- getVarMaybe var (return.Just) (return Nothing)
                       case curVal of
                         Nothing   -> do debugM $ "Setting var " ++ show var
-                                        modify (modVarMap $ Map.insert var (toDyn val))
+                                        modify (modVarMap $ Map.insert var (AnyMatchable val))
                         Just val' -> guard (val == val')
 
   clearVar var = modify (modVarMap $ Map.delete var)
 
-  getVarMaybe var f def = do maybeDyn <- Map.lookup var <$> ms_varMap <$> get
-                             case (maybeDyn :: Maybe Dynamic) of
-                               Nothing -> def
-                               Just x  -> maybe def f (fromDynamic x)
+  getVarMaybe var f def = do maybeAM <- Map.lookup var <$> ms_varMap <$> get
+                             case (maybeAM :: Maybe AnyMatchable) of
+                               Nothing              -> def
+                               Just (AnyMatchable x) -> maybe def f (cast x)
 
+  modifyVars f = do m <- get
+                    vm' <- Map.traverseWithKey (\v (AnyMatchable x) -> AnyMatchable <$> f v x) (ms_varMap m)
+                    put (m {ms_varMap = vm' })
 
   withSubCtx          = withModCtxState id
   withFreshCtx        = withModCtxState (\ms -> ms { ms_varMap   = Map.empty })
@@ -262,7 +275,7 @@ instance {-# OVERLAPPING #-} (MonadPlus UnusedMonad, MonadVarAllocator UnusedMon
   withVarAllocator = error "Using UnusedMonad"
   debugVars = error "Using UnusedMonads"
 
-refreshVar :: (MonadMatchable m, Typeable a, Eq a) => (MetaVar -> a) -> MetaVar -> m MetaVar
+refreshVar :: (MonadMatchable m, Matchable a, Eq a) => (MetaVar -> a) -> MetaVar -> m MetaVar
 refreshVar f v = do v' <- allocVarM
                     putVar v (f v')
                     return v'
@@ -275,7 +288,7 @@ newtype Matchee f = Matchee f
 newtype Pattern f = Pattern f
 
 -- NOTE: I think I need to write SYB/Uniplate infrastructure for vars-containing terms
-class (Show f) => Matchable f where
+class (Show f, Typeable f) => Matchable f where
   -- | Returns all meta-syntactic variables contained in an `f`
   getVars :: f -> Set MetaVar
 
@@ -384,10 +397,22 @@ instance (Typeable l) => Matchable (Term l) where
     where
       refresh :: (MonadMatchable m, MonadVarAllocator m, Typeable l) => MetaVar -> MatchType -> m (Term l)
       refresh v mt = GMetaVar <$> refreshVar (\v' -> GMetaVar @l v' mt) v <*> pure mt
-  fillMatch = fillMatchTermGen (\v mt -> getVarMaybe v return (return $ GMetaVar v mt))
+
+  fillMatch = fillMatchTermGen (\v mt -> getVarMaybe v (guardValMatches mt) (return $ GMetaVar v mt))
+    where
+      guardValMatches :: (MonadMatchable m, Typeable l) => MatchType -> Term l -> m (Term l)
+      guardValMatches TermOrValue t                 = return t
+      guardValMatches ValueOnly   t@(Val       _ _) = return t
+      guardValMatches ValueOnly   t@(ValVar      _) = return t
+      guardValMatches ValueOnly   t@(GStar mt)      = guard (matchTypeCompat ValueOnly mt) >> return t
+
+      guardValMatches NonvalOnly  t@(Node      _ _) = return t
+      guardValMatches NonvalOnly  t@(NonvalVar   _) = return t
+      guardValMatches NonvalOnly  t@(GStar mt)      = guard (matchTypeCompat ValueOnly mt) >> return t
+      guardValMatches _           _                 = mzero
 
 
-instance {-# OVERLAPPABLE #-} (Matchable (Term l), Matchable s) => Matchable (GConfiguration s l) where
+instance {-# OVERLAPPABLE #-} (Typeable l, Matchable (Term l), Matchable s) => Matchable (GConfiguration s l) where
   getVars (Conf t s) = getVars t `Set.union` getVars s
 
   match (Pattern (Conf t1 s1)) (Matchee (Conf t2 s2)) = do
@@ -399,7 +424,7 @@ instance {-# OVERLAPPABLE #-} (Matchable (Term l), Matchable s) => Matchable (GC
 
 -- Hack to prevent over-eagerly expanding (Matchable (Configuration l)) constraints
 data UnusedLanguage
-instance {-# OVERLAPPING #-} (Show s) => Matchable (GConfiguration s UnusedLanguage) where
+instance {-# OVERLAPPING #-} (Matchable s) => Matchable (GConfiguration s UnusedLanguage) where
   getVars = error "Matching UnusedLanguage"
   match = error "Matching UnusedLanguage"
   refreshVars = error "Matching UnusedLanguage"
@@ -438,11 +463,6 @@ instance Matchable () where
 -- as well as the operational semantics of the linear lambda calculus (which are almost the same as that of the
 -- simply-typed lambda calculus with sums and products).
 
-
-
--- Curses for this not existing; will give a not-so-efficient implementation
-mapKeysM :: (Ord k2, Applicative m) => (k1 -> m k2) -> Map k1 a -> m (Map k2 a)
-mapKeysM f mp = Map.fromList <$> traverse (\(k,v) -> (,v) <$> f k) (Map.toList mp)
 
 -- |
 -- Important notes on matching maps:
@@ -486,32 +506,30 @@ instance (Matchable a, Matchable b, Typeable a) => Matchable (SimpEnv a b) where
         let diff = Map.difference mp2 mp1
         debugM $ "Matching maps " ++ show mp1 ++ " and " ++ show mp2
         debugM $ "Binding var " ++ show v ++ " to " ++ show diff
-        putVar v (SimpEnvMap diff)
+        putVar v (JustSimpMap $ SimpEnvMap diff)
         match (Pattern m1) (Matchee (SimpEnvMap $ Map.intersection mp2 mp1))
 
   match (Pattern (JustSimpMap m1)) (Matchee (JustSimpMap m2)) = match (Pattern m1) (Matchee m2)
-  match (Pattern (SimpEnvRest v1 m1)) (Matchee (SimpEnvRest v2 m2)) = putVar v1 v2 >> match (Pattern m1) (Matchee m2)
+
+  -- FIXME: WTF is this doing? Why is it not matching v1 also to m2-m1
+  match (Pattern (SimpEnvRest v1 m1)) (Matchee (SimpEnvRest v2 m2)) = putVar v1 (WholeSimpEnv @a @b v2) >> match (Pattern m1) (Matchee m2)
 
   -- TODO: Do we need a case for matching SimpMap with EnvRest? (Beware infinite recursion if so)
 
   refreshVars (JustSimpMap m)   = JustSimpMap <$> refreshVars m
-  refreshVars (SimpEnvRest v m) = SimpEnvRest <$> refreshVar id v <*> refreshVars m
+  refreshVars (SimpEnvRest v m) = SimpEnvRest <$> refreshVar (\v -> WholeSimpEnv @a @b v) v <*> refreshVars m
 
   fillMatch (SimpEnvRest v m1) = do
-    mapped <- hasVar v
-    if mapped then do
-      filledVar <- getVarMaybe v (return.Just) (return Nothing)
-      filledMap <- getVarMaybe v (return.Just) (return Nothing)
+    filledVar <- getVarMaybe v (return.Just) (return Nothing)
+    m1' <- fillMatch m1
 
-      case (filledVar, filledMap) of
-        (Just v', Nothing) -> SimpEnvRest v' <$> fillMatch m1
-        (Nothing, Just m2) -> do m1' <- fillMatch m1
-
-                                 -- Order of Map.union is important.
-                                 -- When there is conflict, will prefer the explicitly given keys
-                                 return $ JustSimpMap $ SimpEnvMap (Map.union (getSimpEnvMap m1') (getSimpEnvMap m2))
-     else
-      SimpEnvRest v <$> fillMatch m1
+    -- In the below:
+    -- Order of Map.union is important.
+    -- When there is conflict, will prefer the explicitly given keys
+    case filledVar of
+      (Just (SimpEnvRest v' m2)) -> return $ SimpEnvRest v' $ SimpEnvMap (Map.union (getSimpEnvMap m1') (getSimpEnvMap m2))
+      (Just (JustSimpMap m2))    -> return $ JustSimpMap $ SimpEnvMap (Map.union (getSimpEnvMap m1') (getSimpEnvMap m2))
+      Nothing -> return $ SimpEnvRest v m1'
 
   fillMatch (JustSimpMap m) = JustSimpMap <$> fillMatch m
 

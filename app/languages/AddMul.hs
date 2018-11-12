@@ -12,6 +12,7 @@ import Configuration
 import Lang
 import Matching
 import Semantics.Abstraction
+import Semantics.Conversion
 import Semantics.General
 import Semantics.PAM
 import Semantics.SOS

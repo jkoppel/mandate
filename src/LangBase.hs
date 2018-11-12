@@ -11,7 +11,6 @@ import Data.Typeable
 
 import Data.Hashable ( Hashable(..) )
 
-import Matching
 import MatchEffect
 import Term
 import GConfiguration
