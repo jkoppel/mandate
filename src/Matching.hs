@@ -423,7 +423,6 @@ instance {-# OVERLAPPABLE #-} (Typeable l, Matchable (Term l), Matchable s) => M
   fillMatch   (Conf t s) = Conf <$> fillMatch   t <*> fillMatch   s
 
 -- Hack to prevent over-eagerly expanding (Matchable (Configuration l)) constraints
-data UnusedLanguage
 instance {-# OVERLAPPING #-} (Matchable s) => Matchable (GConfiguration s UnusedLanguage) where
   getVars = error "Matching UnusedLanguage"
   match = error "Matching UnusedLanguage"

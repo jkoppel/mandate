@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts, FlexibleInstances, MultiParamTypeClasses, OverloadedStrings, ScopedTypeVariables, TypeApplications, TypeSynonymInstances #-}
+{-# LANGUAGE FlexibleContexts, FlexibleInstances, MultiParamTypeClasses, OverloadedStrings, ScopedTypeVariables, TupleSections, TypeApplications, TypeSynonymInstances #-}
 
 module Semantics.Conversion (
     sosToPam
@@ -6,6 +6,8 @@ module Semantics.Conversion (
   , upRulesInvertible
 
   , pamToAM
+
+  , isDeterministic
   ) where
 
 
@@ -94,11 +96,11 @@ specializeUpRuleForStartTerm startT (PAM left rhs) = liftM fromJust $ runMatchUn
   rhs'  <- fillPAMRhs rhs
   return $ PAM left' rhs'
 
-lhsUnifies :: (Lang l) => PAMState l -> NamedPAMRule l -> IO Bool
-lhsUnifies st (NamedPAMRule _ (PAM lhs _)) = isJust <$> runMatchUnique (unify lhs st)
+stateUnifies :: (Unifiable (GenAMState t l)) => GenAMState t l -> NamedGenAMRule t l -> IO Bool
+stateUnifies st (NamedGenAMRule _ (GenAMRule lhs _)) = isJust <$> runMatchUnique (unify lhs st)
 
 findUnifyingLhs :: (Lang l) => NamedPAMRules l -> PAMState l -> IO (NamedPAMRules l)
-findUnifyingLhs rs st = filterM (lhsUnifies st) rs
+findUnifyingLhs rs st = filterM (stateUnifies st) rs
 
 
 ----------------------------------- Transforming PAM ----------------------------------------
@@ -210,3 +212,17 @@ pamToAM rs = do canTrans <- upRulesInvertible rs
                   return $ upRules' ++ map dropPhase compRules ++ map dropPhase downRules
   where
     ClassifiedPAMRules {upRules=upRules, compRules=compRules, downRules=downRules} = classifyPAMRules rs
+
+
+-------------------------------- Checking determinism --------------------------------------------------
+
+distinctPairs :: [a] -> [(a,a)]
+distinctPairs [] = []
+distinctPairs (x:xs) = map (x,) xs ++ distinctPairs xs
+
+isDeterministic :: forall t l. (Unifiable (GenAMState t l)) => NamedGenAMRules t l -> IO Bool
+isDeterministic rules = null <$> (filterM lhsUnifies (distinctPairs rules))
+  where
+    -- Type signature needed to prevent overgeneralizing constraint
+    lhsUnifies :: (Unifiable (GenAMState t l)) => (NamedGenAMRule t l, NamedGenAMRule t l) -> IO Bool
+    lhsUnifies (NamedGenAMRule _ (GenAMRule l _), r) = stateUnifies l r
