@@ -124,6 +124,21 @@ mitScriptRules = sequence [
             StepTo (conf (ConsStmt NilStmt ms) env)
             (Build $ conf ms env)
 
+    , name "exp-stmt-cong" $
+    mkPairRule2 $ \env env' ->
+    mkRule2 $ \exp exp' ->
+        let (texp, mexp) = (tv exp, mv exp') in
+            StepTo (conf (ExpStmt texp) env)
+            (LetStepTo (conf mexp env') (conf texp env)
+            (Build (conf (ExpStmt mexp) env')))
+
+    , name "exp-stmt-eval" $
+    mkPairRule2 $ \env env' ->
+    mkRule2 $ \exp exp' ->
+        let vexp = vv exp in
+            StepTo (conf (ExpStmt vexp) env)
+            (Build (conf NilStmt env))
+
     -- Control Flow
     , name "if-cong" $
     mkPairRule2 $ \env env' ->
@@ -374,6 +389,60 @@ mitScriptRules = sequence [
             StepTo (Conf (FieldAccess (ReferenceVal mref) mf) (mmu, AssocOneVal h mref vr))
             (LetComputation (initConf v') (extComp ReadField (mmu, AssocOneVal h mref vr) [vr, mf])
             (Build $ Conf v' (mmu, AssocOneVal h mref vr)))
+
+    -- Functions
+    , name "fun-decl-eval" $
+    mkRule5 $ \params body frame rest h->
+        let (mparams, mbody, mframe, mrest) = (mv params, mv body, mv frame, mv rest) in
+            StepTo (Conf (FunDecl mparams mbody) (ConsFrame mframe mrest, WholeSimpEnv h) )
+                (Build $ Conf (HeapAlloc (Closure mparams mbody mframe)) (ConsFrame mframe mrest, WholeSimpEnv h))
+
+    , name "fun-call-var-cong-1" $
+    mkPairRule2 $ \env env' ->
+    mkRule3 $ \fun fun' args ->
+        let (tfun, mfun, margs) = (tv fun, mv fun', mv args) in
+            StepTo (conf (FunCall tfun margs) env)
+                (LetStepTo (conf mfun env') (conf tfun env)
+                (Build $ conf (FunCall mfun margs) env'))
+
+    , name "fun-call-var-cong-2" $
+    mkPairRule2 $ \env env' ->
+    mkRule3 $ \fun args args' ->
+        let (vfun, targs, margs) = (vv fun, tv args, mv args') in
+            StepTo (conf (FunCall vfun targs) env)
+                (LetStepTo (conf margs env') (conf targs env)
+                (Build $ conf (FunCall vfun margs) env'))
+
+    -- Function argument lists
+    , name "cons-expr-cong-car" $
+    mkPairRule2 $ \env env' ->
+    mkRule3 $ \e e' rest ->
+        let (te, me', mrest) = (tv e, mv e', mv rest) in
+            StepTo (conf (ConsExpr te mrest) env)
+                (LetStepTo (conf me' env') (conf te env)
+                    (Build $ conf (ConsExpr me' mrest) env'))
+
+    , name "cons-expr-cong-cdr" $
+    mkPairRule2 $ \env env' ->
+    mkRule3 $ \e rest rest' ->
+        let (ve, trest, mrest') = (vv e, tv rest, mv rest') in
+            StepTo (conf (ConsExpr ve trest) env)
+                (LetStepTo (conf mrest' env') (conf trest env)
+                    (Build $ conf (ConsExpr ve mrest') env'))
+
+    , name "cons-expr-eval" $
+    mkPairRule1 $ \env ->
+    mkRule2 $ \e rest ->
+        let (ve, vrest) = (vv e, vv rest) in
+            StepTo (conf (ConsExpr ve vrest) env)
+                    (Build $ conf (ReducedConsExpr ve vrest) env)
+
+    , name "nil-cons-expr-eval" $
+    mkPairRule1 $ \env ->
+    mkRule0 $
+            StepTo (conf NilExpr env)
+            (Build $ conf ReducedNilExpr env)
+
     ]
 
 ibsToString :: InternedByteString -> String
@@ -409,6 +478,7 @@ toString (BConst b) heap = show $ toMetaBool b
 toString (NumConst (ConstInt n1)) heap = show n1
 toString (Str (ConstStr s)) heap = ibsToString s
 toString None heap = "None"
+toString Closure {} heap = "FUNCTION"
 toString (ReducedRecord rs) heap = "{" ++ toString rs heap ++ "}"
 toString (ReducedRecordCons rp rps) heap = toString rp heap ++ toString rps heap
 toString ReducedRecordNil heap = ""

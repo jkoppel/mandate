@@ -12,7 +12,7 @@ data MITScript
 
 mitScriptSorts :: [Sort]
 mitScriptSorts = [ "Name",  "NameList", "Stmt", "StmtList"
-                , "BinOp", "UnOp", "Expr", "ExprList"
+                , "BinOp", "UnOp" , "Expr", "ExprList" , "ReducedExprList"
                 , "RecordPair", "RecordPairList"
                 , "ReducedRecordPair", "ReducedRecordPairList"
                 , "Bool", "ConstInt", "ConstStr", "HeapAddr"
@@ -54,22 +54,25 @@ mitScriptSig = Signature [ StrSig "Name" "Name"
                          , NodeSig "UMINUS" [] "UnOp"
                          , NodeSig "NOT"    [] "UnOp"
 
-                         , NodeSig "BinExp"      ["Expr", "BinOp", "Expr"] "Expr"
-                         , NodeSig "UnExp"       ["UnOp", "Expr"]          "Expr"
-                         , ValSig  "NumConst"    ["ConstInt"]              "Expr"
-                         , ValSig  "ReferenceVal" ["HeapAddr"]             "Expr"
-                         , ValSig  "BConst"      ["Bool"]                  "Expr"
-                         , ValSig  "None"        []                        "Expr"
-                         , ValSig  "Str"         ["ConstStr"]              "Expr"
-                         , NodeSig "Var"         ["Name"]                  "Expr"
-                         , NodeSig "FunCall"     ["Expr", "ExprList"]      "Expr"
-                         , NodeSig "FunDecl"     ["NameList", "Stmt"]      "Expr"
-                         , NodeSig "Index"       ["Expr", "Expr"]          "Expr"
-                         , NodeSig "FieldAccess" ["Expr", "Name"]          "Expr"
-                         , NodeSig "Record"      ["RecordPairList"]        "Expr"
+                         , NodeSig "BinExp"      ["Expr", "BinOp", "Expr"]        "Expr"
+                         , NodeSig "UnExp"       ["UnOp", "Expr"]                 "Expr"
+                         , ValSig  "NumConst"    ["ConstInt"]                     "Expr"
+                         , ValSig  "ReferenceVal" ["HeapAddr"]                    "Expr"
+                         , ValSig  "BConst"      ["Bool"]                         "Expr"
+                         , ValSig  "None"        []                               "Expr"
+                         , ValSig  "Str"         ["ConstStr"]                     "Expr"
+                         , NodeSig "Var"         ["Name"]                         "Expr"
+                         , NodeSig "FunCall"     ["Expr", "ExprList"]             "Expr"
+                         , NodeSig "FunDecl"     ["NameList", "Stmt"]             "Expr"
+                         , ValSig  "Closure"     ["NameList", "Stmt", "HeapAddr"] "Expr"
+                         , NodeSig "Index"       ["Expr", "Expr"]                 "Expr"
+                         , NodeSig "FieldAccess" ["Expr", "Name"]                 "Expr"
+                         , NodeSig "Record"      ["RecordPairList"]               "Expr"
 
                          , NodeSig "NilExpr" [] "ExprList"
                          , NodeSig "ConsExpr" ["Expr", "ExprList"] "ExprList"
+                         , ValSig "ReducedNilExpr" [] "ReducedExprList"
+                         , ValSig "ReducedConsExpr" ["Expr", "ExprList"] "ReducedExprList"
 
                          , NodeSig "RecordPair" ["Name", "Expr"] "RecordPair"
 
@@ -90,6 +93,9 @@ mitScriptSig = Signature [ StrSig "Name" "Name"
                          , ValSig "ReducedRecordNil" [] "ReducedRecordPairList"
                          , ValSig "ReducedRecordCons" ["ReducedRecordPair", "ReducedRecordPairList"] "ReducedRecordPairList"
                          , NodeSig "HeapAlloc"   ["Expr"] "Expr"
+
+                         , ValSig "ReducedConsExprNil" [] "ReducedRecordPairList"
+                         , ValSig "ReducedRecordCons" ["ReducedRecordPair", "ReducedRecordPairList"] "ReducedRecordPairList"
              ]
 
 --------------------------------------------------------------------------------------------------------------------
@@ -261,3 +267,12 @@ pattern ConsFrame a b = Val "ConsFrame" [a, b]
 
 pattern ParentPointerRecordPair :: Term MITScript -> Term MITScript
 pattern ParentPointerRecordPair p = Node "ParentPointerRecordPair" [p]
+
+pattern Closure :: Term MITScript -> Term MITScript -> Term MITScript -> Term MITScript
+pattern Closure params body frame = Val "Closure" [params, body, frame]
+
+pattern ReducedNilExpr :: Term MITScript
+pattern ReducedNilExpr = Val "ReducedNilExpr" []
+
+pattern ReducedConsExpr :: Term MITScript -> Term MITScript -> Term MITScript
+pattern ReducedConsExpr a b = Val "ReducedConsExpr" [a, b]
