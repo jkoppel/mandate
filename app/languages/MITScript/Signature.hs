@@ -16,6 +16,7 @@ mitScriptSorts = [ "Name",  "NameList", "Stmt", "StmtList"
                 , "RecordPair", "RecordPairList"
                 , "ReducedRecordPair", "ReducedRecordPairList"
                 , "Bool", "ConstInt", "ConstStr", "HeapAddr"
+                , "Frame", "FrameList"
                 ]
 
 
@@ -25,6 +26,9 @@ mitScriptSig = Signature [ StrSig "Name" "Name"
 
                          , ValSig "NilName" [] "NameList"
                          , ValSig "ConsName" ["Name", "NameList"] "NameList"
+
+                         , ValSig "NilFrame" [] "FrameList"
+                         , ValSig "ConsFrame" ["HeapAddr", "FrameList"] "FrameList"
 
                          , NodeSig "Global"  ["Name"]                 "Stmt"
                          , NodeSig "Assign"  ["Expr", "Expr"]         "Stmt"
@@ -53,7 +57,7 @@ mitScriptSig = Signature [ StrSig "Name" "Name"
                          , NodeSig "BinExp"      ["Expr", "BinOp", "Expr"] "Expr"
                          , NodeSig "UnExp"       ["UnOp", "Expr"]          "Expr"
                          , ValSig  "NumConst"    ["ConstInt"]              "Expr"
-                         , ValSig  "ReferenceVal" ["HeapAddr"]              "Expr"
+                         , ValSig  "ReferenceVal" ["HeapAddr"]             "Expr"
                          , ValSig  "BConst"      ["Bool"]                  "Expr"
                          , ValSig  "None"        []                        "Expr"
                          , ValSig  "Str"         ["ConstStr"]              "Expr"
@@ -70,6 +74,8 @@ mitScriptSig = Signature [ StrSig "Name" "Name"
                          , NodeSig "RecordPair" ["Name", "Expr"] "RecordPair"
 
                          , NodeSig "NilRecordPair" [] "RecordPairList"
+                         , NodeSig "ParentPointerRecordPair" ["Expr"] "RecordPairList"
+
                          , NodeSig "ConsRecordPair" ["RecordPair", "RecordPairList"] "RecordPairList"
 
                          , ValSig "True" [] "Bool"
@@ -246,3 +252,12 @@ pattern ReferenceVal a = Val "ReferenceVal" [a]
 
 pattern HeapAlloc :: Term MITScript -> Term MITScript
 pattern HeapAlloc a = Node "HeapAlloc" [a]
+
+pattern NilFrame :: Term MITScript
+pattern NilFrame = Val "NilFrame" []
+
+pattern ConsFrame :: Term MITScript -> Term MITScript -> Term MITScript
+pattern ConsFrame a b = Val "ConsFrame" [a, b]
+
+pattern ParentPointerRecordPair :: Term MITScript -> Term MITScript
+pattern ParentPointerRecordPair p = Node "ParentPointerRecordPair" [p]
