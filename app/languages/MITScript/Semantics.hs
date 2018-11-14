@@ -130,12 +130,20 @@ mitScriptRules = sequence [
             StepTo (conf (ConsStmt NilStmt ms) env)
             (Build $ conf ms env)
 
-    , name "seq-ret" $
+    , name "seq-ret-cong" $
+    mkPairRule2 $ \env env' ->
+    mkRule3 $ \s val val' ->
+        let (ms, tval, mval) = (mv s, tv val, mv val') in
+            StepTo (conf (ConsStmt (Return tval) ms) env)
+                (LetStepTo (conf mval env') (conf tval env)
+                (Build $ conf (ConsStmt (Return mval) ms) env'))
+
+    , name "seq-ret-eval" $
     mkPairRule1 $ \env ->
     mkRule2 $ \s val ->
-        let (ms, mval) = (mv s, mv val) in
-            StepTo (conf (ConsStmt (Return mval) ms) env)
-            (Build $ conf (Return mval) env)
+        let (ms, vval) = (mv s, vv val) in
+            StepTo (conf (ConsStmt (Return vval) ms) env)
+            (Build $ conf (Return vval) env)
 
 
     , name "exp-stmt-cong" $
@@ -152,21 +160,6 @@ mitScriptRules = sequence [
         let vexp = vv exp in
             StepTo (conf (ExpStmt vexp) env)
             (Build (conf NilStmt env))
-
-    , name "return-stmt-cong" $
-    mkPairRule2 $ \env env' ->
-    mkRule2 $ \exp exp' ->
-        let (texp, mexp) = (tv exp, mv exp') in
-            StepTo (conf (Return texp) env)
-            (LetStepTo (conf mexp env') (conf texp env)
-            (Build (conf (Return mexp) env')))
-
-    -- , name "return-stmt-eval" $
-    -- mkPairRule2 $ \env env' ->
-    -- mkRule2 $ \exp exp' ->
-    --     let vexp = vv exp in
-    --         StepTo (conf (Return vexp) env)
-    --         (Build (conf vexp env))
 
     -- Control Flow
     , name "if-cong" $
@@ -457,12 +450,11 @@ mitScriptRules = sequence [
                                     (ConsFrame mref mmu, AssocOneVal h mref (ReducedRecord $ Parent mframe))))
 
     , name "fun-call-cong-assign-args" $
-    mkPairRule2 $ \env env'->
+    mkPairRule1 $ \env->
     mkRule5 $ \param params body arg args ->
         let (mparam, mparams, mbody, varg, vargs) = (mv param, mv params, mv body, vv arg, vv args) in
-            StepTo (conf (Scope mbody (ConsName mparam mparams) (ReducedConsExpr varg vargs)) env)
-                   (LetStepTo (conf NilStmt env') (conf (Assign mparam varg) env)
-                      (Build $ conf (Scope mbody mparams vargs) env'))
+            StepTo (conf (Scope (Block mbody) (ConsName mparam mparams) (ReducedConsExpr varg vargs)) env)
+                (Build $ conf (Scope (Block (ConsStmt (Assign (Var mparam) varg) mbody)) mparams vargs) env)
 
     , name "fun-call-cong-body" $
     mkPairRule2 $ \env env'->
