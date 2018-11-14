@@ -21,9 +21,8 @@ module Configuration (
   , Configuration.lookup, Configuration.size
   ) where
 
-import Data.Map ( Map )
 import qualified Data.Map as Map
-import Data.Map ( lookup, size )
+import Data.Map ( lookup, size, Map )
 import Data.Typeable ( Typeable, eqT )
 
 import GHC.Generics ( Generic )

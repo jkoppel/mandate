@@ -58,16 +58,21 @@ instance LangBase MITScript where
 instance Hashable (CompFunc MITScript)
 
 instance ValueIrrelevance (CompFunc MITScript) where
-    valueIrrelevance ReadField = AbsReadField
-    valueIrrelevance AbsReadField = AbsReadField
 
+    valueIrrelevance ReadField = AbsReadField
+    valueIrrelevance WriteField = AbsWriteField
+    valueIrrelevance AllocAddress = AbsAllocAddress
     valueIrrelevance Compute   = AbsCompute
     valueIrrelevance ReadIndex = AbsReadIndex
-    valueIrrelevance AllocAddress = AbsAllocAddress
+    valueIrrelevance WriteIndex = AbsWriteIndex
 
-    valueIrrelevance AbsCompute = AbsCompute
+    valueIrrelevance AbsReadField = AbsReadField
     valueIrrelevance AbsReadIndex = AbsReadIndex
     valueIrrelevance AbsAllocAddress = AbsAllocAddress
+    valueIrrelevance AbsCompute = AbsCompute
+    valueIrrelevance AbsReadIndex = AbsReadIndex
+    valueIrrelevance AbsWriteIndex = AbsWriteIndex
+
 
 
 instance Lang MITScript where
@@ -106,8 +111,9 @@ mitScriptRules = sequence [
 
     , name "block-nil" $
     mkPairRule1 $ \env ->
-    mkRule0 $
-        StepTo (conf (Block NilStmt) env) (Build (conf NilStmt env))
+    mkRule1 $ \val ->
+        let vval = vv val in
+            StepTo (conf (Block vval) env) (Build (conf vval env))
 
     , name "seq-cong" $
     mkPairRule2 $ \env env' ->
@@ -124,6 +130,14 @@ mitScriptRules = sequence [
             StepTo (conf (ConsStmt NilStmt ms) env)
             (Build $ conf ms env)
 
+    , name "seq-ret" $
+    mkPairRule1 $ \env ->
+    mkRule2 $ \s val ->
+        let (ms, mval) = (mv s, mv val) in
+            StepTo (conf (ConsStmt (Return mval) ms) env)
+            (Build $ conf (Return mval) env)
+
+
     , name "exp-stmt-cong" $
     mkPairRule2 $ \env env' ->
     mkRule2 $ \exp exp' ->
@@ -138,6 +152,21 @@ mitScriptRules = sequence [
         let vexp = vv exp in
             StepTo (conf (ExpStmt vexp) env)
             (Build (conf NilStmt env))
+
+    , name "return-stmt-cong" $
+    mkPairRule2 $ \env env' ->
+    mkRule2 $ \exp exp' ->
+        let (texp, mexp) = (tv exp, mv exp') in
+            StepTo (conf (Return texp) env)
+            (LetStepTo (conf mexp env') (conf texp env)
+            (Build (conf (Return mexp) env')))
+
+    -- , name "return-stmt-eval" $
+    -- mkPairRule2 $ \env env' ->
+    -- mkRule2 $ \exp exp' ->
+    --     let vexp = vv exp in
+    --         StepTo (conf (Return vexp) env)
+    --         (Build (conf vexp env))
 
     -- Control Flow
     , name "if-cong" $
@@ -397,7 +426,7 @@ mitScriptRules = sequence [
             StepTo (Conf (FunDecl mparams mbody) (ConsFrame mframe mrest, WholeSimpEnv h) )
                 (Build $ Conf (HeapAlloc (Closure mparams mbody mframe)) (ConsFrame mframe mrest, WholeSimpEnv h))
 
-    , name "fun-call-var-cong-1" $
+    , name "fun-call-cong-fun" $
     mkPairRule2 $ \env env' ->
     mkRule3 $ \fun fun' args ->
         let (tfun, mfun, margs) = (tv fun, mv fun', mv args) in
@@ -405,13 +434,49 @@ mitScriptRules = sequence [
                 (LetStepTo (conf mfun env') (conf tfun env)
                 (Build $ conf (FunCall mfun margs) env'))
 
-    , name "fun-call-var-cong-2" $
+    , name "fun-call-cong-args" $
     mkPairRule2 $ \env env' ->
     mkRule3 $ \fun args args' ->
         let (vfun, targs, margs) = (vv fun, tv args, mv args') in
             StepTo (conf (FunCall vfun targs) env)
                 (LetStepTo (conf margs env') (conf targs env)
                 (Build $ conf (FunCall vfun margs) env'))
+
+    , name "fun-call-cong-deref" $
+    mkRule5 $ \ref args fun mu h ->
+        let (mref, vargs, mmu, mfun) = (mv ref, vv args, mv mu, mv fun) in
+            StepTo (Conf (FunCall (ReferenceVal mref) vargs) (mmu, AssocOneVal h mref mfun))
+                    (Build $ Conf (FunCall mfun vargs) (mmu, AssocOneVal h mref mfun))
+
+    , name "fun-call-cong-alloc-frame" $
+    mkRule7 $ \params body frame mu ref h args ->
+        let (mparams, mbody, mframe, mmu, mref, vargs) = (mv params, mv body, mv frame, mv mu, mv ref, vv args) in
+            StepTo (Conf (FunCall (Closure mparams mbody mframe) vargs) (mmu, WholeSimpEnv h))
+                   (LetComputation (initConf mref) (extComp AllocAddress (mmu, WholeSimpEnv h) [NilStmt])
+                      (Build $ Conf (Scope mbody mparams vargs)
+                                    (ConsFrame mref mmu, AssocOneVal h mref (ReducedRecord $ Parent mframe))))
+
+    , name "fun-call-cong-assign-args" $
+    mkPairRule2 $ \env env'->
+    mkRule5 $ \param params body arg args ->
+        let (mparam, mparams, mbody, varg, vargs) = (mv param, mv params, mv body, vv arg, vv args) in
+            StepTo (conf (Scope mbody (ConsName mparam mparams) (ReducedConsExpr varg vargs)) env)
+                   (LetStepTo (conf NilStmt env') (conf (Assign mparam varg) env)
+                      (Build $ conf (Scope mbody mparams vargs) env'))
+
+    , name "fun-call-cong-body" $
+    mkPairRule2 $ \env env'->
+    mkRule2 $ \body body' ->
+        let (tbody, mbody') = (tv body, mv body') in
+            StepTo (conf (Scope tbody NilName ReducedNilExpr) env)
+                   (LetStepTo (conf mbody' env') (conf tbody env)
+                      (Build $ conf (Scope mbody' NilName ReducedNilExpr) env'))
+
+    , name "fun-call-eval" $
+    mkRule4 $ \result mu rest h ->
+        let (vresult, mmu, mrest) = (vv result, mv mu, mv rest) in
+            StepTo (Conf (Scope (Return vresult) NilName ReducedNilExpr) (ConsFrame mmu mrest, WholeSimpEnv h))
+                (Build $ Conf vresult (mrest, WholeSimpEnv h))
 
     -- Function argument lists
     , name "cons-expr-cong-car" $
@@ -451,15 +516,19 @@ ibsToString = BS.unpack . unintern
 stringToIbs :: String -> InternedByteString
 stringToIbs = intern . BS.pack
 
-readField :: Term MITScript -> String ->  Term MITScript
-readField (ReducedRecordCons (ReducedRecordPair (Name k) v) rps) field = if ibsToString k == field then v else readField rps field
-readField _ _ = None
+readField :: SimpEnv (Term MITScript) (Term MITScript) -> Term MITScript -> String -> Term MITScript
+readField heap (ReducedRecordCons (ReducedRecordPair (Name k) v) rps) field = if ibsToString k == field then v else readField heap rps field
+readField heap (Parent p) f = case Configuration.lookup p heap of
+                                    Just parent -> readField heap parent f
+                                    Nothing -> error "ERR: Dangling Pointer"
+readField _ _ _ = None
 
 writeField' :: Term MITScript -> String -> Term MITScript -> Term MITScript
 writeField' (ReducedRecordCons (ReducedRecordPair (Name k) v) rps) field val =
     if ibsToString k == field then ReducedRecordCons (ReducedRecordPair (Name k) val) rps
                               else ReducedRecordCons (ReducedRecordPair (Name k) v) (writeField' rps field val)
 writeField' ReducedRecordNil field val = ReducedRecordCons (ReducedRecordPair (Name (stringToIbs field)) val) ReducedRecordNil
+writeField' (Parent p) field val     = ReducedRecordCons (ReducedRecordPair (Name (stringToIbs field)) val) (Parent p)
 
 writeField :: Term MITScript -> String -> Term MITScript -> Term MITScript
 writeField x y z = ReducedRecord (writeField' x y z)
@@ -529,11 +598,11 @@ runExternalComputation Compute state [OR, BConst l, BConst r]         = returnBo
 
 runExternalComputation AllocAddress (stack, heap) _ = return $ initConf (HeapAddr $ size heap)
 
-runExternalComputation ReadIndex (stack, heap)  [ReducedRecord r, i]      = return $ initConf $ readField r (toString i heap)
+runExternalComputation ReadIndex (stack, heap)  [ReducedRecord r, i]      = return $ initConf $ readField heap r (toString i heap)
 runExternalComputation WriteIndex (stack, heap) [ReducedRecord r, i, val] = return $ initConf $ writeField r (toString i heap) val
 
-runExternalComputation ReadField state [ReducedRecord r, Name f]       = return $ initConf $ readField r (ibsToString f)
-runExternalComputation WriteField state [ReducedRecord r, Name f, val] = return $ initConf $ writeField r (ibsToString f) val
+runExternalComputation ReadField (stack, heap) [ReducedRecord r, Name f] = return $ initConf $ readField heap r (ibsToString f)
+runExternalComputation WriteField state [ReducedRecord r, Name f, val]   = return $ initConf $ writeField r (ibsToString f) val
 
 runExternalComputation func state [GStar _] = return $ initConf ValStar
 
