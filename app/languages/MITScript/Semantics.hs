@@ -57,21 +57,20 @@ instance LangBase MITScript where
 
 instance Hashable (CompFunc MITScript)
 
-instance ValueIrrelevance (CompFunc MITScript) where
+instance Irrelevance (CompFunc MITScript) where
+    irrelevance _ ReadField = AbsReadField
+    irrelevance _ WriteField = AbsWriteField
+    irrelevance _ AllocAddress = AbsAllocAddress
+    irrelevance _ Compute   = AbsCompute
+    irrelevance _ ReadIndex = AbsReadIndex
+    irrelevance _ WriteIndex = AbsWriteIndex
 
-    valueIrrelevance ReadField = AbsReadField
-    valueIrrelevance WriteField = AbsWriteField
-    valueIrrelevance AllocAddress = AbsAllocAddress
-    valueIrrelevance Compute   = AbsCompute
-    valueIrrelevance ReadIndex = AbsReadIndex
-    valueIrrelevance WriteIndex = AbsWriteIndex
-
-    valueIrrelevance AbsReadField = AbsReadField
-    valueIrrelevance AbsReadIndex = AbsReadIndex
-    valueIrrelevance AbsAllocAddress = AbsAllocAddress
-    valueIrrelevance AbsCompute = AbsCompute
-    valueIrrelevance AbsReadIndex = AbsReadIndex
-    valueIrrelevance AbsWriteIndex = AbsWriteIndex
+    irrelevance _ AbsReadField = AbsReadField
+    irrelevance _ AbsReadIndex = AbsReadIndex
+    irrelevance _ AbsAllocAddress = AbsAllocAddress
+    irrelevance _ AbsCompute = AbsCompute
+    irrelevance _ AbsReadIndex = AbsReadIndex
+    irrelevance _ AbsWriteIndex = AbsWriteIndex
 
 
 

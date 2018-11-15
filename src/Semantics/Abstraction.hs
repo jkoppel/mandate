@@ -3,13 +3,16 @@
 module Semantics.Abstraction (
     Abstraction
   , AbstractCompFuncs(..)
-  , ValueIrrelevance(..)
+  , Irrelevance(..)
+  , IrrelevanceType(..)
   ) where
 
 import qualified Data.Map as Map
+import qualified Data.ByteString.Char8 as BS
+import Data.Interned ( unintern )
 
 import Configuration
-import LangBase
+import Lang
 import Semantics.Context
 import Semantics.General
 import Term
@@ -21,45 +24,53 @@ class AbstractCompFuncs t l where
 
 --------------------------------------------------------------------------------------------------------
 
-class ValueIrrelevance t where
-  valueIrrelevance :: t -> t
+data IrrelevanceType = Value | Expression deriving (Show, Eq)
 
-instance ValueIrrelevance () where
-  valueIrrelevance () = ()
+class Irrelevance t where
+  irrelevance :: IrrelevanceType -> t -> t
 
-instance (ValueIrrelevance s) => ValueIrrelevance (GConfiguration s l) where
-  valueIrrelevance (Conf t s) = Conf (valueIrrelevance t) (valueIrrelevance s)
+instance Irrelevance () where
+  irrelevance _ () = ()
 
-instance ValueIrrelevance (Term l) where
-  valueIrrelevance = mapTerm valToStar
+instance (Irrelevance s, Lang l) => Irrelevance (GConfiguration s l) where
+  irrelevance irr (Conf t s) = Conf (irrelevance irr t) (irrelevance irr s)
+
+instance (Lang l) => Irrelevance (Term l) where
+  irrelevance Value = mapTerm valToStar
     where
       valToStar (Val _ _) = ValStar
       valToStar t         = t
 
-instance ValueIrrelevance EmptyState where
-  valueIrrelevance EmptyState = EmptyState
+  irrelevance Expression = mapTerm exprToStar
+    where
+      exprToStar t  = case sortOfTerm signature t of
+                        Just (Sort s) -> if (BS.unpack . unintern) s == "Exp" then ValStar else t
+                        _ -> t
 
+
+instance Irrelevance EmptyState where
+  irrelevance _ EmptyState = EmptyState
 
 -- TODO: What should this do for keys?
-instance (ValueIrrelevance b) => ValueIrrelevance (SimpEnvMap a b) where
-  valueIrrelevance (SimpEnvMap m) = SimpEnvMap (Map.map valueIrrelevance m)
+instance (Irrelevance b) => Irrelevance (SimpEnvMap a b) where
+  irrelevance irr (SimpEnvMap m) = SimpEnvMap (Map.map (irrelevance irr) m)
 
-instance (ValueIrrelevance b) => ValueIrrelevance (SimpEnv a b) where
-  valueIrrelevance (JustSimpMap m)   = JustSimpMap (valueIrrelevance m)
-  valueIrrelevance (SimpEnvRest v m) = SimpEnvRest v (valueIrrelevance m)
+instance (Irrelevance b) => Irrelevance (SimpEnv a b) where
+  irrelevance irr (JustSimpMap m)   = JustSimpMap (irrelevance irr m)
+  irrelevance irr (SimpEnvRest v m) = SimpEnvRest v (irrelevance irr m)
 
-instance (ValueIrrelevance (CompFunc l), ValueIrrelevance (Configuration l)) => ValueIrrelevance (ExtComp l) where
-  valueIrrelevance (ExtComp f args) = ExtComp (valueIrrelevance f) (map valueIrrelevance args)
+instance (Irrelevance (CompFunc l), Irrelevance (Configuration l)) => Irrelevance (ExtComp l) where
+  irrelevance irr (ExtComp f args) = ExtComp (irrelevance irr f) (map (irrelevance irr) args)
 
-instance (ValueIrrelevance (ExtComp l), ValueIrrelevance (Configuration l)) => ValueIrrelevance (PosFrame l) where
-  valueIrrelevance (KBuild       c  ) = KBuild       (valueIrrelevance c)
-  valueIrrelevance (KStepTo      c f) = KStepTo      (valueIrrelevance c) (valueIrrelevance f)
-  valueIrrelevance (KComputation c f) = KComputation (valueIrrelevance c) (valueIrrelevance f)
+instance (Irrelevance (ExtComp l), Irrelevance (Configuration l)) => Irrelevance (PosFrame l) where
+  irrelevance irr (KBuild       c  ) = KBuild       (irrelevance irr c)
+  irrelevance irr (KStepTo      c f) = KStepTo      (irrelevance irr c) (irrelevance irr f)
+  irrelevance irr (KComputation c f) = KComputation (irrelevance irr c) (irrelevance irr f)
 
-instance (ValueIrrelevance (ExtComp l), ValueIrrelevance (Configuration l)) => ValueIrrelevance (Frame l) where
-  valueIrrelevance (KInp args pf) = KInp args (valueIrrelevance pf) -- args are in negative position
+instance (Irrelevance (ExtComp l), Irrelevance (Configuration l)) => Irrelevance (Frame l) where
+  irrelevance irr (KInp args pf) = KInp args (irrelevance irr pf) -- args are in negative position
 
-instance (ValueIrrelevance (ExtComp l), ValueIrrelevance (Configuration l)) => ValueIrrelevance (Context l) where
-  valueIrrelevance  KHalt      = KHalt
-  valueIrrelevance (KPush f c) = KPush (valueIrrelevance f) (valueIrrelevance c)
-  valueIrrelevance (KVar v)    = KVar v
+instance (Irrelevance (ExtComp l), Irrelevance (Configuration l)) => Irrelevance (Context l) where
+  irrelevance _  KHalt      = KHalt
+  irrelevance irr (KPush f c) = KPush (irrelevance irr f) (irrelevance irr c)
+  irrelevance _ (KVar v)    = KVar v

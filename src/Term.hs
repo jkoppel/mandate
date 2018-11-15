@@ -34,6 +34,7 @@ module Term (
 
 , checkSig
 , checkTerm
+, sortOfTerm
 ) where
 
 import Control.DeepSeq ( deepseq )
@@ -370,7 +371,6 @@ getInSig (Signature sig) s = case find (\n -> sigNodeSymbol n == s) sig of
 sortForSym :: Signature l -> Symbol -> Sort
 sortForSym sig s = sigNodeSort $ getInSig sig s
 
--- private helper
 -- Metavars/stars are currently unsorted / can have any sort
 sortOfTerm :: Signature l -> Term l -> Maybe Sort
 sortOfTerm sig (Node    sym _) = Just $ sortForSym sig sym

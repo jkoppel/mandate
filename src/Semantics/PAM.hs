@@ -144,5 +144,5 @@ abstractPamCfg absFunc abs rules t = transitionGraph (liftM (map abs) . stepPam 
 
 ----------------------------
 
-instance ValueIrrelevance Phase where
-  valueIrrelevance p = p
+instance Irrelevance Phase where
+  irrelevance _ p = p

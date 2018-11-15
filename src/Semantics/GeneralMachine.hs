@@ -118,8 +118,8 @@ instance AbstractCompFuncs (NamedGenAMRule t l) l where
 instance AbstractCompFuncs (GenAMRule t l) l where
   abstractCompFuncs abs (GenAMRule l r) = GenAMRule l (abstractCompFuncs abs r)
 
-instance (ValueIrrelevance (Configuration l), ValueIrrelevance (Context l), ValueIrrelevance t) => ValueIrrelevance (GenAMState t l) where
-  valueIrrelevance (GenAMState conf ctx t) = GenAMState (valueIrrelevance conf) (valueIrrelevance ctx) (valueIrrelevance t)
+instance (Irrelevance (Configuration l), Irrelevance (Context l), Irrelevance t) => Irrelevance (GenAMState t l) where
+  irrelevance irr (GenAMState conf ctx t) = GenAMState (irrelevance irr conf) (irrelevance irr ctx) (irrelevance irr t)
 
 -------------------------------------------------------------------------
 

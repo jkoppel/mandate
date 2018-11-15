@@ -44,21 +44,25 @@ instance LangBase ImpLang where
   compFuncName RunLT    = "runLT"
   compFuncName DoReadInt  = "read"
   compFuncName DoWriteInt = "write"
+  compFuncName AbsRunAdd   = "absRunAdd"
+  compFuncName AbsRunLT    = "absRunLT"
+  compFuncName AbsDoReadInt  = "absRead"
+  compFuncName AbsDoWriteInt = "absWrite"
 
   runCompFunc func (c:cs)  = runExternalComputation func (confState c) (map confTerm (c:cs))
 
 instance Hashable (CompFunc ImpLang)
 
-instance ValueIrrelevance (CompFunc ImpLang) where
-  valueIrrelevance RunAdd     = AbsRunAdd
-  valueIrrelevance RunLT      = AbsRunLT
-  valueIrrelevance DoReadInt  = AbsDoReadInt
-  valueIrrelevance DoWriteInt = AbsDoWriteInt
+instance Irrelevance (CompFunc ImpLang) where
+  irrelevance _ RunAdd     = AbsRunAdd
+  irrelevance _ RunLT      = AbsRunLT
+  irrelevance _ DoReadInt  = AbsDoReadInt
+  irrelevance _ DoWriteInt = AbsDoWriteInt
 
-  valueIrrelevance AbsRunAdd     = AbsRunAdd
-  valueIrrelevance AbsRunLT      = AbsRunLT
-  valueIrrelevance AbsDoReadInt  = AbsDoReadInt
-  valueIrrelevance AbsDoWriteInt = AbsDoWriteInt
+  irrelevance _ AbsRunAdd     = AbsRunAdd
+  irrelevance _ AbsRunLT      = AbsRunLT
+  irrelevance _ AbsDoReadInt  = AbsDoReadInt
+  irrelevance _ AbsDoWriteInt = AbsDoWriteInt
 
 instance Lang ImpLang where
   signature = impLangSig
@@ -311,6 +315,8 @@ runExternalComputation AbsRunLT  state [_, GStar _] = return $ initConf ValStar
 
 runExternalComputation AbsDoReadInt   state [_] = return $ initConf ValStar
 runExternalComputation AbsDoWriteInt  state [_] = return $ initConf Skip
+
+runExternalComputation f s ts = error $ show f ++ "\t\t" ++ show s ++ "\t\t" ++ show ts
 
 
 ------------------------------------------------------------------------------------------------------------------

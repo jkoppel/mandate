@@ -34,11 +34,11 @@ instance LangBase AddMulLang where
 
   runCompFunc func (c:cs)  = runExternalComputation func (confState c) (map confTerm (c:cs))
 
-instance ValueIrrelevance (CompFunc AddMulLang) where
-  valueIrrelevance RunAdd    = AbsRunAdd
-  valueIrrelevance AbsRunAdd = AbsRunAdd
-  valueIrrelevance RunMul    = AbsRunMul
-  valueIrrelevance AbsRunMul = AbsRunMul
+instance Irrelevance (CompFunc AddMulLang) where
+  irrelevance _ RunAdd    = AbsRunAdd
+  irrelevance _ AbsRunAdd = AbsRunAdd
+  irrelevance _ RunMul    = AbsRunMul
+  irrelevance _ AbsRunMul = AbsRunMul
 
 instance Hashable (CompFunc AddMulLang)
 
