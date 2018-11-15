@@ -45,7 +45,6 @@ instance LangBase ImpLang where
   compFuncName DoReadInt  = "read"
   compFuncName DoWriteInt = "write"
 
-  runCompFunc DoReadInt  [] = initConf <$> EVal <$> Const <$> read <$> BS.unpack <$> matchEffectInput
   runCompFunc func (c:cs)  = runExternalComputation func (confState c) (map confTerm (c:cs))
 
 instance Hashable (CompFunc ImpLang)
@@ -225,7 +224,7 @@ impLangRules = sequence [
                    mkRule2 $ \val mu ->
                              let (mval) = (mv val) in
                              StepTo (conf ReadInt mu)
-                               (LetComputation (initConf mval) (extComp DoReadInt (WholeSimpEnv mu) [])
+                               (LetComputation (initConf mval) (extComp DoReadInt (WholeSimpEnv mu) [Skip])
                                (Build $ conf mval mu))
 
                  , name "write-int-cong" $
@@ -303,13 +302,14 @@ runExternalComputation RunAdd state [EVal (Const n1), EVal (Const n2)] = return 
 runExternalComputation RunLT  state [EVal (Const n1), EVal (Const n2)] = if n1 < n2 then return (initConf True) else return (initConf False)
 
 runExternalComputation DoWriteInt state [EVal (Const n)] = matchEffectOutput (BS.pack $ show n) >> return (initConf Skip)
+runExternalComputation DoReadInt  state [Skip] = initConf <$> EVal <$> Const <$> read <$> BS.unpack <$> matchEffectInput
 
 runExternalComputation AbsRunAdd state [GStar _, _] = return $ initConf ValStar
 runExternalComputation AbsRunAdd state [_, GStar _] = return $ initConf ValStar
 runExternalComputation AbsRunLT  state [GStar _, _] = return $ initConf ValStar
 runExternalComputation AbsRunLT  state [_, GStar _] = return $ initConf ValStar
 
-runExternalComputation AbsDoReadInt   state [ ] = return $ initConf ValStar
+runExternalComputation AbsDoReadInt   state [_] = return $ initConf ValStar
 runExternalComputation AbsDoWriteInt  state [_] = return $ initConf Skip
 
 
