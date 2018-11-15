@@ -12,7 +12,7 @@ data MITScript
 
 mitScriptSorts :: [Sort]
 mitScriptSorts = [ "Name",  "NameList", "Stmt", "StmtList"
-                , "BinOp", "UnOp" , "Expr", "ExprList" , "ReducedExprList"
+                , "BinOp", "UnOp" , "Builtin", "Expr", "ExprList" , "ReducedExprList"
                 , "RecordPair", "RecordPairList"
                 , "ReducedRecordPair", "ReducedRecordPairList"
                 , "Bool", "ConstInt", "ConstStr", "HeapAddr"
@@ -98,6 +98,11 @@ mitScriptSig = Signature [ StrSig "Name" "Name"
 
                          , ValSig "ReducedConsExprNil" [] "ReducedRecordPairList"
                          , ValSig "ReducedRecordCons" ["ReducedRecordPair", "ReducedRecordPairList"] "ReducedRecordPairList"
+
+                         , NodeSig "Print"   [] "Builtin"
+                         , NodeSig "IntCast" [] "Builtin"
+                         , NodeSig "Read"    [] "Builtin"
+                         , NodeSig "Builtin" ["Builtin", "Expr"] "Expr"
              ]
 
 --------------------------------------------------------------------------------------------------------------------
@@ -281,3 +286,15 @@ pattern HeapAddr n = IntNode "HeapAddr" n
 
 pattern Scope :: Term MITScript -> Term MITScript -> Term MITScript -> Term MITScript
 pattern Scope body params args = Node "Scope" [body, params, args]
+
+pattern Print :: Term MITScript
+pattern Print = Node "Print" []
+
+pattern IntCast :: Term MITScript
+pattern IntCast = Node "IntCast" []
+
+pattern Read :: Term MITScript
+pattern Read = Node "Read" []
+
+pattern Builtin :: Term MITScript -> Term MITScript -> Term MITScript
+pattern Builtin name arg = Node "Builtin" [name, arg]

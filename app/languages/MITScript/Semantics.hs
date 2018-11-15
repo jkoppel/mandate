@@ -10,6 +10,7 @@ import qualified Prelude
 
 import GHC.Generics ( Generic )
 
+import qualified Data.Map as Map
 import Data.ByteString.Char8 ( ByteString )
 import qualified Data.ByteString.Char8 as BS
 import Data.Interned ( unintern, intern )
@@ -44,42 +45,54 @@ instance LangBase MITScript where
                                 | Compute      | AbsCompute
                                 | WriteIndex   | AbsWriteIndex
                                 | ReadIndex    | AbsReadIndex
+                                | RunBuiltin   | AbsRunBuiltin
             deriving ( Eq, Generic )
 
         compFuncName ReadField    = "readField"
         compFuncName WriteField   = "writeField"
         compFuncName AllocAddress = "allocAddress"
         compFuncName Compute      = "compute"
-        compFuncName ReadIndex    = "readIndex"
         compFuncName WriteIndex   = "writeIndex"
+        compFuncName ReadIndex    = "readIndex"
+        compFuncName RunBuiltin   = "runBuiltin"
 
         runCompFunc func (c:cs)  = runExternalComputation func (confState c) (map confTerm (c:cs))
 
 instance Hashable (CompFunc MITScript)
 
 instance Irrelevance (CompFunc MITScript) where
-    irrelevance _ ReadField = AbsReadField
-    irrelevance _ WriteField = AbsWriteField
+    irrelevance _ ReadField    = AbsReadField
+    irrelevance _ WriteField   = AbsWriteField
     irrelevance _ AllocAddress = AbsAllocAddress
-    irrelevance _ Compute   = AbsCompute
-    irrelevance _ ReadIndex = AbsReadIndex
-    irrelevance _ WriteIndex = AbsWriteIndex
+    irrelevance _ Compute      = AbsCompute
+    irrelevance _ ReadIndex    = AbsReadIndex
+    irrelevance _ WriteIndex   = AbsWriteIndex
+    irrelevance _ RunBuiltin   = AbsRunBuiltin
 
-    irrelevance _ AbsReadField = AbsReadField
-    irrelevance _ AbsReadIndex = AbsReadIndex
+    irrelevance _ AbsReadField    = AbsReadField
+    irrelevance _ AbsReadIndex    = AbsReadIndex
     irrelevance _ AbsAllocAddress = AbsAllocAddress
-    irrelevance _ AbsCompute = AbsCompute
-    irrelevance _ AbsReadIndex = AbsReadIndex
-    irrelevance _ AbsWriteIndex = AbsWriteIndex
-
-
+    irrelevance _ AbsCompute      = AbsCompute
+    irrelevance _ AbsReadIndex    = AbsReadIndex
+    irrelevance _ AbsWriteIndex   = AbsWriteIndex
+    irrelevance _ AbsRunBuiltin   = AbsRunBuiltin
 
 instance Lang MITScript where
     signature = mitScriptSig
 
     initConf t = Conf t (
         ConsFrame (HeapAddr 0) NilFrame,
-        JustSimpMap $ SingletonSimpMap (HeapAddr 0) (ReducedRecord ReducedRecordNil) )
+        JustSimpMap $ SimpEnvMap $ Map.fromList
+            [
+                (HeapAddr 0, ReducedRecord
+                                $ ReducedRecordCons (ReducedRecordPair (Name "print")   (ReferenceVal $ HeapAddr 1))
+                                $ ReducedRecordCons (ReducedRecordPair (Name "read")    (ReferenceVal $ HeapAddr 2))
+                                $ ReducedRecordCons (ReducedRecordPair (Name "intcast") (ReferenceVal $ HeapAddr 3))
+                                $ Parent $ HeapAddr $ -1)
+              , (HeapAddr 1, builtinPrint)
+              , (HeapAddr 2, builtinRead)
+              , (HeapAddr 3, builtinIntCast)
+            ])
 
 
 instance HasSOS MITScript where
@@ -497,7 +510,24 @@ mitScriptRules = sequence [
     mkPairRule1 $ \env ->
     mkRule0 $
             StepTo (conf NilExpr env)
-            (Build $ conf ReducedNilExpr env)
+                (Build $ conf ReducedNilExpr env)
+
+    -- Bultins
+    , name "builtin-cong" $
+    mkPairRule2 $ \env env' ->
+    mkRule3 $ \var ret func ->
+        let (tvar, mret, mfunc) = (tv var, mv ret, mv func) in
+            StepTo (conf (Builtin mfunc tvar) env)
+                (LetStepTo (conf mret env') (conf tvar env)
+                    (Build $ conf (Builtin mfunc mret) env'))
+
+    , name "builtin-eval" $
+    mkPairRule1 $ \env ->
+    mkRule3 $ \var ret func ->
+        let (vvar, mret, mfunc) = (vv var, mv ret, mv func) in
+            StepTo (conf (Builtin mfunc vvar) env)
+                (LetComputation (initConf mret) (extComp RunBuiltin (matchRedState env) [mfunc, vvar])
+                    (Build $ conf mret env))
 
     ]
 
@@ -559,7 +589,25 @@ returnString x = return $ initConf $ Str $ ConstStr $ fromString x
 matchRedState :: (MetaVar, MetaVar) -> RedState MITScript
 matchRedState (stack, heap) = (mv stack, WholeSimpEnv heap)
 
-runExternalComputation :: Monad m => CompFunc MITScript -> RedState MITScript -> [Term MITScript] -> m (Configuration MITScript)
+builtinPrint :: Term MITScript
+builtinPrint = Closure
+                    (ConsName (Name "x") NilName)
+                    (Block (ConsStmt (Return (Builtin Print (Var $ Name "x"))) NilStmt))
+                    (HeapAddr $ -1)
+
+builtinIntCast :: Term MITScript
+builtinIntCast = Closure
+                    (ConsName (Name "x") NilName)
+                    (Block (ConsStmt (Return (Builtin IntCast (Var $ Name "x"))) NilStmt))
+                    (HeapAddr $ -1)
+
+builtinRead :: Term MITScript
+builtinRead = Closure
+                    NilName
+                    (Block (ConsStmt (Return (Builtin Read None)) NilStmt))
+                    (HeapAddr $ -1)
+
+runExternalComputation :: CompFunc MITScript -> RedState MITScript -> [Term MITScript] -> MatchEffect (Configuration MITScript)
 runExternalComputation Compute state [UMINUS, NumConst (ConstInt n1)] = returnInt $ negate n1
 runExternalComputation Compute state [NOT, BConst b]                  = returnBool $ not $ toMetaBool b
 
@@ -594,6 +642,10 @@ runExternalComputation WriteIndex (stack, heap) [ReducedRecord r, i, val] = retu
 
 runExternalComputation ReadField (stack, heap) [ReducedRecord r, Name f] = return $ initConf $ readField heap r (ibsToString f)
 runExternalComputation WriteField state [ReducedRecord r, Name f, val]   = return $ initConf $ writeField r (ibsToString f) val
+
+runExternalComputation RunBuiltin state         [Read]        = initConf <$> Str <$> ConstStr <$> intern <$> matchEffectInput
+runExternalComputation RunBuiltin (stack, heap) [Print, vv]   = matchEffectOutput (BS.pack $ fromString $ toString vv heap) >> return (initConf None)
+runExternalComputation RunBuiltin (stack, heap) [IntCast, vv] = returnInt $ read $ toString vv heap
 
 runExternalComputation func state [GStar _] = return $ initConf ValStar
 
