@@ -54,9 +54,12 @@ executables:
     - bytestring
     - deepseq
     - derive-cfg
+    - fgl
+    - graphviz
     - hashable
     - intern
     - process
+    - text
 
 tests:
   derive-cfg-test:
