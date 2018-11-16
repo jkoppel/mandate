@@ -57,6 +57,8 @@ executables:
     - hashable
     - intern
     - process
+    - graphviz
+
 
 tests:
   derive-cfg-test:
