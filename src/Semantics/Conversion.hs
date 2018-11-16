@@ -49,11 +49,7 @@ infNameStream nam = map (\i -> mconcat [nam, "-", BS.pack $ show i]) [1..]
 -- KStepTo is converted into a PAM RHS. The remainder, if any, is returned for further conversion into the next rule.
 splitFrame :: (Lang l) => PosFrame l -> Context l -> (PAMRhs l, Context l, Maybe (Configuration l, PosFrame l))
 splitFrame (KBuild c) k = (GenAMRhs $ PAMState c k Up, k, Nothing)
-splitFrame (KStepTo c f@(KInp i pf)) k =
-    let f' = KInp i pf in
-    let cont = KPush f k in
-    let cont' = KPush (KInp i pf) k in
-    (GenAMRhs $ PAMState c cont Down, cont', Just (i, pf))
+splitFrame (KStepTo c f@(KInp i pf)) k = (GenAMRhs $ PAMState c (KPush f k) Down, (KPush f k), Just (i, pf))
 splitFrame (KComputation comp (KInp c pf)) k = let (subRhs, ctx, rest) = splitFrame pf k in
                                                (GenAMLetComputation c comp subRhs, ctx, rest)
 
