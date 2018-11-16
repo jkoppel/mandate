@@ -13,4 +13,5 @@ rules <- impLangRules
 pamRules <- sosToPam rules
 amRules <- pamToAM pamRules
 putStrLn "Try this: evaluationSequenceL (initConf term1) >>= mapM_ (putStrLn.show)"
-putStrLn "Or this: abstractAmCfg valueIrrelevance valueIrrelevance amRules term1"
+putStrLn "Or this: abstractAmCfg (irrelevance ValueIrr) (irrelevance ValueIrr) amRules term1"
+putStrLn "Or this: abstractAmCfg (irrelevance (SortIrr \"Exp\")) (irrelevance (SortIrr \"Exp\")) amRules term1"
