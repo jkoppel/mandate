@@ -3,11 +3,6 @@
 :l Languages.Imp
 import Control.DeepSeq
 import Configuration
-import Data.Text.Lazy
-import Data.GraphViz
-import Data.Graph.Inductive.Example
-import Data.GraphViz.Printing
-import Data.Graph.Inductive.PatriciaTree
 import Graph
 import Rose
 import Semantics.AbstractMachine
@@ -17,8 +12,6 @@ import Term
 rules <- impLangRules
 pamRules <- sosToPam rules
 amRules <- pamToAM pamRules
-showGraph graph = putStrLn $ unpack $ renderDot $ toDot $ graphToDot (defaultParams { fmtNode = \(n,l) -> [xLabel l], fmtEdge = \(n1,n2,l) -> [xLabel l]}) (toRealGraph @Gr graph)
 putStrLn "Try this: evaluationSequenceL (initConf term1) >>= mapM_ (putStrLn.show)"
 putStrLn "Or this: abstractAmCfg (irrelevance ValueIrr) (irrelevance ValueIrr) amRules term1"
 putStrLn "Or this: abstractAmCfg (irrelevance (SortIrr \"Exp\")) (irrelevance (SortIrr \"Exp\")) amRules term1"
-putStrLn "Or this: g <- [one of the above]; showGraph g, then in bash: `$ dot -Tsvg > cfg.svg` and paste in the text"
