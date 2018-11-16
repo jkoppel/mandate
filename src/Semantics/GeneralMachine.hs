@@ -7,6 +7,7 @@ module Semantics.GeneralMachine (
   , GenAMState(..)
   , GenAMRule(..)
   , NamedGenAMRule(..)
+  , NamedGenAMRules
 
   , stepGenAm
   ) where

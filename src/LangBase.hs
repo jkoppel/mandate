@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts, GADTs, StandaloneDeriving, TypeFamilies #-}
+{-# LANGUAGE EmptyDataDecls, FlexibleContexts, GADTs, StandaloneDeriving, TypeFamilies #-}
 
 module LangBase (
     GConfiguration(..)
@@ -7,6 +7,7 @@ module LangBase (
   , Configuration
 
   , LangBase(..)
+  , UnusedLanguage
   ) where
 
 import Data.ByteString.Char8 ( ByteString)
@@ -74,3 +75,6 @@ class (Typeable l, Typeable (RedState l), Eq (CompFunc l), Eq (RedState l), Show
 
 instance LangBase l => Show (CompFunc l) where
   show = BS.unpack . compFuncName
+
+
+data UnusedLanguage
