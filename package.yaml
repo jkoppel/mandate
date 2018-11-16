@@ -58,6 +58,8 @@ executables:
     - intern
     - process
     - graphviz
+    - fgl
+    - text
 
 
 tests:

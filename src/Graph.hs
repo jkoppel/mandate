@@ -6,17 +6,19 @@ module Graph (
   , empty
   , insert
   , member
+  , toRealGraph
   ) where
 
 import Control.Monad.Writer ( tell, execWriter )
 import Control.Monad.State ( gets, modify, evalStateT )
 
-import Data.List ( partition )
-
+import Data.List ( partition, elemIndex )
+import Data.Maybe (fromMaybe)
 import Data.HashMap.Strict ( HashMap, (!) )
 import qualified Data.HashMap.Strict as M
 import Data.HashSet ( HashSet )
 import qualified Data.HashSet as S
+import qualified Data.Graph.Inductive.Graph as RealGraph
 
 import Data.Hashable ( Hashable(..) )
 
@@ -72,6 +74,18 @@ empty = Graph M.empty
 newNode :: GraphNode a
 newNode = GraphNode 0 0 S.empty
 
+nodeIndex :: (Eq a) => Graph a -> a -> Int
+nodeIndex g n = fromMaybe (negate 1) (elemIndex n (M.keys $ getGraph g))
+
+realNodes :: (Eq a, Show a) => Graph a -> [RealGraph.LNode String]
+realNodes g = map (\key -> (nodeIndex g key, show key)) (M.keys $ getGraph g)
+
+realEdgesForNode :: (Eq a) => Graph a -> a -> GraphNode a -> [RealGraph.LEdge String]
+realEdgesForNode g n es = S.toList $ S.map (\edge -> (nodeIndex g n, nodeIndex g edge, "")) (edges es)
+
+realEdges :: (Eq a) => Graph a -> [RealGraph.LEdge String]
+realEdges g = concat $ M.mapWithKey (realEdgesForNode g) (getGraph g)
+
 -- | `insert x y g` adds an edge from `x` to `y` in graph `g`. `x` and `y` do
 -- not need to be pre-existing nodes in the graph.
 insert :: (Eq a, Hashable a) => a -> a -> Graph a -> Graph a
@@ -92,3 +106,5 @@ insert x y (Graph m) = Graph $ addEdge x y
 member :: (Eq a, Hashable a) => a -> Graph a -> Bool
 member a = M.member a . getGraph
 
+toRealGraph :: (RealGraph.Graph gr, Eq a, Show a) => Graph a -> gr String String
+toRealGraph g = RealGraph.mkGraph (realNodes g) (realEdges g)
