@@ -77,6 +77,7 @@ mitScriptSig = Signature [ StrSig "Name" "Name"
                          , ValSig  "ReferenceVal"  ["HeapAddr"]                         "Exp"
                          , ValSig  "BConst"        ["Bool"]                             "Exp"
                          , ValSig  "None"          []                                   "Exp"
+                         , ValSig  "GlobalVar"     []                                   "Exp"
                          , ValSig  "Str"           ["ConstStr"]                         "Exp"
                          , NodeSig "Var"           ["Name"]                             "Exp"
                          , NodeSig "FunCall"       ["Exp", "ExpList"]                   "Exp"
@@ -293,3 +294,6 @@ pattern Read = Node "Read" []
 
 pattern Builtin :: Term MITScript -> Term MITScript -> Term MITScript
 pattern Builtin name arg = Node "Builtin" [name, arg]
+
+pattern GlobalVar :: Term MITScript
+pattern GlobalVar = Val "GlobalVar" []

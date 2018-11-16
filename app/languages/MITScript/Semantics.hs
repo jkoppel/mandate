@@ -85,13 +85,13 @@ instance Lang MITScript where
         JustSimpMap $ SimpEnvMap $ Map.fromList
             [
                 (HeapAddr 0, ReducedRecord
-                                $ ReducedRecordCons (ReducedRecordPair (Name "print")   (ReferenceVal $ HeapAddr 1))
-                                $ ReducedRecordCons (ReducedRecordPair (Name "read")    (ReferenceVal $ HeapAddr 2))
-                                $ ReducedRecordCons (ReducedRecordPair (Name "intcast") (ReferenceVal $ HeapAddr 3))
+                                -- $ ReducedRecordCons (ReducedRecordPair (Name "print")   (ReferenceVal $ HeapAddr 1))
+                                -- $ ReducedRecordCons (ReducedRecordPair (Name "read")    (ReferenceVal $ HeapAddr 2))
+                                -- $ ReducedRecordCons (ReducedRecordPair (Name "intcast") (ReferenceVal $ HeapAddr 3))
                                 $ Parent $ HeapAddr $ -1)
-              , (HeapAddr 1, builtinPrint)
-              , (HeapAddr 2, builtinRead)
-              , (HeapAddr 3, builtinIntCast)
+            --   , (HeapAddr 1, builtinPrint)
+            --   , (HeapAddr 2, builtinRead)
+            --   , (HeapAddr 3, builtinIntCast)
             ])
 
 
@@ -141,6 +141,13 @@ mitScriptRules = sequence [
         let ms = mv s in
             StepTo (conf (ConsStmt NilStmt ms) env)
             (Build $ conf ms env)
+
+    , name "seq-global" $
+    mkPairRule1 $ \env ->
+    mkRule2 $ \s g ->
+        let (ms, mg) = (mv s, mv g) in
+            StepTo (conf (ConsStmt (Global mg) ms) env)
+            (Build $ conf (ConsStmt (Assign (Var mg) GlobalVar) ms) env)
 
     , name "seq-ret-cong" $
     mkPairRule2 $ \env env' ->
@@ -234,12 +241,19 @@ mitScriptRules = sequence [
             (LetStepTo (conf mre env') (conf tre env)
             (Build $ conf (Assign (FieldAccess mre mfield) vval) env'))
 
-    , name "field-assn-eval" $
+    , name "field-assn-eval-nonglobal" $
     mkRule7 $ \val field ref mu h re re'->
         let (vval, mref, mfield, vre, vre', mmu) = (vv val, mv ref, mv field, vv re, vv re', mv mu) in
             StepTo (Conf (Assign (FieldAccess (ReferenceVal mref) mfield) vval) (mmu, AssocOneVal h mref vre))
-            (LetComputation (initConf vre') (extComp WriteField (mmu, AssocOneVal h mref vre) [vre, mfield, vval])
-            (Build $ Conf NilStmt (mmu, AssocOneVal h mref vre')))
+            (LetComputation (initConf (ReducedRecord vre')) (extComp WriteField (mmu, AssocOneVal h mref vre) [vre, mfield, vval])
+            (Build $ Conf NilStmt (mmu, AssocOneVal h mref (ReducedRecord vre'))))
+
+    , name "field-assn-eval-global" $
+    mkRule7 $ \val field ref mu h re assign->
+        let (vval, mref, mfield, vre, massign, mmu) = (vv val, mv ref, mv field, vv re, mv assign, mv mu) in
+            StepTo (Conf (Assign (FieldAccess (ReferenceVal mref) mfield) vval) (mmu, AssocOneVal h mref vre))
+            (LetComputation (initConf (Assign massign vval)) (extComp WriteField (mmu, AssocOneVal h mref vre) [vre, mfield, vval])
+            (Build $ Conf (Assign massign vval) (mmu, AssocOneVal h mref vre)))
 
     , name "index-assn-cong-1" $
     mkPairRule2 $ \env env' ->
@@ -456,9 +470,9 @@ mitScriptRules = sequence [
     , name "fun-call-cong-alloc-frame" $
     mkRule7 $ \params body frame mu ref h args ->
         let (mparams, mbody, mframe, mmu, mref, vargs) = (mv params, mv body, mv frame, mv mu, mv ref, vv args) in
-            StepTo (Conf (FunCall (Closure mparams mbody mframe) vargs) (mmu, WholeSimpEnv h))
+            StepTo (Conf (FunCall (Closure mparams (Block mbody) mframe) vargs) (mmu, WholeSimpEnv h))
                    (LetComputation (initConf mref) (extComp AllocAddress (mmu, WholeSimpEnv h) [NilStmt])
-                      (Build $ Conf (Scope mbody mparams vargs)
+                      (Build $ Conf (Scope (Block (ConsStmt (Block mbody) (Return None))) mparams vargs)
                                     (ConsFrame mref mmu, AssocOneVal h mref (ReducedRecord $ Parent mframe))))
 
     , name "fun-call-cong-assign-args" $
@@ -537,23 +551,43 @@ ibsToString = BS.unpack . unintern
 stringToIbs :: String -> InternedByteString
 stringToIbs = intern . BS.pack
 
+isGlobal :: SimpEnv (Term MITScript) (Term MITScript) -> Term MITScript -> String -> Bool
+isGlobal heap (ReducedRecordCons (ReducedRecordPair (Name k) v) rps) field =
+    if ibsToString k == field then
+        case v of
+            GlobalVar -> Prelude.True
+            _ -> Prelude.False
+        else isGlobal heap rps field
+isGlobal heap (Parent p) f = case Configuration.lookup p heap of
+                                    Just parent -> isGlobal heap parent f
+                                    Nothing -> Prelude.False
+isGlobal _ _ _ = Prelude.False
+
 readField :: SimpEnv (Term MITScript) (Term MITScript) -> Term MITScript -> String -> Term MITScript
-readField heap (ReducedRecordCons (ReducedRecordPair (Name k) v) rps) field = if ibsToString k == field then v else readField heap rps field
-readField heap (Parent p) f = case Configuration.lookup p heap of
-                                    Just parent -> readField heap parent f
-                                    Nothing -> error "ERR: Dangling Pointer"
-readField _ _ _ = None
+readField heap x y = if isGlobal heap x y then
+                        case Configuration.lookup (HeapAddr 0) heap of
+                                    Just (ReducedRecord parent) -> readField heap parent y
+                                    Nothing -> error "ERR: Missing Global Frame"
+                     else readField' heap x y
+    where
+        readField' heap (ReducedRecordCons (ReducedRecordPair (Name k) v) rps) field = if ibsToString k == field then v else readField' heap rps field
+        readField' heap (Parent p) f = case Configuration.lookup p heap of
+                                            Just (ReducedRecord parent) -> readField heap parent f
+                                            Nothing -> error "ERR: Dangling Pointer"
+        readField' heap ReducedRecordNil field = None
+        readField' heap item field = error (show heap ++ "\n\t" ++ show item ++ "\n\t" ++ show field)
 
-writeField' :: Term MITScript -> String -> Term MITScript -> Term MITScript
-writeField' (ReducedRecordCons (ReducedRecordPair (Name k) v) rps) field val =
-    if ibsToString k == field then ReducedRecordCons (ReducedRecordPair (Name k) val) rps
-                              else ReducedRecordCons (ReducedRecordPair (Name k) v) (writeField' rps field val)
-writeField' ReducedRecordNil field val = ReducedRecordCons (ReducedRecordPair (Name (stringToIbs field)) val) ReducedRecordNil
-writeField' (Parent p) field val     = ReducedRecordCons (ReducedRecordPair (Name (stringToIbs field)) val) (Parent p)
-
-writeField :: Term MITScript -> String -> Term MITScript -> Term MITScript
-writeField x y z = ReducedRecord (writeField' x y z)
-
+writeField :: SimpEnv (Term MITScript) (Term MITScript) -> Term MITScript -> String -> Term MITScript -> Term MITScript
+writeField heap x y z = if isGlobal heap x y then
+                            Assign (FieldAccess (ReferenceVal (HeapAddr 0)) (Name (stringToIbs y))) z
+                        else
+                            ReducedRecord (writeField' x y z)
+    where
+        writeField' (ReducedRecordCons (ReducedRecordPair (Name k) v) rps) field val =
+            if ibsToString k == field then ReducedRecordCons (ReducedRecordPair (Name k) val) rps
+                                      else ReducedRecordCons (ReducedRecordPair (Name k) v) (writeField' rps field val)
+        writeField' ReducedRecordNil field val = ReducedRecordCons (ReducedRecordPair (Name (stringToIbs field)) val) ReducedRecordNil
+        writeField' (Parent p) field val       = ReducedRecordCons (ReducedRecordPair (Name (stringToIbs field)) val) (Parent p)
 
 toMetaBool :: Term MITScript -> Bool
 toMetaBool True = Prelude.True
@@ -638,10 +672,10 @@ runExternalComputation Compute state [OR, BConst l, BConst r]         = returnBo
 runExternalComputation AllocAddress (stack, heap) _ = return $ initConf (HeapAddr $ size heap)
 
 runExternalComputation ReadIndex (stack, heap)  [ReducedRecord r, i]      = return $ initConf $ readField heap r (toString i heap)
-runExternalComputation WriteIndex (stack, heap) [ReducedRecord r, i, val] = return $ initConf $ writeField r (toString i heap) val
+runExternalComputation WriteIndex (stack, heap) [ReducedRecord r, i, val] = return $ initConf $ writeField heap r (toString i heap) val
 
-runExternalComputation ReadField (stack, heap) [ReducedRecord r, Name f] = return $ initConf $ readField heap r (ibsToString f)
-runExternalComputation WriteField state [ReducedRecord r, Name f, val]   = return $ initConf $ writeField r (ibsToString f) val
+runExternalComputation ReadField (stack, heap)  [ReducedRecord r, Name f] = return $ initConf $ readField heap r (ibsToString f)
+runExternalComputation WriteField (stack, heap) [ReducedRecord r, Name f, val]   = return $ initConf $ writeField heap r (ibsToString f) val
 
 runExternalComputation RunBuiltin state         [Read]        = initConf <$> Str <$> ConstStr <$> intern <$> matchEffectInput
 runExternalComputation RunBuiltin (stack, heap) [Print, vv]   = matchEffectOutput (BS.pack $ fromString $ toString vv heap) >> return (initConf None)

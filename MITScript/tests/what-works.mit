@@ -1,10 +1,10 @@
 x = -(3 + 5); // negation and summation work
 y = x + 4;    // variable access works
 r = {hello: "world"; rec: {goodbye: "world";};};
-s = "hello " + "world" + 1 + 2 + 3 + true + false + None + r; // most addition works (not function)
+s = "hello " + "world" + 1 + 2 + 3 + true + false + None + r; // addition
 
 a = 1;
-while (a < 10) { // while works
+while (a < 3) { // while works
     a = a + 1;
 }
 
@@ -21,3 +21,21 @@ m = { // records work!
 
 xx = m.x.x; // as does field access!
 yy = m["" + "x" ]["y"]; // and index access!
+
+// Functions with and without return statements
+x = fun () {
+    y = 5;
+    return y;
+};
+
+test = x();
+
+g = 0;
+
+y = fun () {
+    global g;
+    g = g + 5;
+    return g;
+};
+
+befive = y();
