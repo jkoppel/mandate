@@ -465,21 +465,21 @@ mitScriptRules = sequence [
     mkPairRule1 $ \env->
     mkRule5 $ \param params body arg args ->
         let (mparam, mparams, mbody, varg, vargs) = (mv param, mv params, mv body, vv arg, vv args) in
-            StepTo (conf (Scope (Block mbody) (ConsName mparam mparams) (ReducedConsExpr varg vargs)) env)
+            StepTo (conf (Scope (Block mbody) (ConsName mparam mparams) (ReducedConsExp varg vargs)) env)
                 (Build $ conf (Scope (Block (ConsStmt (Assign (Var mparam) varg) mbody)) mparams vargs) env)
 
     , name "fun-call-cong-body" $
     mkPairRule2 $ \env env'->
     mkRule2 $ \body body' ->
         let (tbody, mbody') = (tv body, mv body') in
-            StepTo (conf (Scope tbody NilName ReducedNilExpr) env)
+            StepTo (conf (Scope tbody NilName ReducedNilExp) env)
                    (LetStepTo (conf mbody' env') (conf tbody env)
-                      (Build $ conf (Scope mbody' NilName ReducedNilExpr) env'))
+                      (Build $ conf (Scope mbody' NilName ReducedNilExp) env'))
 
     , name "fun-call-eval" $
     mkRule4 $ \result mu rest h ->
         let (vresult, mmu, mrest) = (vv result, mv mu, mv rest) in
-            StepTo (Conf (Scope (Return vresult) NilName ReducedNilExpr) (ConsFrame mmu mrest, WholeSimpEnv h))
+            StepTo (Conf (Scope (Return vresult) NilName ReducedNilExp) (ConsFrame mmu mrest, WholeSimpEnv h))
                 (Build $ Conf vresult (mrest, WholeSimpEnv h))
 
     -- Function argument lists
@@ -487,30 +487,30 @@ mitScriptRules = sequence [
     mkPairRule2 $ \env env' ->
     mkRule3 $ \e e' rest ->
         let (te, me', mrest) = (tv e, mv e', mv rest) in
-            StepTo (conf (ConsExpr te mrest) env)
+            StepTo (conf (ConsExp te mrest) env)
                 (LetStepTo (conf me' env') (conf te env)
-                    (Build $ conf (ConsExpr me' mrest) env'))
+                    (Build $ conf (ConsExp me' mrest) env'))
 
     , name "cons-expr-cong-cdr" $
     mkPairRule2 $ \env env' ->
     mkRule3 $ \e rest rest' ->
         let (ve, trest, mrest') = (vv e, tv rest, mv rest') in
-            StepTo (conf (ConsExpr ve trest) env)
+            StepTo (conf (ConsExp ve trest) env)
                 (LetStepTo (conf mrest' env') (conf trest env)
-                    (Build $ conf (ConsExpr ve mrest') env'))
+                    (Build $ conf (ConsExp ve mrest') env'))
 
     , name "cons-expr-eval" $
     mkPairRule1 $ \env ->
     mkRule2 $ \e rest ->
         let (ve, vrest) = (vv e, vv rest) in
-            StepTo (conf (ConsExpr ve vrest) env)
-                    (Build $ conf (ReducedConsExpr ve vrest) env)
+            StepTo (conf (ConsExp ve vrest) env)
+                    (Build $ conf (ReducedConsExp ve vrest) env)
 
     , name "nil-cons-expr-eval" $
     mkPairRule1 $ \env ->
     mkRule0 $
-            StepTo (conf NilExpr env)
-                (Build $ conf ReducedNilExpr env)
+            StepTo (conf NilExp env)
+                (Build $ conf ReducedNilExp env)
 
     -- Bultins
     , name "builtin-cong" $
