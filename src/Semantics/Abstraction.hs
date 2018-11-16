@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts, MultiParamTypeClasses, UndecidableInstances, OverloadedStrings #-}
+{-# LANGUAGE FlexibleContexts, MultiParamTypeClasses, UndecidableInstances #-}
 
 module Semantics.Abstraction (
     Abstraction
@@ -24,7 +24,7 @@ class AbstractCompFuncs t l where
 
 --------------------------------------------------------------------------------------------------------
 
-data IrrelevanceType = ValueIrr | SortIrr String deriving (Show, Eq)
+data IrrelevanceType = ValueIrr | SortIrr Sort deriving (Show, Eq)
 
 class Irrelevance t where
   irrelevance :: IrrelevanceType -> t -> t
@@ -44,7 +44,7 @@ instance (Lang l) => Irrelevance (Term l) where
   irrelevance (SortIrr sort) = mapTerm exprToStar
     where
       exprToStar t  = case sortOfTerm signature t of
-                        Just (Sort s) -> if (BS.unpack . unintern) s == sort then ValStar else t
+                        Just s@(Sort _) -> if s == sort then ValStar else t
                         _ -> t
 
 
