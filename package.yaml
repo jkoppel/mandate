@@ -61,7 +61,6 @@ executables:
     - process
     - text
 
-
 tests:
   derive-cfg-test:
     main:                Spec.hs
