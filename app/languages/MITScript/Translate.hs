@@ -77,8 +77,8 @@ instance ToGeneric MITScript M.Expr where
   toGeneric (M.Record rps) = G.Record (toGeneric rps)
 
 instance ToGeneric MITScript [M.Expr] where
-  toGeneric []     = G.NilExpr
-  toGeneric (e:es) = G.ConsExpr (toGeneric e) (toGeneric es)
+  toGeneric []     = G.NilExp
+  toGeneric (e:es) = G.ConsExp (toGeneric e) (toGeneric es)
 
 instance ToGeneric MITScript M.RecordPair where
   toGeneric (M.RecordPair n e) = G.RecordPair (toGeneric n) (toGeneric e)
@@ -157,8 +157,8 @@ instance FromGeneric MITScript M.Expr where
   fromGeneric _ = Nothing
 
 instance FromGeneric MITScript [M.Expr] where
-  fromGeneric G.NilExpr = return []
-  fromGeneric (G.ConsExpr e es) = (:) <$> fromGeneric e <*> fromGeneric es
+  fromGeneric G.NilExp = return []
+  fromGeneric (G.ConsExp e es) = (:) <$> fromGeneric e <*> fromGeneric es
   fromGeneric _ = Nothing
 
 instance FromGeneric MITScript M.RecordPair where

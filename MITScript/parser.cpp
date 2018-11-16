@@ -1661,7 +1661,7 @@ out = (yyval.stmt); }
 
   case 36:
 #line 272 "parser.yy" /* yacc.c:1663  */
-    { (yyval.expr) = new eBinary((yyvsp[0].expr), (yyvsp[-2].expr), GT); }
+    { (yyval.expr) = new eUnary(new eBinary((yyvsp[-2].expr), (yyvsp[0].expr), GTE), NOT); }
 #line 1666 "parser.cpp" /* yacc.c:1663  */
     break;
 
@@ -1673,7 +1673,7 @@ out = (yyval.stmt); }
 
   case 38:
 #line 274 "parser.yy" /* yacc.c:1663  */
-    { (yyval.expr) = new eBinary((yyvsp[0].expr), (yyvsp[-2].expr), GTE); }
+    { (yyval.expr) = new eUnary(new eBinary((yyvsp[-2].expr), (yyvsp[0].expr), GT), NOT); }
 #line 1678 "parser.cpp" /* yacc.c:1663  */
     break;
 

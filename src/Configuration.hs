@@ -1,11 +1,10 @@
 {-# LANGUAGE DeriveGeneric, FlexibleContexts, FlexibleInstances, GADTs, PatternSynonyms, ScopedTypeVariables, StandaloneDeriving, TupleSections, TypeApplications, TypeFamilies, ViewPatterns #-}
 
 module Configuration (
-  -- These should be here, but are defined in LangBase. Re-exporting
+  -- These should be here, but are defined in GConfiguration. Re-exporting
     GConfiguration(..)
   , confTerm
   , confState
-  , Configuration
 
   , mapKeysM
 
@@ -19,24 +18,26 @@ module Configuration (
   , pattern EmptySimpEnv
   , pattern WholeSimpEnv
   , pattern AssocOneVal
+  , Configuration.lookup, Configuration.size
   ) where
 
-import Data.Map ( Map )
 import qualified Data.Map as Map
+import Data.Map ( lookup, size, Map )
 import Data.Typeable ( Typeable, eqT )
 
 import GHC.Generics ( Generic )
 
 import Data.Hashable ( Hashable(..) )
 
-import LangBase
+import GConfiguration
+import Term
 import Var
 
 
 -- | Combining terms with the auxiliary state for the language
 --
 -- The core datatypes of this file are GConfiguration and Configuration. However, for reasons of avoiding
--- circular dependencies, these are actually defined in LangBase.hs
+-- circular dependencies, these are actually defined in LangBase.hs / GConfiguration.hs
 
 ------------------------------------------ Pretty-printing ---------------------------------------------------------
 
@@ -143,3 +144,11 @@ instance (Hashable a, Hashable b) => Hashable (SimpEnv a b) where
   hashWithSalt s (JustSimpMap m)   = s `hashWithSalt` m
 
 -- TODO: Hash-cons SimpEnv
+
+lookup :: Ord k => k -> SimpEnv k a -> Maybe a
+lookup k (SimpEnvRest _ _) = Nothing
+lookup k (JustSimpMap (SimpEnvMap m)) = Map.lookup k m
+
+size :: SimpEnv k a -> Integer
+size (SimpEnvRest _ _) = 0
+size (JustSimpMap (SimpEnvMap m)) = toInteger $ Map.size m

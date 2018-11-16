@@ -32,27 +32,22 @@ instance LangBase AddMulLang where
   compFuncName RunMul = "runMul"
   compFuncName RunAdd = "runAdd"
 
-  runCompFunc RunAdd [EVal (Const n1), EVal (Const n2)] = return $ initConf $ EVal (Const (n1+n2))
-  runCompFunc RunMul [EVal (Const n1), EVal (Const n2)] = return $ initConf $ EVal (Const (n1*n2))
+  runCompFunc func (c:cs)  = runExternalComputation func (confState c) (map confTerm (c:cs))
 
-  runCompFunc AbsRunAdd [GStar _, _] = return $ initConf ValStar
-  runCompFunc AbsRunAdd [_, GStar _] = return $ initConf ValStar
-  runCompFunc AbsRunMul [GStar _, _] = return $ initConf ValStar
-  runCompFunc AbsRunMul [_, GStar _] = return $ initConf ValStar
-
-instance ValueIrrelevance (CompFunc AddMulLang) where
-  valueIrrelevance RunAdd    = AbsRunAdd
-  valueIrrelevance AbsRunAdd = AbsRunAdd
-  valueIrrelevance RunMul    = AbsRunMul
-  valueIrrelevance AbsRunMul = AbsRunMul
+instance Irrelevance (CompFunc AddMulLang) where
+  irrelevance _ RunAdd    = AbsRunAdd
+  irrelevance _ AbsRunAdd = AbsRunAdd
+  irrelevance _ RunMul    = AbsRunMul
+  irrelevance _ AbsRunMul = AbsRunMul
 
 instance Hashable (CompFunc AddMulLang)
 
 instance Lang AddMulLang where
   signature = addMulLangSig
-  rules = addMulLangRules
-
   initConf t = Conf t EmptyState
+
+instance HasSOS AddMulLang where
+  rules = addMulLangRules
 
 addMulLangSig :: Signature AddMulLang
 addMulLangSig = Signature [ NodeSig "+" ["Exp", "Exp"] "Exp"
@@ -105,7 +100,7 @@ addMulLangRules = sequence [
                    mkRule3 $ \v1 v2 v' ->
                              let (vv1, vv2, vv') = (vv v1, vv v2, vv v') in
                              StepTo (conf $ Plus vv1 vv2)
-                               (LetComputation (conf vv') (ExtComp RunAdd [vv1, vv2])
+                               (LetComputation (conf vv') (extComp RunAdd EmptyState [vv1, vv2])
                                (Build $ conf vv'))
 
                  , name "times-cong-1" $
@@ -126,11 +121,19 @@ addMulLangRules = sequence [
                    mkRule3 $ \v1 v2 v' ->
                              let (vv1, vv2, vv') = (vv v1, vv v2, vv v') in
                              StepTo (conf $ Times vv1 vv2)
-                               (LetComputation (conf vv') (ExtComp RunMul [vv1, vv2])
+                               (LetComputation (conf vv') (extComp RunMul EmptyState [vv1, vv2])
                                (Build $ conf vv'))
                ]
+
+runExternalComputation :: Monad m => CompFunc AddMulLang -> RedState AddMulLang -> [Term AddMulLang] -> m (Configuration AddMulLang)
+runExternalComputation RunAdd state [EVal (Const n1), EVal (Const n2)] = return $ initConf $ EVal (Const (n1+n2))
+runExternalComputation RunMul state [EVal (Const n1), EVal (Const n2)] = return $ initConf $ EVal (Const (n1*n2))
+
+runExternalComputation func state [GStar _, _] = return $ initConf ValStar
+runExternalComputation func state [_, GStar _] = return $ initConf ValStar
 
 -----------
 
 term1 :: Term AddMulLang
 term1 = Plus (Plus (EVal $ Const 1) (EVal $ Const 2)) (Times (EVal $ Const 3) (EVal $ Const 4))
+

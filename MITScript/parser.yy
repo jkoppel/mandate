@@ -269,9 +269,9 @@ Predicate { $$ = $1; }
 
 Predicate: 
 Arithmetic {$$ = $1; }
-| Arithmetic '<' Arithmetic { $$ = new eBinary($3, $1, GT); }
+| Arithmetic '<' Arithmetic { $$ = new eUnary(new eBinary($1, $3, GTE), NOT); }
 | Arithmetic '>' Arithmetic  { $$ = new eBinary($1, $3, GT); } 
-| Arithmetic T_leq Arithmetic { $$ = new eBinary($3, $1, GTE); } 
+| Arithmetic T_leq Arithmetic { $$ = new eUnary(new eBinary($1, $3, GT), NOT); } 
 | Arithmetic T_geq Arithmetic { $$ = new eBinary($1, $3, GTE); } 
 | Arithmetic T_eq Arithmetic  { $$ = new eBinary($1, $3, EQ); }
 

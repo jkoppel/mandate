@@ -45,38 +45,27 @@ instance LangBase ImpLang where
   compFuncName DoReadInt  = "read"
   compFuncName DoWriteInt = "write"
 
-  runCompFunc RunAdd     [EVal (Const n1), EVal (Const n2)] = return $ initConf $ EVal (Const (n1+n2))
-  runCompFunc RunLT      [EVal (Const n1), EVal (Const n2)] = if n1 < n2 then return (initConf True) else return (initConf False)
-
-  runCompFunc DoReadInt  []               = initConf <$> EVal <$> Const <$> read <$> BS.unpack <$> matchEffectInput
-  runCompFunc DoWriteInt [EVal (Const n)] = matchEffectOutput (BS.pack $ show n) >> return (initConf Skip)
-
-  runCompFunc AbsRunAdd [GStar _, _] = return $ initConf ValStar
-  runCompFunc AbsRunAdd [_, GStar _] = return $ initConf ValStar
-  runCompFunc AbsRunLT  [GStar _, _] = return $ initConf ValStar
-  runCompFunc AbsRunLT  [_, GStar _] = return $ initConf ValStar
-
-  runCompFunc AbsDoReadInt [] = return $ initConf ValStar
-  runCompFunc AbsDoWriteInt [_] = return $ initConf Skip
+  runCompFunc func (c:cs)  = runExternalComputation func (confState c) (map confTerm (c:cs))
 
 instance Hashable (CompFunc ImpLang)
 
-instance ValueIrrelevance (CompFunc ImpLang) where
-  valueIrrelevance RunAdd     = AbsRunAdd
-  valueIrrelevance RunLT      = AbsRunLT
-  valueIrrelevance DoReadInt  = AbsDoReadInt
-  valueIrrelevance DoWriteInt = AbsDoWriteInt
+instance Irrelevance (CompFunc ImpLang) where
+  irrelevance _ RunAdd     = AbsRunAdd
+  irrelevance _ RunLT      = AbsRunLT
+  irrelevance _ DoReadInt  = AbsDoReadInt
+  irrelevance _ DoWriteInt = AbsDoWriteInt
 
-  valueIrrelevance AbsRunAdd     = AbsRunAdd
-  valueIrrelevance AbsRunLT      = AbsRunLT
-  valueIrrelevance AbsDoReadInt  = AbsDoReadInt
-  valueIrrelevance AbsDoWriteInt = AbsDoWriteInt
+  irrelevance _ AbsRunAdd     = AbsRunAdd
+  irrelevance _ AbsRunLT      = AbsRunLT
+  irrelevance _ AbsDoReadInt  = AbsDoReadInt
+  irrelevance _ AbsDoWriteInt = AbsDoWriteInt
 
 instance Lang ImpLang where
   signature = impLangSig
-  rules = impLangRules
-
   initConf t = Conf t EmptySimpEnv
+
+instance HasSOS ImpLang where
+  rules = impLangRules
 
 impLangSig :: Signature ImpLang
 impLangSig = Signature [ NodeSig ":=" ["Var", "Exp"] "Stmt"
@@ -235,7 +224,7 @@ impLangRules = sequence [
                    mkRule2 $ \val mu ->
                              let (mval) = (mv val) in
                              StepTo (conf ReadInt mu)
-                               (LetComputation (initConf mval) (ExtComp DoReadInt [])
+                               (LetComputation (initConf mval) (extComp DoReadInt (WholeSimpEnv mu) [Skip])
                                (Build $ conf mval mu))
 
                  , name "write-int-cong" $
@@ -249,7 +238,7 @@ impLangRules = sequence [
                    mkRule3 $ \arg val mu ->
                              let (varg) = (vv arg) in
                              StepTo (conf (WriteInt varg) mu)
-                               (LetComputation (initConf $ MetaVar val) (ExtComp DoWriteInt [varg])
+                               (LetComputation (initConf $ MetaVar val) (extComp DoWriteInt (WholeSimpEnv mu) [varg])
                                (Build $ conf Skip mu))
 
                  ------------------------ Vars  ---------------------------------------------
@@ -280,7 +269,7 @@ impLangRules = sequence [
                    mkRule4 $ \v1 v2 v' mu ->
                              let (vv1, vv2, vv') = (vv v1, vv v2, vv v') in
                              StepTo (conf (Plus vv1 vv2) mu)
-                               (LetComputation (initConf $ ValVar v') (ExtComp RunAdd [vv1, vv2])
+                               (LetComputation (initConf $ ValVar v') (extComp RunAdd (WholeSimpEnv mu) [vv1, vv2])
                                (Build $ conf vv' mu))
 
 
@@ -302,10 +291,26 @@ impLangRules = sequence [
                    mkRule4 $ \v1 v2 v' mu ->
                              let (vv1, vv2, vv') = (vv v1, vv v2, vv v') in
                              StepTo (conf (LT vv1 vv2) mu)
-                               (LetComputation (initConf vv') (ExtComp RunLT [vv1, vv2])
+                               (LetComputation (initConf vv') (extComp RunLT (WholeSimpEnv mu) [vv1, vv2])
                                (Build $ conf vv' mu))
 
                 ]
+
+
+runExternalComputation :: CompFunc ImpLang -> RedState ImpLang -> [Term ImpLang] -> MatchEffect (Configuration ImpLang)
+runExternalComputation RunAdd state [EVal (Const n1), EVal (Const n2)] = return $ initConf $ EVal (Const (n1+n2))
+runExternalComputation RunLT  state [EVal (Const n1), EVal (Const n2)] = if n1 < n2 then return (initConf True) else return (initConf False)
+
+runExternalComputation DoWriteInt state [EVal (Const n)] = matchEffectOutput (BS.pack $ show n) >> return (initConf Skip)
+runExternalComputation DoReadInt  state [Skip] = initConf <$> EVal <$> Const <$> read <$> BS.unpack <$> matchEffectInput
+
+runExternalComputation AbsRunAdd state [GStar _, _] = return $ initConf ValStar
+runExternalComputation AbsRunAdd state [_, GStar _] = return $ initConf ValStar
+runExternalComputation AbsRunLT  state [GStar _, _] = return $ initConf ValStar
+runExternalComputation AbsRunLT  state [_, GStar _] = return $ initConf ValStar
+
+runExternalComputation AbsDoReadInt   state [_] = return $ initConf ValStar
+runExternalComputation AbsDoWriteInt  state [_] = return $ initConf Skip
 
 ------------------------------------------------------------------------------------------------------------------
 

@@ -1,12 +1,8 @@
-{-# LANGUAGE EmptyDataDecls, FlexibleContexts, GADTs, StandaloneDeriving, TypeFamilies #-}
+{-# LANGUAGE FlexibleContexts, GADTs, TypeFamilies #-}
 
 module LangBase (
-    GConfiguration(..)
-  , confTerm
-  , confState
+    LangBase(..)
   , Configuration
-
-  , LangBase(..)
   , UnusedLanguage
   ) where
 
@@ -18,28 +14,15 @@ import Data.Hashable ( Hashable(..) )
 
 import MatchEffect
 import Term
+import GConfiguration
 
 --------------------------------------------------------------------------------------------------------
 
 -- | The 'LangBase' typeclass contains information associated with a language that do not involve configurations
 -- or semantics. Most modules should rely on 'Lang' instead.
 
--- The following definitions really should be in Configuration, but.....breaking circular dependencies
 
-data GConfiguration s l where
-  Conf :: Typeable s => Term l -> s -> GConfiguration s l
-
-deriving instance (Eq (Term l), Eq s) => Eq (GConfiguration s l)
-deriving instance (Ord (Term l), Ord s) => Ord (GConfiguration s l)
-
-instance (Hashable s) => Hashable (GConfiguration s l) where
-  hashWithSalt s (Conf t st) = s `hashWithSalt` t `hashWithSalt` s
-
-confTerm :: GConfiguration s l -> Term l
-confTerm (Conf t _) = t
-
-confState :: GConfiguration s l -> s
-confState (Conf _ s) = s
+-- This definition really should be in Configuration, but.....breaking circular dependencies
 
 -- | The configuration is the object of the transition system defined by
 -- a language's semantics. It contains a term together with the extra information
@@ -69,9 +52,7 @@ class (Typeable l, Typeable (RedState l), Eq (CompFunc l), Eq (RedState l), Show
   -- | Gives a human-readable name for the input meta-level operations. Used when displaying rules.
   compFuncName :: CompFunc l -> ByteString
 
-  -- TODO: Funcs need to be able to depend on state
-  -- |
-  runCompFunc  :: CompFunc l -> [Term l] -> MatchEffect (Configuration l)
+  runCompFunc  :: CompFunc l -> [Configuration l] -> MatchEffect (Configuration l)
 
 instance LangBase l => Show (CompFunc l) where
   show = BS.unpack . compFuncName

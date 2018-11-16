@@ -3,13 +3,14 @@
 module Semantics.General (
     ExtComp(..)
   , runExtComp
-
+  , extComp
   , showRules
   ) where
 
 import Control.Monad ( guard )
 import Data.Foldable ( fold )
 import Data.List ( intersperse )
+import Data.Set ( union )
 
 import GHC.Generics ( Generic )
 
@@ -18,28 +19,31 @@ import qualified Data.ByteString.Char8 as BS
 import Data.Hashable ( Hashable )
 
 import Configuration
-import LangBase
+import Lang
 import Matching
 import Term
 
 
 ------------------------------- External / meta-level computations ---------------------------------------
 
-data ExtComp l = ExtComp (CompFunc l) [Term l]
+data ExtComp l = ExtComp (CompFunc l) [Configuration l]
   deriving ( Generic )
 
-deriving instance (LangBase l) => Eq (ExtComp l)
+deriving instance (Lang l) => Eq (ExtComp l)
 
-instance (LangBase l) => Hashable (ExtComp l)
+instance (Lang l) => Hashable (ExtComp l)
 
-runExtComp :: (LangBase l) => ExtComp l -> Match (Configuration l)
+runExtComp :: (Lang l) => ExtComp l -> Match (Configuration l)
 runExtComp (ExtComp f ts) = do ts' <- fillMatchList ts
                                runMatchEffect $ runCompFunc f ts'
 
-instance (LangBase l) => Show (ExtComp l) where
+extComp :: (Lang l) => CompFunc l -> RedState l -> [Term l] -> ExtComp l
+extComp func state terms = ExtComp func $ map (\term -> Conf term state) terms
+
+instance (Lang l) => Show (ExtComp l) where
   showsPrec d (ExtComp f ts) = showString (BS.unpack $ compFuncName f) . showsPrec (d+1) ts
 
-instance (LangBase l) => Matchable (ExtComp l) where
+instance (Lang l) => Matchable (ExtComp l) where
   getVars (ExtComp f ts) = fold (map getVars ts)
 
   match (Pattern (ExtComp f1 ts1)) (Matchee (ExtComp f2 ts2)) = do
@@ -51,6 +55,16 @@ instance (LangBase l) => Matchable (ExtComp l) where
 
   refreshVars (ExtComp f ts) = ExtComp f <$> refreshVarsList ts
 
+instance (Matchable a, Matchable b) => Matchable (a, b) where
+  getVars (a,b) = getVars a `union` getVars b
+
+  match (Pattern (a,b)) (Matchee (a',b')) = do
+    match (Pattern a) (Matchee a')
+    match (Pattern b) (Matchee b')
+
+  fillMatch (a, b) = (,) <$> fillMatch a <*> fillMatch b
+
+  refreshVars (a, b) = (,) <$> refreshVars a <*> refreshVars b
 
 
 ---------------------------------------------------------------------

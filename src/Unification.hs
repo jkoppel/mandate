@@ -86,6 +86,11 @@ instance (Matchable (Term l)) => Unifiable (Term l) where
                  b' <- fillMatch b
                  unifyTerm' a b
 
+instance (Unifiable a, Unifiable b, Matchable (a,b)) => Unifiable (a, b) where
+  unify a b = do
+          unify (fst a) (fst b)
+          unify (snd a) (snd b)
+
 instance {-# OVERLAPPABLE #-} (Unifiable (Term l), Unifiable s, Typeable l) => Unifiable (GConfiguration s l) where
   unify (Conf t1 s1) (Conf t2 s2) = unify t1 t2 >> unify s1 s2
 

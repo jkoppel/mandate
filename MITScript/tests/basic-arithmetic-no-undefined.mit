@@ -1,3 +1,0 @@
-x = -(3 + 5); // negation and summation work
-y = x + 4;    // variable access works
-b = true & true; // short circuiting boolean operations work

@@ -3,17 +3,20 @@
 module Semantics.SOS (
     StepTo(..)
   , NamedRule(..)
+  , HasSOS(..)
   , Rhs(..)
   , Rules
   , NamedRules
 
   , stepConf
   , evaluationSequence
+  , evaluationSequenceL
 
   , name
   , mkRule0, mkRule1, mkRule2
   , mkRule3, mkRule4, mkRule5
-  , mkRule6
+  , mkRule6, mkRule7, mkRule8
+  , mkPairRule1, mkPairRule2
 
   , checkRule
   , checkRules
@@ -27,7 +30,7 @@ import qualified Data.ByteString.Char8 as BS
 
 import Configuration
 import Debug
-import LangBase
+import Lang
 import Matching
 import Semantics.General
 import Term
@@ -35,6 +38,15 @@ import TransitionSystem
 import Var
 
 ------------------------------------------------------------------------------------------------------------------
+
+class (Lang l) => HasSOS l where
+  -- | The structural operational semantics for this language
+  rules :: IO (NamedRules l)
+
+
+evaluationSequenceL :: (HasSOS l) => Configuration l -> IO [Configuration l]
+evaluationSequenceL conf = rules >>= \rs -> evaluationSequence rs conf
+
 
 -- I don't like the need to spread these Typeable instances.
 -- This caps the propagation of constraints. There's no particular reason to put
@@ -56,11 +68,11 @@ type NamedRules l = [NamedRule l]
 -- This is not an endorsement of having this kind of human-readable displaying happen
 -- in Show, as opposed to in a separate Pretty class
 
-instance (Show (Configuration l), LangBase l) => Show (StepTo l) where
+instance (Show (Configuration l), Lang l) => Show (StepTo l) where
   showsPrec d (StepTo t r) = showString "step(" . showsPrec (d+1) t . showString ") = " . showsPrec (d+1) r
   showList rs = showRules rs
 
-instance (Show (Configuration l), LangBase l) => Show (Rhs l) where
+instance (Show (Configuration l), Lang l) => Show (Rhs l) where
   showsPrec d (Build t) = showsPrec (d+1) t
   showsPrec d (LetStepTo x e r) = showString "let " . showsPrec (d+1) x .
                                   showString " = step(" . showsPrec (d+1) e .
@@ -70,7 +82,7 @@ instance (Show (Configuration l), LangBase l) => Show (Rhs l) where
                                        showsPrec d c . showString " in " . showsPrec d r
 
 
-instance (Show (Configuration l), LangBase l) => Show (NamedRule l) where
+instance (Show (Configuration l), Lang l) => Show (NamedRule l) where
   showsPrec d (NamedRule nm r) = showString (BS.unpack nm) . showString ":\n" . showsPrec (d+1) r
   showList rs = showRules rs
 
@@ -79,7 +91,7 @@ instance (Show (Configuration l), LangBase l) => Show (NamedRule l) where
 
 -------------------------------- Execution ------------------------------
 
-runRhs :: (Matchable (Configuration l), LangBase l) => NamedRules l -> Rhs l -> Match (Configuration l)
+runRhs :: (Matchable (Configuration l), Lang l) => NamedRules l -> Rhs l -> Match (Configuration l)
 runRhs rs (Build c) = fillMatch c
 runRhs rs (LetStepTo c1 c2 r) = do c2Filled <- fillMatch c2
                                    debugM $ "Filled match succeeded: " ++ show (confTerm c2Filled)
@@ -92,7 +104,7 @@ runRhs rs (LetComputation c f r) = do res <- runExtComp f
                                       runRhs rs r
 
 
-useRule :: (Matchable (Configuration l), LangBase l) => NamedRules l -> NamedRule l -> Configuration l -> Match (Configuration l)
+useRule :: (Matchable (Configuration l), Lang l) => NamedRules l -> NamedRule l -> Configuration l -> Match (Configuration l)
 useRule rs (NamedRule nm (StepTo c1 r)) c2 = do
     debugM $ "Trying rule " ++ BS.unpack nm ++ " for term " ++ show (confTerm c2)
     match (Pattern c1) (Matchee c2)
@@ -101,14 +113,14 @@ useRule rs (NamedRule nm (StepTo c1 r)) c2 = do
     debugM $ "Rule succeeeded:" ++ BS.unpack nm
     return ret
 
-stepConf :: (Matchable (Configuration l), LangBase l) => NamedRules l -> Configuration l -> Match (Configuration l)
+stepConf :: (Matchable (Configuration l), Lang l) => NamedRules l -> Configuration l -> Match (Configuration l)
 stepConf allRs t = go allRs
   where
     go []     = mzero
     go (r:rs) = useRule allRs r t `mplus` go rs
 
 
-evaluationSequence :: (Matchable (Configuration l), LangBase l) => NamedRules l -> Configuration l -> IO [Configuration l]
+evaluationSequence :: (Matchable (Configuration l), Lang l) => NamedRules l -> Configuration l -> IO [Configuration l]
 evaluationSequence rules conf = transitionSequence step conf
   where
     step = runMatchUnique . stepConf rules
@@ -138,6 +150,26 @@ mkRule5 f = f <$> nextVar <*> nextVar <*> nextVar <*> nextVar <*> nextVar
 
 mkRule6 :: (MetaVar -> MetaVar -> MetaVar -> MetaVar -> MetaVar -> MetaVar -> StepTo l) -> IO (StepTo l)
 mkRule6 f = f <$> nextVar <*> nextVar <*> nextVar <*> nextVar <*> nextVar <*> nextVar
+
+mkRule7 :: (MetaVar -> MetaVar -> MetaVar -> MetaVar -> MetaVar -> MetaVar -> MetaVar -> StepTo l) -> IO (StepTo l)
+mkRule7 f = f <$> nextVar <*> nextVar <*> nextVar <*> nextVar <*> nextVar <*> nextVar <*> nextVar
+
+mkRule8 :: (MetaVar -> MetaVar -> MetaVar -> MetaVar -> MetaVar -> MetaVar -> MetaVar -> MetaVar -> StepTo l) -> IO (StepTo l)
+mkRule8 f = f <$> nextVar <*> nextVar <*> nextVar <*> nextVar <*> nextVar <*> nextVar <*> nextVar <*> nextVar
+
+mkPairRule1 :: ((MetaVar, MetaVar) -> IO (StepTo l)) -> IO (StepTo l)
+mkPairRule1 f = do
+  car <- nextVar
+  cdr <- nextVar
+  f (car, cdr)
+
+mkPairRule2 :: ((MetaVar, MetaVar) -> (MetaVar, MetaVar) -> IO (StepTo l)) -> IO (StepTo l)
+mkPairRule2 f = do
+  car1 <- nextVar
+  cdr1 <- nextVar
+  car2 <- nextVar
+  cdr2 <- nextVar
+  f (car1, cdr1) (car2, cdr2)
 
 -------------------------------- Sort checking ------------------------------
 

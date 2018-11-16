@@ -140,9 +140,9 @@ pamEvaluationTree rules t = transitionTree (stepPam rules) (initPamState t)
 ----------------------------
 
 abstractPamCfg :: (Lang l) => Abstraction (CompFunc l) -> Abstraction (PAMState l) -> NamedPAMRules l -> Term l -> IO (Graph (PAMState l))
-abstractPamCfg absFunc abs rules t = transitionGraph (liftM (map abs) . stepPam (map (abstractCompFuncs absFunc) rules)) (abs $ initPamState t)
+abstractPamCfg absFunc abs rules t = transitionGraph (liftM (map abs) . stepPam (map (abstractCompFuncs absFunc) rules))  (abs $ initPamState t)
 
 ----------------------------
 
-instance ValueIrrelevance Phase where
-  valueIrrelevance p = p
+instance Irrelevance Phase where
+  irrelevance _ p = p
