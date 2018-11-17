@@ -11,7 +11,7 @@ while (a < 3) { // while works
 if (true | false) { // if/else works
     z = 4;
 } else {
-    z = 5;
+    t = 5;
 }
 
 m = { // records work!
@@ -22,20 +22,20 @@ m = { // records work!
 xx = m.x.x; // as does field access!
 yy = m["" + "x" ]["y"]; // and index access!
 
-// // Functions with and without return statements
-// x = fun () {
-//     y = 5;
-//     return y;
-// };
+// Functions with and without return statements
+x = fun () {
+    y = 5;
+    return y;
+};
 
-// test = x();
+test = x();
 
-// g = 0;
+g = 0;
 
-// y = fun () {
-//     global g;
-//     g = g + 5;
-//     return g;
-// };
+y = fun () {
+    global g;
+    g = g + 5;
+    return g;
+};
 
-// befive = y();
+befive = y();
