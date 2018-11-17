@@ -3,6 +3,7 @@
 
 module Languages.Imp (
     ImpLang
+  , amStateReduce
   ) where
 
 import Prelude hiding ( True, False, LT )
@@ -20,7 +21,9 @@ import Lang
 import Matching
 import Semantics.Abstraction
 import Semantics.Conversion
+import Semantics.Context
 import Semantics.General
+import Semantics.AbstractMachine
 import Semantics.PAM
 import Semantics.SOS
 import Term
@@ -69,14 +72,14 @@ instance HasSOS ImpLang where
   rules = impLangRules
 
 impLangSig :: Signature ImpLang
-impLangSig = Signature [ NodeSig ":=" ["Var", "Exp"] "Stmt"
-                       , ValSig "Skip" [] "Stmt"
+impLangSig = Signature [ NodeSig ":=" ["Var", "Exp"] "Exp"
+                       , ValSig "Skip" [] "Exp"
                        , NodeSig "Seq" ["Stmt", "Stmt"] "Stmt"
                        , NodeSig "If" ["Exp", "Stmt", "Stmt"] "Stmt"
                        , NodeSig "While" ["Exp", "Stmt"] "Stmt"
 
                        , NodeSig "ReadInt" [] "Exp"
-                       , NodeSig "WriteInt" ["Exp"] "Stmt"
+                       , NodeSig "WriteInt" ["Exp"] "Exp"
 
                        , NodeSig "Var" ["VarName"] "Var"
                        , StrSig "VarName" "VarName"
@@ -217,7 +220,7 @@ impLangRules = sequence [
                    mkRule3 $ \e s mu ->
                             let (me, ms) = (mv e, mv s) in
                             StepTo (conf (While me ms) mu)
-                              (Build $ conf (If me (ms `Seq` (While me ms)) Skip) mu)
+                              (Build $ conf (If me (Seq ms (While me ms)) Skip) mu)
 
                  ----------------------------------------------------------------------------
 
@@ -315,23 +318,44 @@ runExternalComputation AbsDoWriteInt  state [_] = return $ initConf Skip
 
 ------------------------------------------------------------------------------------------------------------------
 
+whileReduce :: Term ImpLang -> Term ImpLang
+whileReduce (While e s) = If e (Seq s (While e s)) ValStar
+whileReduce t = t
+
+seqreduce :: Term ImpLang -> Term ImpLang
+seqreduce (Seq (Seq ValStar ValStar) s) = seqreduce s
+seqreduce (Seq ValStar s) = seqreduce s
+seqreduce (Seq s ValStar) = seqreduce s
+seqreduce t = t
+
+contextReduce :: Context ImpLang -> Context ImpLang
+contextReduce (KPush (KInp _  (KBuild (Conf (Seq _ ValStar)   _))) k) = contextReduce k
+contextReduce (KPush (KInp i  (KBuild (Conf (Seq _ (Seq a b)) s))) k) = contextReduce (KPush (KInp i (KBuild (Conf (Seq a b) s))) k)
+contextReduce k = k
+
+configurationReduce :: Configuration ImpLang -> Configuration ImpLang
+configurationReduce (Conf term state) = Conf (seqreduce (whileReduce term)) state
+
+amStateReduce :: AMState ImpLang -> AMState ImpLang
+amStateReduce (AMState c k) = AMState (configurationReduce c) (contextReduce k)
+
 term1 :: Term ImpLang
-term1 =       ("x" := intConst 1)
-        `Seq` ("y" := intConst 2)
-        `Seq` ("z" := Plus (varExp "x") (varExp "y"))
+term1 = Seq ("x" := intConst 1)
+      $ Seq ("y" := intConst 2)
+            ("z" := Plus (varExp "x") (varExp "y"))
 
 
 conf2 :: Configuration ImpLang
 conf2 = Conf (varExp "x") (JustSimpMap $ SingletonSimpMap (VarName "x") (Const 1))
 
 term3 :: Term ImpLang
-term3 =       ("u" := ReadInt)
-        `Seq` ("i" := intConst 0)
-        `Seq` ("s" := intConst 0)
-        `Seq` (While (varExp "i" :< varExp "u")
-                (      ("s" := Plus (varExp "s") (varExp "i"))
-                 `Seq` ("i" := Plus (varExp "i") (intConst 1))))
-        `Seq` (WriteInt $ varExp "s")
+term3 = Seq ("u" := ReadInt)
+        $ Seq ("i" := intConst 0)
+        $ Seq ("s" := intConst 0)
+        $ Seq (While (varExp "i" :< varExp "u")
+                (Seq ("s" := Plus (varExp "s") (varExp "i"))
+                     ("i" := Plus (varExp "i") (intConst 1))))
+              (WriteInt $ varExp "s")
 
 term4 :: Term ImpLang
 term4 =       ("u" := ReadInt)
