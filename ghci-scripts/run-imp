@@ -17,7 +17,7 @@ import Term
 rules <- impLangRules
 pamRules <- sosToPam rules
 amRules <- pamToAM pamRules
-showGraph graph = putStrLn $ unpack $ renderDot $ toDot $ graphToDot (defaultParams { fmtNode = \(n,l) -> [xLabel l], fmtEdge = \(n1,n2,l) -> [xLabel l]}) (toRealGraph @Gr graph)
+showGraph graph = putStrLn $ unpack $ renderDot $ toDot $ graphToDot (defaultParams { fmtNode = \(n,l) -> [toLabel l, shape BoxShape], fmtEdge = \(n1,n2,l) -> [toLabel l, shape BoxShape]}) (toRealGraph @Gr graph)
 putStrLn "Try this: evaluationSequenceL (initConf term1) >>= mapM_ (putStrLn.show)"
 putStrLn "Or this: abstractAmCfg (irrelevance ValueIrr) (irrelevance ValueIrr) amRules term1"
 putStrLn "Or this: abstractAmCfg (irrelevance (SortIrr \"Exp\")) (irrelevance (SortIrr \"Exp\")) amRules term1"
