@@ -35,10 +35,14 @@ library:
   - bytestring
   - containers
   - deepseq
+  - fgl
+  - graphviz
   - hashable
-  - logict
   - intern
+  - logict
   - mtl
+  - process
+  - text
   - transformers
   - unordered-containers
 
@@ -52,14 +56,15 @@ executables:
     - -with-rtsopts=-N
     dependencies:
     - bytestring
+    - containers
     - deepseq
     - derive-cfg
-    - fgl
-    - graphviz
     - hashable
     - intern
     - process
-    - text
+
+
+
 
 tests:
   derive-cfg-test:
