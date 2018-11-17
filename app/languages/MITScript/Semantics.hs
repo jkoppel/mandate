@@ -70,7 +70,6 @@ instance Irrelevance (CompFunc MITScript) where
     irrelevance _ RunBuiltin   = AbsRunBuiltin
 
     irrelevance _ AbsReadField    = AbsReadField
-    irrelevance _ AbsReadIndex    = AbsReadIndex
     irrelevance _ AbsAllocAddress = AbsAllocAddress
     irrelevance _ AbsCompute      = AbsCompute
     irrelevance _ AbsReadIndex    = AbsReadIndex
@@ -85,13 +84,13 @@ instance Lang MITScript where
         JustSimpMap $ SimpEnvMap $ Map.fromList
             [
                 (HeapAddr 0, ReducedRecord
-                                -- $ ReducedRecordCons (ReducedRecordPair (Name "print")   (ReferenceVal $ HeapAddr 1))
-                                -- $ ReducedRecordCons (ReducedRecordPair (Name "read")    (ReferenceVal $ HeapAddr 2))
-                                -- $ ReducedRecordCons (ReducedRecordPair (Name "intcast") (ReferenceVal $ HeapAddr 3))
+                                $ ReducedRecordCons (ReducedRecordPair (Name "print")   (ReferenceVal $ HeapAddr 1))
+                                $ ReducedRecordCons (ReducedRecordPair (Name "read")    (ReferenceVal $ HeapAddr 2))
+                                $ ReducedRecordCons (ReducedRecordPair (Name "intcast") (ReferenceVal $ HeapAddr 3))
                                 $ Parent $ HeapAddr $ -1)
-            --   , (HeapAddr 1, builtinPrint)
-            --   , (HeapAddr 2, builtinRead)
-            --   , (HeapAddr 3, builtinIntCast)
+              , (HeapAddr 1, builtinPrint)
+              , (HeapAddr 2, builtinRead)
+              , (HeapAddr 3, builtinIntCast)
             ])
 
 
