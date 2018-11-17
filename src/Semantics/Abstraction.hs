@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts, MultiParamTypeClasses, UndecidableInstances #-}
+{-# LANGUAGE AllowAmbiguousTypes, FlexibleContexts, FlexibleInstances, MultiParamTypeClasses, UndecidableInstances #-}
 
 module Semantics.Abstraction (
     Abstraction
@@ -17,6 +17,8 @@ import Semantics.Context
 import Semantics.General
 import Term
 
+import Data.Interned.ByteString ( InternedByteString(..) )
+
 type Abstraction t = t -> t
 
 class AbstractCompFuncs t l where
@@ -24,7 +26,7 @@ class AbstractCompFuncs t l where
 
 --------------------------------------------------------------------------------------------------------
 
-data IrrelevanceType = ValueIrr | SortIrr Sort deriving (Show, Eq)
+data IrrelevanceType = ValueIrr | SortIrr Sort | VarNotIrr !InternedByteString deriving (Show, Eq)
 
 class Irrelevance t where
   irrelevance :: IrrelevanceType -> t -> t
@@ -41,6 +43,13 @@ instance (Lang l) => Irrelevance (Term l) where
       valToStar (Val _ _) = ValStar
       valToStar t         = t
 
+  irrelevance (VarNotIrr name) = mapTerm valToStar
+    where
+      valToStar t@(Val "true" _) = t
+      valToStar t@(Val "false" _) = t
+      valToStar (Val _ _) = ValStar
+      valToStar t         = t
+
   irrelevance (SortIrr sort) = mapTerm exprToStar
     where
       exprToStar t  = case sortOfTerm signature t of
@@ -52,10 +61,16 @@ instance Irrelevance EmptyState where
   irrelevance _ EmptyState = EmptyState
 
 -- TODO: What should this do for keys?
-instance (Irrelevance b) => Irrelevance (SimpEnvMap a b) where
+instance (Lang l) => Irrelevance (SimpEnvMap (Term l) (Term l)) where
+  irrelevance irr@(VarNotIrr name) (SimpEnvMap m) = SimpEnvMap
+    (Map.mapWithKey (\key t -> case key of
+                (StrNode _ n) -> if n == name then t else irrelevance ValueIrr t
+                _ -> irrelevance irr t)
+             m)
   irrelevance irr (SimpEnvMap m) = SimpEnvMap (Map.map (irrelevance irr) m)
+  irrelevance irr (SimpEnvMap m) = SimpEnvMap m
 
-instance (Irrelevance b) => Irrelevance (SimpEnv a b) where
+instance (Lang l) => Irrelevance (SimpEnv (Term l) (Term l)) where
   irrelevance irr (JustSimpMap m)   = JustSimpMap (irrelevance irr m)
   irrelevance irr (SimpEnvRest v m) = SimpEnvRest v (irrelevance irr m)
 

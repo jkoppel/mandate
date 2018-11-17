@@ -10,6 +10,7 @@ import Prelude hiding ( True, False, LT )
 
 import GHC.Generics ( Generic )
 
+import Control.Monad
 import Data.ByteString.Char8 ( ByteString )
 import qualified Data.ByteString.Char8 as BS
 import Data.Interned.ByteString ( InternedByteString(..) )
@@ -309,8 +310,8 @@ runExternalComputation DoReadInt  state [Skip] = initConf <$> EVal <$> Const <$>
 
 runExternalComputation AbsRunAdd state [GStar _, _] = return $ initConf ValStar
 runExternalComputation AbsRunAdd state [_, GStar _] = return $ initConf ValStar
-runExternalComputation AbsRunLT  state [GStar _, _] = return $ initConf ValStar
-runExternalComputation AbsRunLT  state [_, GStar _] = return $ initConf ValStar
+runExternalComputation AbsRunLT  state [GStar _, _] = mplus (return $ initConf True) (return $ initConf False)
+runExternalComputation AbsRunLT  state [_, GStar _] = mplus (return $ initConf True) (return $ initConf False)
 
 runExternalComputation AbsDoReadInt   state [_] = return $ initConf ValStar
 runExternalComputation AbsDoWriteInt  state [_] = return $ initConf Skip
@@ -355,3 +356,10 @@ term3 = Seq ("u" := ReadInt)
                 (Seq ("s" := Plus (varExp "s") (varExp "i"))
                      ("i" := Plus (varExp "i") (intConst 1))))
               (WriteInt $ varExp "s")
+
+term4 :: Term ImpLang
+term4 =       ("u" := ReadInt)
+        `Seq` ("i" := intConst 5)
+        `Seq` ("b" := (varExp "u" :< varExp "i"))
+        `Seq` (If (varExp "b") ( (WriteInt $ varExp "u") ) Skip )
+        `Seq` (If (varExp "b") ( (WriteInt $ varExp "u") ) Skip )
