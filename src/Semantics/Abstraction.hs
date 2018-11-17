@@ -74,6 +74,9 @@ instance (Lang l) => Irrelevance (SimpEnv (Term l) (Term l)) where
   irrelevance irr (JustSimpMap m)   = JustSimpMap (irrelevance irr m)
   irrelevance irr (SimpEnvRest v m) = SimpEnvRest v (irrelevance irr m)
 
+instance (Irrelevance a, Irrelevance b) => Irrelevance (a, b) where
+  irrelevance irr (a,b) = (irrelevance irr a, irrelevance irr b)
+
 instance (Irrelevance (CompFunc l), Irrelevance (Configuration l)) => Irrelevance (ExtComp l) where
   irrelevance irr (ExtComp f args) = ExtComp (irrelevance irr f) (map (irrelevance irr) args)
 
