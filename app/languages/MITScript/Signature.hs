@@ -71,6 +71,8 @@ mitScriptSig = Signature [ StrSig "Name" "Name"
                          , NodeSig "IntCast" [] "Builtin"
                          , NodeSig "Read"    [] "Builtin"
 
+                        -- The Expression Irrelevance abstraction level treats everyhting with type "Exp" as a star.
+                        -- Sometimes, we dont want that. So we change the type to "Exp*"
                          , NodeSig "BinExp"        ["Exp", "BinOp", "Exp"]              "Exp"
                          , NodeSig "UnExp"         ["UnOp", "Exp"]                      "Exp"
                          , ValSig  "NumConst"      ["ConstInt"]                         "Exp"
