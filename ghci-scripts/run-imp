@@ -21,4 +21,5 @@ showGraph graph = putStrLn $ unpack $ renderDot $ toDot $ graphToDot (defaultPar
 putStrLn "Try this: evaluationSequenceL (initConf term1) >>= mapM_ (putStrLn.show)"
 putStrLn "Or this: abstractAmCfg (irrelevance ValueIrr) (irrelevance ValueIrr) amRules term1"
 putStrLn "Or this: abstractAmCfg (irrelevance (SortIrr \"Exp\")) (irrelevance (SortIrr \"Exp\")) amRules term1"
-putStrLn "Or this: g <- [one of the above]; showGraph g, then in bash: `$ dot -Tsvg > cfg.svg` and paste in the text"
+putStrLn "Or this: abstractAmCfg (irrelevance (VarNotIrr \"b\")) (irrelevance (VarNotIrr \"b\")) amRules term4"
+putStrLn "Or this: g <- [one of the above]; showGraph g, then copy the output, and in bash: `$ pbpaste | dot -Tsvg > cfg.svg`"
