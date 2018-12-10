@@ -116,29 +116,6 @@ toRealGraph g = RealGraph.mkGraph (realNodes g) (realEdges g)
 
 type Projection a b = a -> b
 
--- arrayed :: (Show a) => [(a, GraphNode a)] -> [([a], GraphNode a)]
--- arrayed = map (\(el, node) -> ([el], node))
-
--- unarrayed :: (Show a) => [([a], GraphNode a)] -> [(String, GraphNode a)]
--- unarrayed = map (\(el, node) -> ("{\n" ++ concatEls el, node))
---   where
---     concatEls [] = "}\n\n"
---     concatEls (el:els) = show el ++ "\n" ++ concatEls els
-
--- reduced :: (Eq a, Hashable a) => [([a], GraphNode a)] -> [([a], GraphNode a)]
--- reduced [] = []
--- reduced [(el,node)]  = [(el,node)]
--- reduced ((el,node):(el',node'):ns) = if outDeg node == 1 && S.member (head el') (edges node)
---                                       then reduced ((el ++ el', node') : ns)
---                                       else (el, node) : reduced ((el',node') : ns)
-
-
--- combineBB :: (Eq a, Hashable a, Show a) => Graph a -> [(String, GraphNode a)]
--- combineBB g = unarrayed $ reduced $ arrayed $ dfsOrder g
-
--- stmtToBB :: (Eq a, Hashable a, Show a) => a -> String
--- stmtToBB stmt =  Prelude.map fst (combineBB g)
-
 graphQuotient :: (Eq a, Hashable a, Eq b, Hashable b) => Projection a b -> Graph a -> Graph b
 graphQuotient p ga = foldr (\(ia, ib, l) -> insertWithoutSelfEdges ia ib) empty (realEdges ga)
     where
