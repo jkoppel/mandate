@@ -57,6 +57,7 @@ library
                    TigerFlow
                    TigerLexer
                    TigerParser
+                   TigerSymbol
  
   other-modules:   TigerGenSymLabTmp
 

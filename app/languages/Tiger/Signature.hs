@@ -61,6 +61,7 @@ tigerSig = Signature [ NodeSig "PExp"  ["Exp"]     "Program"
                      , NodeSig "LtOp"     [] "Oper"
                      , NodeSig "LeOp"     [] "Oper"
                      , NodeSig "GtOp"     [] "Oper"
+                     , NodeSig "GeOp"     [] "Oper"
                      , NodeSig "AndOp"    [] "Oper"
                      , NodeSig "OrOp"     [] "Oper"
 
@@ -77,6 +78,9 @@ tigerSig = Signature [ NodeSig "PExp"  ["Exp"]     "Program"
 
                      , NodeSig "FunDec" ["Symbol", "TFieldList", "SymOpt", "Exp"] "FunDec"
 
+                     , NodeSig "NilDecList"  []                 "DecList"
+                     , NodeSig "ConsDecList" ["Dec", "DecList"] "DecList"
+
                      , NodeSig "NilFunDec"  []                       "FunDecList"
                      , NodeSig "ConsFunDec" ["FunDec", "FunDecList"] "FunDecList"
 
@@ -85,6 +89,9 @@ tigerSig = Signature [ NodeSig "PExp"  ["Exp"]     "Program"
 
                      , NodeSig "NilTypeDec"  []                         "TypeDecList"
                      , NodeSig "ConsTypeDec" ["TypeDec", "TypeDecList"] "TypeDecList"
+
+                     , NodeSig "NilEField"  []                       "EFieldList"
+                     , NodeSig "ConsEField" ["EField", "EFieldList"] "EFieldList"
 
                      , NodeSig "NilTField"  []                       "TFieldList"
                      , NodeSig "ConsTField" ["TField", "TFieldList"] "TFieldList"
@@ -207,6 +214,9 @@ pattern LeOp = Node "LeOp" []
 pattern GtOp :: Term Tiger
 pattern GtOp = Node "GtOp" []
 
+pattern GeOp :: Term Tiger
+pattern GeOp = Node "GeOp" []
+
 pattern AndOp :: Term Tiger
 pattern AndOp = Node "AndOp" []
 
@@ -231,6 +241,12 @@ pattern TypeDec a b = Node "TypeDec" [a, b]
 pattern FunDec :: Term Tiger -> Term Tiger -> Term Tiger -> Term Tiger -> Term Tiger
 pattern FunDec a b c d = Node "FunDec" [a, b, c, d]
 
+pattern NilDecList :: Term Tiger
+pattern NilDecList = Node "NilDecList" []
+
+pattern ConsDecList :: Term Tiger -> Term Tiger -> Term Tiger
+pattern ConsDecList a b = Node "ConsDecList" [a, b]
+
 pattern NilFunDec :: Term Tiger
 pattern NilFunDec = Node "NilFunDec" []
 
@@ -248,6 +264,12 @@ pattern NilTypeDec = Node "NilTypeDec" []
 
 pattern ConsTypeDec :: Term Tiger -> Term Tiger -> Term Tiger
 pattern ConsTypeDec a b = Node "ConsTypeDec" [a, b]
+
+pattern NilEField :: Term Tiger
+pattern NilEField = Node "NilEField" []
+
+pattern ConsEField :: Term Tiger -> Term Tiger -> Term Tiger
+pattern ConsEField a b = Node "ConsEField" [a, b]
 
 pattern NilTField :: Term Tiger
 pattern NilTField = Node "NilTField" []

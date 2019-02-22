@@ -14,14 +14,13 @@ import Data.Interned.ByteString ( InternedByteString )
 
 import Term
 
+import Languages.Translation
+
 import           Languages.MITScript.Signature ( MITScript )
 import qualified Languages.MITScript.Signature as G
 import qualified Languages.MITScript.Syntax    as M
 
 ---------------------------------------------------------------------------------------------------------
-
-class ToGeneric l a where
-  toGeneric :: a -> Term l
 
 instance ToGeneric MITScript M.Name where
   toGeneric (M.Name s) = G.Name (fromString s)
@@ -88,12 +87,6 @@ instance ToGeneric MITScript [M.RecordPair] where
   toGeneric (r:rs) = G.ConsRecordPair (toGeneric r) (toGeneric rs)
 
 ---------------------------------------------------------------------------------------------------------
-
-class FromGeneric l a where
-  fromGeneric :: Term l -> Maybe a
-
-ibsToString :: InternedByteString -> String
-ibsToString = BS.unpack . unintern
 
 instance FromGeneric MITScript M.Name where
   fromGeneric (G.Name s) = return $ M.Name (ibsToString s)
@@ -169,11 +162,3 @@ instance FromGeneric MITScript [M.RecordPair] where
   fromGeneric G.NilRecordPair = return []
   fromGeneric (G.ConsRecordPair rp rps) = (:) <$> fromGeneric rp <*> fromGeneric rps
   fromGeneric _ = Nothing
-
-
--- TODO: Make an actual tests dir, and set this up with QuickCheck. And don't forget to run checkTerm on the output
-checkRoundTrip :: M.Stmt -> ()
-checkRoundTrip b = if fromJust (fromGeneric (toGeneric b :: Term MITScript)) == b then () else error ("Failed checkRoundTrip: " ++ show b)
-
-checkRoundTrip' :: M.Stmt -> ()
-checkRoundTrip' b = if toGeneric (fromJust (fromGeneric (toGeneric b :: Term MITScript)) :: M.Stmt) == (toGeneric b :: Term MITScript) then () else error ("Failed checkRoundTrip': " ++ show b)
