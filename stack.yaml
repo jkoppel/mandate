@@ -15,7 +15,7 @@
 # resolver:
 #  name: custom-snapshot
 #  location: "./custom-snapshot.yaml"
-resolver: lts-12.18
+resolver: lts-13.8
 
 # User packages to be built.
 # Various formats can be used as shown in the example below.
@@ -37,9 +37,13 @@ resolver: lts-12.18
 # will not be run. This is useful for tweaking upstream packages.
 packages:
 - .
+- ./Tiger/hengchu_hs
+
 # Dependency packages to be pulled from upstream that are not in the resolver
 # (e.g., acme-missiles-0.3)
-# extra-deps: []
+extra-deps:
+- monadIO-0.11.1.0
+- graphviz-2999.20.0.3 
 
 # Override default flag values for local packages and extra-deps
 # flags: {}

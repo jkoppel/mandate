@@ -1,3 +1,5 @@
+{-# LANGUAGE FlexibleContexts #-}
+
 module TigerITree
        ( Stm(..)
        , Exp(..)
