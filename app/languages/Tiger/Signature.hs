@@ -45,8 +45,8 @@ tigerSig = Signature [ NodeSig "PExp"  ["Exp"]     "Program"
                      , NodeSig "ArrayExp"  ["Symbol", "Exp", "Exp"]        "Exp"
 
                      , NodeSig "FunctionDec" ["FunDecList"]              "Dec"
-                     , NodeSig "VarDec"      ["VarDec", "SymOpt", "Exp"] "Dec"
-                     , NodeSig "TypeDec"     ["TypeDecList"]             "Dec"
+                     , NodeSig "VarDecDec"   ["VarDec", "SymOpt", "Exp"] "Dec"
+                     , NodeSig "TypeDecDec"  ["TypeDecList"]             "Dec"
 
                      , NodeSig "NameTy"   ["Symbol"] "Ty"
                      , NodeSig "RecordTy" ["TField"] "Ty"
@@ -102,197 +102,170 @@ tigerSig = Signature [ NodeSig "PExp"  ["Exp"]     "Program"
 
 -- Generated using "patSymForSigNode" in Term.hs; fixed by hand
 
-{-
-pattern Name :: InternedByteString -> Term MITScript
-pattern Name s = StrNode "Name" s
+pattern PExp :: Term Tiger -> Term Tiger
+pattern PExp a = Node "PExp" [a]
 
-pattern NilName :: Term MITScript
-pattern NilName = Val "NilName" []
+pattern PDecs :: Term Tiger -> Term Tiger
+pattern PDecs a = Node "PDecs" [a]
 
-pattern ConsName :: Term MITScript -> Term MITScript -> Term MITScript
-pattern ConsName a b = Val "ConsName" [a, b]
+pattern SimpleVar :: Term Tiger -> Term Tiger
+pattern SimpleVar a = Node "SimpleVar" [a]
 
-pattern Global :: Term MITScript -> Term MITScript
-pattern Global a = Node "Global" [a]
+pattern FieldVar :: Term Tiger -> Term Tiger -> Term Tiger
+pattern FieldVar a b = Node "FieldVar" [a, b]
 
-pattern Assign :: Term MITScript -> Term MITScript -> Term MITScript
-pattern Assign a b = Node "Assign" [a, b]
+pattern SubscriptVar :: Term Tiger -> Term Tiger -> Term Tiger
+pattern SubscriptVar a b = Node "SubscriptVar" [a, b]
 
-pattern ExpStmt :: Term MITScript -> Term MITScript
-pattern ExpStmt a = Node "ExpStmt" [a]
+pattern VarExp :: Term Tiger -> Term Tiger
+pattern VarExp a = Node "VarExp" [a]
 
-pattern If :: Term MITScript -> Term MITScript -> Term MITScript -> Term MITScript
-pattern If a b c = Node "If" [a, b, c]
+pattern NilExp :: Term Tiger
+pattern NilExp = Val "NilExp" []
 
-pattern While :: Term MITScript -> Term MITScript -> Term MITScript
-pattern While a b = Node "While" [a, b]
+pattern IntExp :: Term Tiger -> Term Tiger
+pattern IntExp a = Val "IntExp" [a]
 
-pattern Return :: Term MITScript -> Term MITScript
-pattern Return a = Val "Return" [a]
+pattern StringExp :: Term Tiger -> Term Tiger
+pattern StringExp a = Val "StringExp" [a]
 
-pattern Block :: Term MITScript -> Term MITScript
-pattern Block a = Node "Block" [a]
+pattern SeqExp :: Term Tiger -> Term Tiger
+pattern SeqExp a = Node "SeqExp" [a]
 
-pattern NilStmt :: Term MITScript
-pattern NilStmt = Val "NilStmt" []
+pattern AppExp :: Term Tiger -> Term Tiger -> Term Tiger
+pattern AppExp a b = Node "AppExp" [a, b]
 
-pattern ConsStmt :: Term MITScript -> Term MITScript -> Term MITScript
-pattern ConsStmt a b = Node "ConsStmt" [a, b]
+pattern OpExp :: Term Tiger -> Term Tiger -> Term Tiger -> Term Tiger
+pattern OpExp a b c = Node "OpExp" [a, b, c]
 
-pattern PLUS :: Term MITScript
-pattern PLUS = Node "PLUS" []
+pattern RecordExp :: Term Tiger -> Term Tiger -> Term Tiger
+pattern RecordExp a b = Node "RecordExp" [a, b]
 
-pattern MINUS :: Term MITScript
-pattern MINUS = Node "MINUS" []
+pattern AssignExp :: Term Tiger -> Term Tiger -> Term Tiger
+pattern AssignExp a b = Node "AssignExp" [a, b]
 
-pattern TIMES :: Term MITScript
-pattern TIMES = Node "TIMES" []
+pattern IfExp :: Term Tiger -> Term Tiger -> Term Tiger -> Term Tiger
+pattern IfExp a b c = Node "IfExp" [a, b, c]
 
-pattern DIV :: Term MITScript
-pattern DIV = Node "DIV" []
+pattern WhileExp :: Term Tiger -> Term Tiger -> Term Tiger
+pattern WhileExp a b = Node "WhileExp" [a, b]
 
-pattern AND :: Term MITScript
-pattern AND = Node "AND" []
+pattern ForExp :: Term Tiger -> Term Tiger -> Term Tiger -> Term Tiger -> Term Tiger
+pattern ForExp a b c d = Node "ForExp" [a, b, c, d]
 
-pattern OR :: Term MITScript
-pattern OR = Node "OR" []
+pattern BreakExp :: Term Tiger
+pattern BreakExp = Node "BreakExp" []
 
-pattern GT :: Term MITScript
-pattern GT = Node "GT" []
+pattern LetExp :: Term Tiger -> Term Tiger -> Term Tiger
+pattern LetExp a b = Node "LetExp" [a, b]
 
-pattern GTE :: Term MITScript
-pattern GTE = Node "GTE" []
+pattern ArrayExp :: Term Tiger -> Term Tiger -> Term Tiger -> Term Tiger
+pattern ArrayExp a b c = Node "ArrayExp" [a, b, c]
 
-pattern EQ :: Term MITScript
-pattern EQ = Node "EQ" []
+pattern FunctionDec :: Term Tiger -> Term Tiger
+pattern FunctionDec a = Node "FunctionDec" [a]
 
-pattern UMINUS :: Term MITScript
-pattern UMINUS = Node "UMINUS" []
+pattern VarDecDec :: Term Tiger -> Term Tiger -> Term Tiger -> Term Tiger
+pattern VarDecDec a b c = Node "VarDecDec" [a, b, c]
 
-pattern NOT :: Term MITScript
-pattern NOT = Node "NOT" []
+pattern TypeDecDec :: Term Tiger -> Term Tiger
+pattern TypeDecDec a = Node "TypeDecDec" [a]
 
-pattern BinExp :: Term MITScript -> Term MITScript -> Term MITScript -> Term MITScript
-pattern BinExp a b c = Node "BinExp" [a, b, c]
+pattern NameTy :: Term Tiger -> Term Tiger
+pattern NameTy a = Node "NameTy" [a]
 
-pattern UnExp :: Term MITScript -> Term MITScript -> Term MITScript
-pattern UnExp a b = Node "UnExp" [a, b]
+pattern RecordTy :: Term Tiger -> Term Tiger
+pattern RecordTy a = Node "RecordTy" [a]
 
-pattern NumConst :: Term MITScript -> Term MITScript
-pattern NumConst a = Val "NumConst" [a]
+pattern ArrayTy :: Term Tiger -> Term Tiger
+pattern ArrayTy a = Node "ArrayTy" [a]
 
-pattern BConst :: Term MITScript -> Term MITScript
-pattern BConst a = Val "BConst" [a]
+pattern PlusOp :: Term Tiger
+pattern PlusOp = Node "PlusOp" []
 
-pattern None :: Term MITScript
-pattern None = Val "None" []
+pattern MinusOp :: Term Tiger
+pattern MinusOp = Node "MinusOp" []
 
-pattern Str :: Term MITScript -> Term MITScript
-pattern Str a = Val "Str" [a]
+pattern TimesOp :: Term Tiger
+pattern TimesOp = Node "TimesOp" []
 
-pattern Var :: Term MITScript -> Term MITScript
-pattern Var a = Node "Var" [a]
+pattern DivideOp :: Term Tiger
+pattern DivideOp = Node "DivideOp" []
 
-pattern FunCall :: Term MITScript -> Term MITScript -> Term MITScript
-pattern FunCall a b = Node "FunCall" [a, b]
+pattern EqOp :: Term Tiger
+pattern EqOp = Node "EqOp" []
 
-pattern FunDecl :: Term MITScript -> Term MITScript -> Term MITScript
-pattern FunDecl a b = Node "FunDecl" [a, b]
+pattern NeqOp :: Term Tiger
+pattern NeqOp = Node "NeqOp" []
 
-pattern Index :: Term MITScript -> Term MITScript -> Term MITScript
-pattern Index a b = Node "Index" [a, b]
+pattern LtOp :: Term Tiger
+pattern LtOp = Node "LtOp" []
 
-pattern FieldAccess :: Term MITScript -> Term MITScript -> Term MITScript
-pattern FieldAccess a b = Node "FieldAccess" [a, b]
+pattern LeOp :: Term Tiger
+pattern LeOp = Node "LeOp" []
 
-pattern Record :: Term MITScript -> Term MITScript
-pattern Record a = Node "Record" [a]
+pattern GtOp :: Term Tiger
+pattern GtOp = Node "GtOp" []
 
-pattern NilExp :: Term MITScript
-pattern NilExp = Node "NilExp" []
+pattern AndOp :: Term Tiger
+pattern AndOp = Node "AndOp" []
 
-pattern ConsExp :: Term MITScript -> Term MITScript -> Term MITScript
-pattern ConsExp a b = Node "ConsExp" [a, b]
+pattern OrOp :: Term Tiger
+pattern OrOp = Node "OrOp" []
 
-pattern RecordPair :: Term MITScript -> Term MITScript -> Term MITScript
-pattern RecordPair a b = Node "RecordPair" [a, b]
+pattern EField :: Term Tiger -> Term Tiger -> Term Tiger
+pattern EField a b = Node "EField" [a, b]
 
-pattern NilRecordPair :: Term MITScript
-pattern NilRecordPair = Node "NilRecordPair" []
+pattern TField :: Term Tiger -> Term Tiger -> Term Tiger
+pattern TField a b = Node "TField" [a, b]
 
-pattern ConsRecordPair :: Term MITScript -> Term MITScript -> Term MITScript
-pattern ConsRecordPair a b = Node "ConsRecordPair" [a, b]
+pattern VarDec :: Term Tiger -> Term Tiger
+pattern VarDec a = Node "VarDec" [a]
 
-pattern True :: Term MITScript
-pattern True = Val "True" []
+pattern Formals :: Term Tiger -> Term Tiger -> Term Tiger
+pattern Formals a b = Node "Formals" [a, b]
 
-pattern False :: Term MITScript
-pattern False = Val "False" []
+pattern TypeDec :: Term Tiger -> Term Tiger -> Term Tiger
+pattern TypeDec a b = Node "TypeDec" [a, b]
 
-pattern ConstInt :: Integer -> Term MITScript
-pattern ConstInt n = IntNode "ConstInt" n
+pattern FunDec :: Term Tiger -> Term Tiger -> Term Tiger -> Term Tiger -> Term Tiger
+pattern FunDec a b c d = Node "FunDec" [a, b, c, d]
 
-pattern ConstStr :: InternedByteString -> Term MITScript
+pattern NilFunDec :: Term Tiger
+pattern NilFunDec = Node "NilFunDec" []
+
+pattern ConsFunDec :: Term Tiger -> Term Tiger -> Term Tiger
+pattern ConsFunDec a b = Node "ConsFunDec" [a, b]
+
+pattern NilExpList :: Term Tiger
+pattern NilExpList = Node "NilExpList" []
+
+pattern ConsExpList :: Term Tiger -> Term Tiger -> Term Tiger
+pattern ConsExpList a b = Node "ConsExpList" [a, b]
+
+pattern NilTypeDec :: Term Tiger
+pattern NilTypeDec = Node "NilTypeDec" []
+
+pattern ConsTypeDec :: Term Tiger -> Term Tiger -> Term Tiger
+pattern ConsTypeDec a b = Node "ConsTypeDec" [a, b]
+
+pattern NilTField :: Term Tiger
+pattern NilTField = Node "NilTField" []
+
+pattern ConsTField :: Term Tiger -> Term Tiger -> Term Tiger
+pattern ConsTField a b = Node "ConsTField" [a, b]
+
+pattern NoneSym :: Term Tiger
+pattern NoneSym = Node "NoneSym" []
+
+pattern JustSym :: Term Tiger -> Term Tiger
+pattern JustSym a = Node "JustSym" [a]
+
+pattern Symbol :: InternedByteString -> Term Tiger
+pattern Symbol s = StrNode "Symbol" s
+
+pattern ConstStr :: InternedByteString -> Term Tiger
 pattern ConstStr s = StrNode "ConstStr" s
 
---------------------------------------------------------------------------------------------------------------------
---- Runtime values
-
-pattern ReducedRecord :: Term MITScript -> Term MITScript
-pattern ReducedRecord a = Val "ReducedRecord" [a]
-
-pattern ReducedRecordPair :: Term MITScript -> Term MITScript -> Term MITScript
-pattern ReducedRecordPair a b = Val "ReducedRecordPair" [a, b]
-
-pattern ReducedRecordNil :: Term MITScript
-pattern ReducedRecordNil = Val "ReducedRecordNil" []
-
-pattern ReducedRecordCons :: Term MITScript -> Term MITScript -> Term MITScript
-pattern ReducedRecordCons a b = Val "ReducedRecordCons" [a, b]
-
-pattern ReferenceVal :: Term MITScript -> Term MITScript
-pattern ReferenceVal a = Val "ReferenceVal" [a]
-
-pattern HeapAlloc :: Term MITScript -> Term MITScript
-pattern HeapAlloc a = Node "HeapAlloc" [a]
-
-pattern NilFrame :: Term MITScript
-pattern NilFrame = Val "NilFrame" []
-
-pattern ConsFrame :: Term MITScript -> Term MITScript -> Term MITScript
-pattern ConsFrame a b = Val "ConsFrame" [a, b]
-
-pattern Parent :: Term MITScript -> Term MITScript
-pattern Parent p = Val "Parent" [p]
-
-pattern Closure :: Term MITScript -> Term MITScript -> Term MITScript -> Term MITScript
-pattern Closure params body frame = Val "Closure" [params, body, frame]
-
-pattern ReducedNilExp :: Term MITScript
-pattern ReducedNilExp = Val "ReducedNilExp" []
-
-pattern ReducedConsExp :: Term MITScript -> Term MITScript -> Term MITScript
-pattern ReducedConsExp a b = Val "ReducedConsExp" [a, b]
-
-pattern HeapAddr :: Integer -> Term MITScript
-pattern HeapAddr n = IntNode "HeapAddr" n
-
-pattern Scope :: Term MITScript -> Term MITScript -> Term MITScript -> Term MITScript
-pattern Scope body params args = Node "Scope" [body, params, args]
-
-pattern Print :: Term MITScript
-pattern Print = Node "Print" []
-
-pattern IntCast :: Term MITScript
-pattern IntCast = Node "IntCast" []
-
-pattern Read :: Term MITScript
-pattern Read = Node "Read" []
-
-pattern Builtin :: Term MITScript -> Term MITScript -> Term MITScript
-pattern Builtin name arg = Node "Builtin" [name, arg]
-
-pattern GlobalVar :: Term MITScript
-pattern GlobalVar = Val "GlobalVar" []
-
--}
+pattern ConstInt :: Integer -> Term Tiger
+pattern ConstInt n = IntNode "ConstInt" n
