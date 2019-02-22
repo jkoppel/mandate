@@ -15,6 +15,8 @@ import Languages.MITScript.Syntax
 import Languages.MITScript.Translate
 import Languages.MITScript.Semantics
 import Languages.Imp
+import Languages.Tiger.Parse
+import Languages.Tiger.Signature
 
 main :: IO ()
 main = print =<< rules @ImpLang
