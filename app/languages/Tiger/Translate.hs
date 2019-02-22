@@ -13,6 +13,7 @@ import Data.Interned ( unintern )
 import Data.Interned.ByteString ( InternedByteString )
 
 import qualified TigerAbsyn  as T
+import qualified TigerLexer  as T
 import qualified TigerSymbol as T
 
 import Term
@@ -58,7 +59,7 @@ instance ToGeneric Tiger [T.Exp] where
   toGeneric []     = G.NilExpList
   toGeneric (e:es) = G.ConsExpList (toGeneric e) (toGeneric es)
 
-instance ToGeneric Tiger [(T.Exp, a)] where
+instance ToGeneric Tiger [(T.Exp, T.AlexPosn)] where
   toGeneric []         = G.NilExpList
   toGeneric ((e,_):es) = G.ConsExpList (toGeneric e) (toGeneric es)
 
@@ -131,87 +132,144 @@ instance ToGeneric Tiger (Maybe T.Symbol) where
   toGeneric Nothing  = G.NoneSym
   toGeneric (Just s) = G.JustSym (toGeneric s)
 
-instance ToGeneric Tiger (Maybe (T.Symbol, a)) where
+instance ToGeneric Tiger (Maybe (T.Symbol, T.AlexPosn)) where
   toGeneric Nothing       = G.NoneSym
   toGeneric (Just (s, _)) = G.JustSym (toGeneric s)
 
 ---------------------------------------------------------------------------------------------------------
 
-{-
+emptyPosn :: T.AlexPosn
+emptyPosn = T.AlexPn 0 0 0
 
-instance FromGeneric MITScript M.Name where
-  fromGeneric (G.Name s) = return $ M.Name (ibsToString s)
+instance FromGeneric Tiger T.Program where
+  fromGeneric (G.PExp e)   = T.Pexp <$> fromGeneric e
+  fromGeneric (G.PDecs ds) = T.Pdecs <$> fromGeneric ds
   fromGeneric _ = Nothing
 
-instance FromGeneric MITScript [M.Name] where
-  fromGeneric G.NilName = return []
-  fromGeneric (G.ConsName n ns) = (:) <$> fromGeneric n <*> fromGeneric ns
+instance FromGeneric Tiger T.Var where
+  fromGeneric (G.SimpleVar s) = T.SimpleVar <$> ((,) <$> fromGeneric s <*> return emptyPosn)
+  fromGeneric (G.FieldVar v s) = T.FieldVar <$> ((,,) <$> fromGeneric v <*> fromGeneric s <*> return emptyPosn)
+  fromGeneric (G.SubscriptVar v e) = T.SubscriptVar <$> ((,,) <$> fromGeneric v <*> fromGeneric e <*> return emptyPosn)
   fromGeneric _ = Nothing
 
-instance FromGeneric MITScript M.Stmt where
-  fromGeneric (G.Global n) = M.Global <$> fromGeneric n
-  fromGeneric (G.Assign e1 e2) = M.Assign <$> fromGeneric e1 <*> fromGeneric e2
-  fromGeneric (G.ExpStmt s) = M.ExpStmt <$> fromGeneric s
-  fromGeneric (G.If p t e) = M.If <$> fromGeneric p <*> fromGeneric t <*> fromGeneric e
-  fromGeneric (G.While e s) = M.While <$> fromGeneric e <*> fromGeneric s
-  fromGeneric (G.Return e) = M.Return <$> fromGeneric e
-  fromGeneric (G.Block ss) = M.Block <$> fromGeneric ss
+instance FromGeneric Tiger T.Exp where
+  fromGeneric (G.VarExp v) = T.VarExp <$> fromGeneric v
+  fromGeneric  G.NilExp = return $ T.NilExp emptyPosn
+  fromGeneric (G.IntExp (G.ConstInt n)) = return $ T.IntExp (fromInteger n, emptyPosn)
+  fromGeneric (G.StringExp (G.ConstStr s)) = return $ T.StringExp (ibsToString s, emptyPosn)
+  fromGeneric (G.SeqExp es) = T.SeqExp <$> fromGeneric es
+  fromGeneric (G.AppExp fn args) = T.AppExp <$> fromGeneric fn <*> fromGeneric args <*> return emptyPosn
+  fromGeneric (G.OpExp l o r) = T.OpExp <$> fromGeneric l <*> fromGeneric o <*> fromGeneric r <*> return emptyPosn
+  fromGeneric (G.RecordExp flds typ) = T.RecordExp <$> fromGeneric flds <*> fromGeneric typ <*> return emptyPosn
+  fromGeneric (G.AssignExp v e) = T.AssignExp <$> fromGeneric v <*> fromGeneric e <*> return emptyPosn
+
+  fromGeneric (G.IfExp e s1 G.NilExp) = T.IfExp <$> fromGeneric e <*> fromGeneric s1 <*> return Nothing <*> return emptyPosn
+  fromGeneric (G.IfExp e s1 s2) = T.IfExp <$> fromGeneric e <*> fromGeneric s1 <*> (Just <$> fromGeneric s2) <*> return emptyPosn
+
+  fromGeneric (G.WhileExp e b) = T.WhileExp <$> fromGeneric e <*> fromGeneric b <*> return emptyPosn
+  fromGeneric (G.ForExp v lo hi b) = T.ForExp <$> fromGeneric v <*> fromGeneric lo <*> fromGeneric hi <*> fromGeneric b <*> return emptyPosn
+  fromGeneric  G.BreakExp = return $ T.BreakExp emptyPosn
+  fromGeneric (G.LetExp ds b) = T.LetExp <$> fromGeneric ds <*> fromGeneric b <*> return emptyPosn
+  fromGeneric (G.ArrayExp t s i) = T.ArrayExp <$> fromGeneric t <*> fromGeneric s <*> fromGeneric i <*> return emptyPosn
+
   fromGeneric _ = Nothing
 
-instance FromGeneric MITScript [M.Stmt] where
-  fromGeneric G.NilStmt = return []
-  fromGeneric (G.ConsStmt s ss) = (:) <$> fromGeneric s <*> fromGeneric ss
+instance FromGeneric Tiger [T.Exp] where
+  fromGeneric G.NilExpList = return []
+  fromGeneric (G.ConsExpList e es) = (:) <$> fromGeneric e <*> fromGeneric es
   fromGeneric _ = Nothing
 
-instance FromGeneric MITScript M.BinOp where
-  fromGeneric G.PLUS = return M.PLUS
-  fromGeneric G.MINUS = return M.MINUS
-  fromGeneric G.TIMES = return M.TIMES
-  fromGeneric G.DIV = return M.DIV
-  fromGeneric G.AND = return M.AND
-  fromGeneric G.OR = return M.OR
-  fromGeneric G.GT = return M.GT
-  fromGeneric G.GTE = return M.GTE
-  fromGeneric G.EQ = return M.EQ
+instance FromGeneric Tiger [(T.Exp, T.AlexPosn)] where
+  fromGeneric G.NilExpList         = return []
+  fromGeneric (G.ConsExpList e es) = (:) <$> ((,) <$> fromGeneric e <*> return emptyPosn) <*> fromGeneric es
   fromGeneric _ = Nothing
 
-
-instance FromGeneric MITScript M.UnOp where
-  fromGeneric G.UMINUS = return M.UMINUS
-  fromGeneric G.NOT = return M.NOT
+instance FromGeneric Tiger T.Dec where
+  fromGeneric (G.FunctionDec fs) = T.FunctionDec <$> fromGeneric fs
+  fromGeneric (G.VarDecDec vd mt i) = T.VarDec <$> fromGeneric vd <*> fromGeneric mt <*> fromGeneric i <*> return emptyPosn
+  fromGeneric (G.TypeDecDec ts) = T.TypeDec <$> fromGeneric ts
   fromGeneric _ = Nothing
 
-instance FromGeneric MITScript M.Expr where
-  fromGeneric (G.BinExp e1 o e2) = M.BinExp <$> fromGeneric e1 <*> fromGeneric o <*> fromGeneric e2
-  fromGeneric (G.UnExp u e) = M.UnExp <$> fromGeneric u <*> fromGeneric e
-
-  -- Interesting cases
-  fromGeneric (G.NumConst (G.ConstInt n)) = return $ M.NumConst (fromInteger n)
-  fromGeneric (G.BConst G.True)  = return $ M.BConst True
-  fromGeneric (G.BConst G.False) = return $ M.BConst False
-  fromGeneric G.None = return M.None
-  fromGeneric (G.Str (G.ConstStr s)) = return $ M.Str (ibsToString s)
-
-  fromGeneric (G.Var v) = M.Var <$> fromGeneric v
-  fromGeneric (G.FunCall e es) = M.FunCall <$> fromGeneric e <*> fromGeneric es
-  fromGeneric (G.FunDecl nms s) = M.FunDecl <$> fromGeneric nms <*> fromGeneric s
-  fromGeneric (G.Index e1 e2) = M.Index <$> fromGeneric e1 <*> fromGeneric e2
-  fromGeneric (G.FieldAccess e n) = M.FieldAccess <$> fromGeneric e <*> fromGeneric n
-  fromGeneric (G.Record rps) = M.Record <$> fromGeneric rps
+instance FromGeneric Tiger [T.Dec] where
+  fromGeneric G.NilDecList = return []
+  fromGeneric (G.ConsDecList d ds) = (:) <$> fromGeneric d <*> fromGeneric ds
   fromGeneric _ = Nothing
 
-instance FromGeneric MITScript [M.Expr] where
-  fromGeneric G.NilExp = return []
-  fromGeneric (G.ConsExp e es) = (:) <$> fromGeneric e <*> fromGeneric es
+instance FromGeneric Tiger T.Ty where
+  fromGeneric (G.NameTy s) = T.NameTy <$> ((,) <$> fromGeneric s <*> return emptyPosn)
+  fromGeneric (G.RecordTy ts) = T.RecordTy <$> fromGeneric ts
+  fromGeneric (G.ArrayTy s) = T.ArrayTy <$> ((,) <$> fromGeneric s <*> return emptyPosn)
   fromGeneric _ = Nothing
 
-instance FromGeneric MITScript M.RecordPair where
-  fromGeneric (G.RecordPair n e) = M.RecordPair <$> fromGeneric n <*> fromGeneric e
+instance FromGeneric Tiger T.Oper where
+  fromGeneric G.PlusOp = return T.PlusOp
+  fromGeneric G.MinusOp = return T.MinusOp
+  fromGeneric G.TimesOp = return T.TimesOp
+  fromGeneric G.DivideOp = return T.DivideOp
+  fromGeneric G.EqOp = return T.EqOp
+  fromGeneric G.NeqOp = return T.NeqOp
+  fromGeneric G.LtOp = return T.LtOp
+  fromGeneric G.LeOp = return T.LeOp
+  fromGeneric G.GtOp = return T.GtOp
+  fromGeneric G.GeOp = return T.GeOp
+  fromGeneric G.AndOp = return T.AndOp
+  fromGeneric G.OrOp = return T.OrOp
   fromGeneric _ = Nothing
 
-instance FromGeneric MITScript [M.RecordPair] where
-  fromGeneric G.NilRecordPair = return []
-  fromGeneric (G.ConsRecordPair rp rps) = (:) <$> fromGeneric rp <*> fromGeneric rps
+instance FromGeneric Tiger T.Efield where
+  fromGeneric (G.EField s e) = (,,) <$> fromGeneric s <*> fromGeneric e <*> return emptyPosn
   fromGeneric _ = Nothing
 
--}
+instance FromGeneric Tiger [T.Efield] where
+  fromGeneric G.NilEField = return []
+  fromGeneric (G.ConsEField f fs) = (:) <$> fromGeneric f <*> fromGeneric fs
+  fromGeneric _ = Nothing
+
+instance FromGeneric Tiger T.Tfield where
+ fromGeneric (G.TField s t) = T.Tfield <$> fromGeneric s <*> fromGeneric t <*> return emptyPosn
+ fromGeneric _ = Nothing
+
+instance FromGeneric Tiger [T.Tfield] where
+  fromGeneric G.NilTField = return []
+  fromGeneric (G.ConsTField f fs) = (:) <$> fromGeneric f <*> fromGeneric fs
+  fromGeneric _ = Nothing
+
+instance FromGeneric Tiger T.Vardec where
+  fromGeneric (G.VarDec s) = T.Vardec <$> fromGeneric s <*> return False
+  fromGeneric _ = Nothing
+
+instance FromGeneric Tiger T.Formals where
+  fromGeneric (G.Formals d s) = T.Formals <$> fromGeneric d <*> fromGeneric s <*> return emptyPosn
+  fromGeneric _ = Nothing
+
+instance FromGeneric Tiger T.Typedec where
+  fromGeneric (G.TypeDec n t) = T.Typedec <$> fromGeneric n <*> fromGeneric t <*> return emptyPosn
+  fromGeneric _ = Nothing
+
+instance FromGeneric Tiger [T.Typedec] where
+  fromGeneric G.NilTypeDec         = return []
+  fromGeneric (G.ConsTypeDec t ts) = (:) <$> fromGeneric t <*> fromGeneric ts
+  fromGeneric _ = Nothing
+
+instance FromGeneric Tiger T.Fundec where
+  fromGeneric (G.FunDec n p r e) = T.Fundec <$> fromGeneric n <*> fromGeneric p <*> fromGeneric r <*> fromGeneric e <*> return emptyPosn
+  fromGeneric _ = Nothing
+
+instance FromGeneric Tiger [T.Fundec] where
+  fromGeneric G.NilFunDec         = return []
+  fromGeneric (G.ConsFunDec f fs) = (:) <$> fromGeneric f <*> fromGeneric fs
+  fromGeneric _ = Nothing
+
+instance FromGeneric Tiger T.Symbol where
+  fromGeneric (G.Symbol s) = return (ibsToString s, 0)
+  fromGeneric _ = Nothing
+
+instance FromGeneric Tiger (Maybe T.Symbol) where
+  fromGeneric G.NoneSym     = return Nothing
+  fromGeneric (G.JustSym s) = Just <$> fromGeneric s
+  fromGeneric _ = Nothing
+
+instance FromGeneric Tiger (Maybe (T.Symbol, T.AlexPosn)) where
+  fromGeneric G.NoneSym     = return Nothing
+  fromGeneric (G.JustSym s) = Just <$> ((,) <$> fromGeneric s <*> return emptyPosn)
+  fromGeneric _ = Nothing
