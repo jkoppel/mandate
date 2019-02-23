@@ -56,6 +56,14 @@ instance LangBase MITScript where
         compFuncName ReadIndex    = "readIndex"
         compFuncName RunBuiltin   = "runBuiltin"
 
+        compFuncName AbsReadField    = "absreadField"
+        compFuncName AbsWriteField   = "abswriteField"
+        compFuncName AbsAllocAddress = "absallocAddress"
+        compFuncName AbsCompute      = "abscompute"
+        compFuncName AbsWriteIndex   = "abswriteIndex"
+        compFuncName AbsReadIndex    = "absreadIndex"
+        compFuncName AbsRunBuiltin   = "absrunBuiltin"
+
         runCompFunc func (c:cs)  = runExternalComputation func (confState c) (map confTerm (c:cs))
 
 instance Hashable (CompFunc MITScript)
@@ -681,6 +689,7 @@ runExternalComputation RunBuiltin (stack, heap) [Print, vv]   = matchEffectOutpu
 runExternalComputation RunBuiltin (stack, heap) [IntCast, vv] = returnInt $ read $ toString vv heap
 
 runExternalComputation func state [GStar _] = return $ initConf ValStar
+runExternalComputation func state [_]       = return $ initConf ValStar
 
 runExternalComputation func state [GStar _, _] = return $ initConf ValStar
 runExternalComputation func state [_, GStar _] = return $ initConf ValStar
@@ -688,3 +697,4 @@ runExternalComputation func state [_, GStar _] = return $ initConf ValStar
 runExternalComputation func state [GStar _, _, _] = return $ initConf ValStar
 runExternalComputation func state [_, GStar _, _] = return $ initConf ValStar
 runExternalComputation func state [_, _, GStar _] = return $ initConf ValStar
+runExternalComputation func state terms = error $ show func ++ "\t" ++ show state ++ "\t" ++ show terms

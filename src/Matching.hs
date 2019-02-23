@@ -198,7 +198,7 @@ runMatchUnique m = do xs <- runMatch m
                         _   -> error "Called runMatchUnique, but had many results"
 
 runMatchEffect :: MatchEffect a -> Match a
-runMatchEffect (MatchEffect x) = liftIO x
+runMatchEffect (MatchEffect x) = lift x
 
 instance MonadVarAllocator Match where
   allocVarM = do ms <- get
