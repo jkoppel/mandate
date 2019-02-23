@@ -310,8 +310,8 @@ runExternalComputation DoReadInt  state [Skip] = initConf <$> EVal <$> Const <$>
 
 runExternalComputation AbsRunAdd state [GStar _, _] = return $ initConf ValStar
 runExternalComputation AbsRunAdd state [_, GStar _] = return $ initConf ValStar
-runExternalComputation AbsRunLT  state [GStar _, _] = mplus (return $ initConf True) (return $ initConf False)
-runExternalComputation AbsRunLT  state [_, GStar _] = mplus (return $ initConf True) (return $ initConf False)
+runExternalComputation AbsRunLT  state [GStar _, _] = (return $ initConf True) `mplus` (return $ initConf False)
+runExternalComputation AbsRunLT  state [_, GStar _] = (return $ initConf True) `mplus` (return $ initConf False)
 
 runExternalComputation AbsDoReadInt   state [_] = return $ initConf ValStar
 runExternalComputation AbsDoWriteInt  state [_] = return $ initConf Skip
