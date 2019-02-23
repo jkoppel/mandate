@@ -11,7 +11,7 @@ while (a < 3) { // while works
 if (true | false) { // if/else works
     z = 4;
 } else {
-    z = 5;
+    t = 5;
 }
 
 m = { // records work!

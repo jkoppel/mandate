@@ -1,0 +1,11 @@
+2/23/2019
+
+Code written for the previous deadline that needs to be cleaned up:
+
+1) There is improper coupling between Abstraction.hs and IMP. The VarNotIrr abstraction assumes that there are nodes in the language called "true"/"false".
+
+2) To get finer control over the sort-irrelevance abstraction, both IMP and MITScript do sort-hacking. Imp changes some statements to Exp, and MITScript changes some Exp's to "Exp*".
+
+3) To get basic blocks to work, many functions were written that "pre-step" the state. These can be generalized.
+
+Also, the definition we used for graph projection was wrong; should be modified to match Manolios's definition, which deals better with self-loops.

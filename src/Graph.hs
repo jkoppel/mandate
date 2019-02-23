@@ -7,6 +7,7 @@ module Graph (
   , insert
   , member
   , toRealGraph
+  , graphQuotient
   ) where
 
 import Control.Monad.Writer ( tell, execWriter )
@@ -75,14 +76,17 @@ empty = Graph M.empty
 newNode :: GraphNode a
 newNode = GraphNode 0 0 S.empty
 
-nodeIndex :: (Eq a) => Graph a -> a -> Int
-nodeIndex g n = fromMaybe (negate 1) (elemIndex n (M.keys $ getGraph g))
+nodeToIndex :: (Eq a) => Graph a -> a -> Int
+nodeToIndex g n = fromMaybe (negate 1) (elemIndex n (M.keys $ getGraph g))
+
+indexToNode :: (Eq a) => Graph a -> Int -> a
+indexToNode g n = M.keys (getGraph g) !! n
 
 realNodes :: (Eq a, Show a) => Graph a -> [RealGraph.LNode String]
-realNodes g = map (\key -> (nodeIndex g key, show key)) (M.keys $ getGraph g)
+realNodes g = map (\key -> (nodeToIndex g key, show key)) (M.keys $ getGraph g)
 
 realEdgesForNode :: (Eq a) => Graph a -> a -> GraphNode a -> [RealGraph.LEdge String]
-realEdgesForNode g n es = S.toList $ S.map (\edge -> (nodeIndex g n, nodeIndex g edge, "")) (edges es)
+realEdgesForNode g n es = S.toList $ S.map (\edge -> (nodeToIndex g n, nodeToIndex g edge, "")) (edges es)
 
 realEdges :: (Eq a) => Graph a -> [RealGraph.LEdge String]
 realEdges g = concat $ M.mapWithKey (realEdgesForNode g) (getGraph g)
@@ -109,3 +113,13 @@ member a = M.member a . getGraph
 
 toRealGraph :: (RealGraph.Graph gr, Eq a, Show a) => Graph a -> gr String String
 toRealGraph g = RealGraph.mkGraph (realNodes g) (realEdges g)
+
+type Projection a b = a -> b
+
+graphQuotient :: (Eq a, Hashable a, Eq b, Hashable b) => Projection a b -> Graph a -> Graph b
+graphQuotient p ga = foldr (\(ia, ib, l) -> insertWithoutSelfEdges ia ib) empty (realEdges ga)
+    where
+      aIndexToB i = p $ indexToNode ga i
+      insertWithoutSelfEdges a b = if aIndexToB a /= aIndexToB b
+                                      then insert (aIndexToB a) (aIndexToB b)
+                                      else id

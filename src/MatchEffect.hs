@@ -6,6 +6,9 @@ module MatchEffect (
   , matchEffectOutput
   ) where
 
+import Control.Applicative
+import Control.Monad (MonadPlus)
+import Control.Monad.Logic ( LogicT(..), runLogicT, observeAllT, lift )
 import Data.ByteString.Char8 ( ByteString )
 import qualified Data.ByteString.Char8 as BS
 
@@ -20,11 +23,11 @@ import qualified Data.ByteString.Char8 as BS
 --
 -- This allows effects in a target language to be implemented using effects in the meta-language.
 -- E.g.: I/O in the target language is implemented using Haskell's IO
-newtype MatchEffect a = MatchEffect (IO a)
-  deriving ( Functor, Applicative, Monad )
+newtype MatchEffect a = MatchEffect (LogicT IO a)
+  deriving ( Functor, Applicative, Monad, MonadPlus, Alternative )
 
 matchEffectInput :: MatchEffect ByteString
-matchEffectInput = MatchEffect BS.getLine
+matchEffectInput = MatchEffect $ lift BS.getLine
 
 matchEffectOutput :: ByteString -> MatchEffect ()
-matchEffectOutput s = MatchEffect $ BS.putStr s
+matchEffectOutput s = MatchEffect $ lift $ BS.putStr s
