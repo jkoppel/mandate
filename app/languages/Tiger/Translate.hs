@@ -20,6 +20,7 @@ import Term
 
 import Languages.Translation
 
+import           Languages.Tiger.Parse ( emptyPosn, toDumbSymbol )
 import           Languages.Tiger.Signature ( Tiger )
 import qualified Languages.Tiger.Signature as G
 
@@ -138,9 +139,6 @@ instance ToGeneric Tiger (Maybe (T.Symbol, T.AlexPosn)) where
 
 ---------------------------------------------------------------------------------------------------------
 
-emptyPosn :: T.AlexPosn
-emptyPosn = T.AlexPn 0 0 0
-
 instance FromGeneric Tiger T.Program where
   fromGeneric (G.PExp e)   = T.Pexp <$> fromGeneric e
   fromGeneric (G.PDecs ds) = T.Pdecs <$> fromGeneric ds
@@ -163,7 +161,7 @@ instance FromGeneric Tiger T.Exp where
   fromGeneric (G.RecordExp flds typ) = T.RecordExp <$> fromGeneric flds <*> fromGeneric typ <*> return emptyPosn
   fromGeneric (G.AssignExp v e) = T.AssignExp <$> fromGeneric v <*> fromGeneric e <*> return emptyPosn
 
-  fromGeneric (G.IfExp e s1 G.NilExp) = T.IfExp <$> fromGeneric e <*> fromGeneric s1 <*> return Nothing <*> return emptyPosn
+  fromGeneric (G.IfExp e s1 G.NilExp) = T.IfExp <$> fromGeneric e <*> fromGeneric s1 <*> (return $ Just (T.NilExp emptyPosn)) <*> return emptyPosn
   fromGeneric (G.IfExp e s1 s2) = T.IfExp <$> fromGeneric e <*> fromGeneric s1 <*> (Just <$> fromGeneric s2) <*> return emptyPosn
 
   fromGeneric (G.WhileExp e b) = T.WhileExp <$> fromGeneric e <*> fromGeneric b <*> return emptyPosn
@@ -261,7 +259,7 @@ instance FromGeneric Tiger [T.Fundec] where
   fromGeneric _ = Nothing
 
 instance FromGeneric Tiger T.Symbol where
-  fromGeneric (G.Symbol s) = return (ibsToString s, 0)
+  fromGeneric (G.Symbol s) = return (toDumbSymbol $ ibsToString s)
   fromGeneric _ = Nothing
 
 instance FromGeneric Tiger (Maybe T.Symbol) where
