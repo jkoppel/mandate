@@ -101,9 +101,11 @@ instance Lang MITScript where
               , (HeapAddr 3, builtinIntCast)
             ])
 
-
 instance HasSOS MITScript where
     rules = mitScriptRules
+
+emptyConf :: Term MITScript -> Configuration MITScript
+emptyConf t = Conf t (ReducedRecordNil, EmptySimpEnv)
 
 conf :: Term MITScript -> (MetaVar, MetaVar) -> Configuration MITScript
 conf t (returnStack, heap) = Conf t (mv returnStack, WholeSimpEnv heap)
@@ -252,14 +254,14 @@ mitScriptRules = sequence [
     mkRule7 $ \val field ref mu h re re'->
         let (vval, mref, mfield, vre, vre', mmu) = (vv val, mv ref, mv field, vv re, vv re', mv mu) in
             StepTo (Conf (Assign (FieldAccess (ReferenceVal mref) mfield) vval) (mmu, AssocOneVal h mref vre))
-            (LetComputation (initConf (ReducedRecord vre')) (extComp WriteField (mmu, AssocOneVal h mref vre) [vre, mfield, vval])
+            (LetComputation (emptyConf (ReducedRecord vre')) (extComp WriteField (mmu, AssocOneVal h mref vre) [vre, mfield, vval])
             (Build $ Conf NilStmt (mmu, AssocOneVal h mref (ReducedRecord vre'))))
 
     , name "field-assn-eval-global" $
     mkRule7 $ \val field ref mu h re assign->
         let (vval, mref, mfield, vre, massign, mmu) = (vv val, mv ref, mv field, vv re, mv assign, mv mu) in
             StepTo (Conf (Assign (FieldAccess (ReferenceVal mref) mfield) vval) (mmu, AssocOneVal h mref vre))
-            (LetComputation (initConf (Assign massign vval)) (extComp WriteField (mmu, AssocOneVal h mref vre) [vre, mfield, vval])
+            (LetComputation (emptyConf (Assign massign vval)) (extComp WriteField (mmu, AssocOneVal h mref vre) [vre, mfield, vval])
             (Build $ Conf (Assign massign vval) (mmu, AssocOneVal h mref vre)))
 
     , name "index-assn-cong-1" $
@@ -282,7 +284,7 @@ mitScriptRules = sequence [
     mkRule7 $ \val index ref mu h re re'->
         let (vval, mref, mindex, vre, vre', mmu) = (vv val, mv ref, mv index, vv re, vv re', mv mu) in
             StepTo (Conf (Assign (Index (ReferenceVal mref) mindex) vval) (mmu, AssocOneVal h mref vre))
-            (LetComputation (initConf vre')
+            (LetComputation (emptyConf vre')
                 (extComp WriteIndex (mmu, AssocOneVal h mref vre) [vre, mindex, vval])
                 (Build $ Conf NilStmt (mmu, AssocOneVal h mref vre')))
 
@@ -300,7 +302,7 @@ mitScriptRules = sequence [
     mkRule3 $ \v1 v' op ->
         let (vv1, vv', mop) = (vv v1, vv v', mv op) in
             StepTo (conf (UnExp mop vv1) env)
-            (LetComputation (initConf $ ValVar v') (extComp Compute (matchRedState env) [mop, vv1])
+            (LetComputation (emptyConf $ ValVar v') (extComp Compute (matchRedState env) [mop, vv1])
             (Build $ conf vv' env))
 
     -- all binary operators are left-associative
@@ -325,7 +327,7 @@ mitScriptRules = sequence [
     mkRule4 $ \v1 v2 v' op ->
         let (vv1, vv2, vv', mop) = (vv v1, vv v2, vv v', mv op) in
             StepTo (conf (BinExp vv1 mop vv2) env)
-            (LetComputation (initConf $ ValVar v') (extComp Compute (matchRedState env) [mop, vv1, vv2])
+            (LetComputation (emptyConf $ ValVar v') (extComp Compute (matchRedState env) [mop, vv1, vv2])
             (Build $ conf vv' env))
 
     -- Heap Stuff
@@ -342,7 +344,7 @@ mitScriptRules = sequence [
     mkRule4 $ \h mu val ref ->
         let (vval, mref, mmu) = (vv val, mv ref, mv mu) in
             StepTo (Conf (HeapAlloc vval) (mmu, WholeSimpEnv h))
-            (LetComputation (initConf mref) (extComp AllocAddress (matchRedState (mu, h)) [NilStmt])
+            (LetComputation (emptyConf mref) (extComp AllocAddress (matchRedState (mu, h)) [NilStmt])
             (Build $ Conf (ReferenceVal mref) (mmu, AssocOneVal h mref vval)))
 
     -- Record Literals -> Runtime Records
@@ -426,7 +428,7 @@ mitScriptRules = sequence [
     mkRule6 $ \r i v ref mu h ->
         let (vr, vi, v', mref, mmu) = (vv r, vv i, vv v, mv ref, mv mu) in
             StepTo (Conf (Index (ReferenceVal mref) vi) (mmu, AssocOneVal h mref vr))
-            (LetComputation (initConf v') (extComp ReadIndex (mmu, AssocOneVal h mref vr) [vr, vi])
+            (LetComputation (emptyConf v') (extComp ReadIndex (mmu, AssocOneVal h mref vr) [vr, vi])
             (Build $ Conf v' (mmu, AssocOneVal h mref vr)))
 
     -- Field Access
@@ -442,7 +444,7 @@ mitScriptRules = sequence [
     mkRule6 $ \r f v ref mu h ->
         let (vr, mf, v', mref, mmu) = (vv r, mv f, vv v, mv ref, mv mu) in
             StepTo (Conf (FieldAccess (ReferenceVal mref) mf) (mmu, AssocOneVal h mref vr))
-            (LetComputation (initConf v') (extComp ReadField (mmu, AssocOneVal h mref vr) [vr, mf])
+            (LetComputation (emptyConf v') (extComp ReadField (mmu, AssocOneVal h mref vr) [vr, mf])
             (Build $ Conf v' (mmu, AssocOneVal h mref vr)))
 
     -- Functions
@@ -478,7 +480,7 @@ mitScriptRules = sequence [
     mkRule7 $ \params body frame mu ref h args ->
         let (mparams, mbody, mframe, mmu, mref, vargs) = (mv params, mv body, mv frame, mv mu, mv ref, vv args) in
             StepTo (Conf (FunCall (Closure mparams (Block mbody) mframe) vargs) (mmu, WholeSimpEnv h))
-                   (LetComputation (initConf mref) (extComp AllocAddress (mmu, WholeSimpEnv h) [NilStmt])
+                   (LetComputation (emptyConf mref) (extComp AllocAddress (mmu, WholeSimpEnv h) [NilStmt])
                       (Build $ Conf (Scope (Block (ConsStmt (Block mbody) (Return None))) mparams vargs)
                                     (ConsFrame mref mmu, AssocOneVal h mref (ReducedRecord $ Parent mframe))))
 
@@ -547,7 +549,7 @@ mitScriptRules = sequence [
     mkRule3 $ \var ret func ->
         let (vvar, mret, mfunc) = (vv var, mv ret, mv func) in
             StepTo (conf (Builtin mfunc vvar) env)
-                (LetComputation (initConf mret) (extComp RunBuiltin (matchRedState env) [mfunc, vvar])
+                (LetComputation (emptyConf mret) (extComp RunBuiltin (matchRedState env) [mfunc, vvar])
                     (Build $ conf mret env))
 
     ]
@@ -619,13 +621,13 @@ toString (ReferenceVal p) heap = case Configuration.lookup p heap of
                                                 Nothing -> "ERR: Dangling Pointer"
 
 returnInt :: Monad m => Integer -> m (Configuration MITScript)
-returnInt x = return $ initConf $ NumConst $ ConstInt x
+returnInt x = return $ emptyConf $ NumConst $ ConstInt x
 
 returnBool :: Monad m => Bool -> m (Configuration MITScript)
-returnBool x = return $ initConf $ BConst $ fromMetaBool x
+returnBool x = return $ emptyConf $ BConst $ fromMetaBool x
 
 returnString :: Monad m => String -> m (Configuration MITScript)
-returnString x = return $ initConf $ Str $ ConstStr $ fromString x
+returnString x = return $ emptyConf $ Str $ ConstStr $ fromString x
 
 matchRedState :: (MetaVar, MetaVar) -> RedState MITScript
 matchRedState (stack, heap) = (mv stack, WholeSimpEnv heap)
@@ -676,25 +678,25 @@ runExternalComputation Compute state [AND, BConst l, BConst r]       = returnBoo
 runExternalComputation Compute state [OR, BConst False, BConst False] = returnBool Prelude.False
 runExternalComputation Compute state [OR, BConst l, BConst r]         = returnBool Prelude.True
 
-runExternalComputation AllocAddress (stack, heap) _ = return $ initConf (HeapAddr $ size heap)
+runExternalComputation AllocAddress (stack, heap) _ = return $ emptyConf (HeapAddr $ size heap)
 
-runExternalComputation ReadIndex (stack, heap)  [ReducedRecord r, i]      = return $ initConf $ readField heap r (toString i heap)
-runExternalComputation WriteIndex (stack, heap) [ReducedRecord r, i, val] = return $ initConf $ writeField heap r (toString i heap) val
+runExternalComputation ReadIndex (stack, heap)  [ReducedRecord r, i]      = return $ emptyConf $ readField heap r (toString i heap)
+runExternalComputation WriteIndex (stack, heap) [ReducedRecord r, i, val] = return $ emptyConf $ writeField heap r (toString i heap) val
 
-runExternalComputation ReadField (stack, heap)  [ReducedRecord r, Name f] = return $ initConf $ readField heap r (ibsToString f)
-runExternalComputation WriteField (stack, heap) [ReducedRecord r, Name f, val]   = return $ initConf $ writeField heap r (ibsToString f) val
+runExternalComputation ReadField (stack, heap)  [ReducedRecord r, Name f] = return $ emptyConf $ readField heap r (ibsToString f)
+runExternalComputation WriteField (stack, heap) [ReducedRecord r, Name f, val]   = return $ emptyConf $ writeField heap r (ibsToString f) val
 
-runExternalComputation RunBuiltin state         [Read]        = initConf <$> Str <$> ConstStr <$> intern <$> matchEffectInput
-runExternalComputation RunBuiltin (stack, heap) [Print, vv]   = matchEffectOutput (BS.pack $ fromString $ toString vv heap) >> return (initConf None)
+runExternalComputation RunBuiltin state         [Read]        = emptyConf <$> Str <$> ConstStr <$> intern <$> matchEffectInput
+runExternalComputation RunBuiltin (stack, heap) [Print, vv]   = matchEffectOutput (BS.pack $ fromString $ toString vv heap) >> return (emptyConf None)
 runExternalComputation RunBuiltin (stack, heap) [IntCast, vv] = returnInt $ read $ toString vv heap
 
-runExternalComputation func state [GStar _] = return $ initConf ValStar
-runExternalComputation func state [_]       = return $ initConf ValStar
+runExternalComputation func state [GStar _] = return $ emptyConf ValStar
+runExternalComputation func state [_]       = return $ emptyConf ValStar
 
-runExternalComputation func state [GStar _, _] = return $ initConf ValStar
-runExternalComputation func state [_, GStar _] = return $ initConf ValStar
+runExternalComputation func state [GStar _, _] = return $ emptyConf ValStar
+runExternalComputation func state [_, GStar _] = return $ emptyConf ValStar
 
-runExternalComputation func state [GStar _, _, _] = return $ initConf ValStar
-runExternalComputation func state [_, GStar _, _] = return $ initConf ValStar
-runExternalComputation func state [_, _, GStar _] = return $ initConf ValStar
+runExternalComputation func state [GStar _, _, _] = return $ emptyConf ValStar
+runExternalComputation func state [_, GStar _, _] = return $ emptyConf ValStar
+runExternalComputation func state [_, _, GStar _] = return $ emptyConf ValStar
 runExternalComputation func state terms = error $ show func ++ "\t" ++ show state ++ "\t" ++ show terms

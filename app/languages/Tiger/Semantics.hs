@@ -30,7 +30,9 @@ import Semantics.SOS
 import Term hiding ( Symbol )
 import Var
 
+import Languages.Tiger.Parse
 import Languages.Tiger.Signature
+import Languages.Tiger.Translate
 
 instance LangBase Tiger where
 
@@ -143,11 +145,28 @@ mv = MetaVar
 tigerRules :: IO (NamedRules Tiger)
 tigerRules = sequence [
 
-      --- PExp, PDecs
+      --- PExp
+      name "pexp-cong" $
+      mkPairRule2 $ \env env' ->
+      mkRule2 $ \es es' ->
+        let (tes, mes') = (tv es, mv es') in
+          StepTo (conf (PExp tes) env)
+            (LetStepTo (conf mes' env') (conf tes env)
+              (Build (conf (PExp mes') env')))
+
+    , name "pexp-done" $
+      mkPairRule1 $ \env ->
+      mkRule1 $ \es ->
+        let ves = vv es in
+          StepTo (conf (PExp ves) env)
+            (Build (conf ves env))
+
+
+      -- PDecs
 
       ---- Vars
 
-      name "var-lookup" $
+    , name "var-lookup" $
       mkRule4 $ \var frame rest h ->
         let (mvar, mframe, mrest) = (mv var, mv frame, mv rest) in
           StepTo (Conf (SimpleVar mvar) (ConsFrame mframe mrest, WholeSimpEnv h))

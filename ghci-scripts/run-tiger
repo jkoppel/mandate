@@ -1,6 +1,6 @@
 :set -XOverloadedStrings
 :set -XTypeApplications
-:l Languages.MITScript.Semantics
+:l Languages.Tiger.Semantics
 import Control.DeepSeq
 import Configuration
 import Data.Text.Lazy
@@ -14,13 +14,16 @@ import Semantics.AbstractMachine
 import Semantics.Conversion
 import Semantics.PAM
 import Term
-rules <- mitScriptRules
+
+import Languages.Tiger.Parse
+
+rules <- tigerRules
 pamRules <- sosToPam rules
 amRules <- pamToAM pamRules
 eval term = evaluationSequenceL (initConf term) >>= mapM_ (\x -> putStrLn (show x) >> putStrLn "\n")
 showGraph graph = putStrLn $ unpack $ renderDot $ toDot $ graphToDot (defaultParams { fmtNode = \(n,l) -> [toLabel "", shape BoxShape], fmtEdge = \(n1,n2,l) -> [toLabel "", shape BoxShape]}) (toRealGraph @Gr graph)
-interpret file = do x <- parseFile file; eval (toGeneric x :: Term MITScript)
-parse file = do x <- parseFile file; return (toGeneric x :: Term MITScript)
-term1 <- parse "MITScript/tests/what-works.mit"
+interpret file = do x <- parseFile file; eval (toGeneric x :: Term Tiger)
+parse file = do x <- parseFile file; return (toGeneric x :: Term Tiger)
+-- term1 <- parse "MITScript/tests/what-works.mit"
 putStrLn "Try this: interpret [file]"
-putStrLn "Or this: abstractAmCfg (irrelevance (SortIrr \"Exp\")) (irrelevance (SortIrr \"Exp\")) amRules term1"
+--putStrLn "Or this: abstractAmCfg (irrelevance (SortIrr \"Exp\")) (irrelevance (SortIrr \"Exp\")) amRules term1"

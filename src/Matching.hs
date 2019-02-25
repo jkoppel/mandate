@@ -361,7 +361,10 @@ fillMatchTermGen f (GStar mt)      = return (GStar mt)
 instance (Typeable l) => Matchable (Term l) where
   getVars (Node _ ts)    = fold $ map getVars ts
   getVars (Val _ ts)     = fold $ map getVars ts
+  getVars (IntNode _ _)  = Set.empty
+  getVars (StrNode _ _)  = Set.empty
   getVars (GMetaVar v _) = Set.singleton v
+  getVars (GStar _)      = Set.empty
 
   match (Pattern (Node s1 ts1))   (Matchee (Node s2 ts2))
     | (s1 == s2)                              = matchList (Pattern ts1) (Matchee ts2)
