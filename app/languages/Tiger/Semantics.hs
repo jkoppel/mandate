@@ -234,5 +234,57 @@ tigerRules = sequence [
           (LetComputation (initConf NilExp) (extComp ValIsTrue (matchRedState env) [vv1])
             (Build (conf vv1 env)))
 
+      ---- Record Exp
+      ---- AssignExp
+      ---- IfExp
+      ---- WhileExp
+      ---- ForExp
+      ---- LetExp
+      ---- ArrayExp
+
       --- Stop at FunctionDec
     ]
+
+returnInt :: Monad m => Integer -> m (Configuration Tiger)
+returnInt x = return $ initConf $ IntExp $ ConstInt x
+
+returnBool :: Monad m => Bool -> m (Configuration Tiger)
+returnBool True  = return $ initConf $ IntExp $ ConstInt 1
+returnBool False = return $ initConf $ IntExp $ ConstInt 0
+
+
+runExternalComputation :: CompFunc Tiger -> RedState Tiger -> [Term Tiger] -> MatchEffect (Configuration Tiger)
+
+runExternalComputation Compute state [PlusOp,     IntExp (ConstInt n1), IntExp (ConstInt n2)] = returnInt $ n1 + n2
+runExternalComputation Compute state [MinusOp,    IntExp (ConstInt n1), IntExp (ConstInt n2)] = returnInt $ n1 - n2
+runExternalComputation Compute state [TimesOp,    IntExp (ConstInt n1), IntExp (ConstInt n2)] = returnInt $ n1 * n2
+runExternalComputation Compute state [DivideOp,   IntExp (ConstInt n1), IntExp (ConstInt n2)] = returnInt $ n1 `div` n2
+
+runExternalComputation Compute state [EqOp, IntExp    (ConstInt n1), IntExp    (ConstInt n2)] = returnBool $ n1 == n2
+runExternalComputation Compute state [EqOp, StringExp (ConstStr n1), StringExp (ConstStr n2)] = returnBool $ n1 == n2
+
+runExternalComputation Compute state [NeqOp, IntExp    (ConstInt n1), IntExp    (ConstInt n2)] = returnBool $ n1 /= n2
+runExternalComputation Compute state [NeqOp, StringExp (ConstStr n1), StringExp (ConstStr n2)] = returnBool $ n1 /= n2
+
+runExternalComputation Compute state [LtOp, IntExp    (ConstInt n1), IntExp    (ConstInt n2)] = returnBool $ n1 < n2
+runExternalComputation Compute state [LtOp, StringExp (ConstStr n1), StringExp (ConstStr n2)] = returnBool $ n1 < n2
+
+runExternalComputation Compute state [LeOp, IntExp    (ConstInt n1), IntExp    (ConstInt n2)] = returnBool $ n1 <= n2
+runExternalComputation Compute state [LeOp, StringExp (ConstStr n1), StringExp (ConstStr n2)] = returnBool $ n1 <= n2
+
+runExternalComputation Compute state [GtOp, IntExp    (ConstInt n1), IntExp    (ConstInt n2)] = returnBool $ n1 > n2
+runExternalComputation Compute state [GtOp, StringExp (ConstStr n1), StringExp (ConstStr n2)] = returnBool $ n1 > n2
+
+runExternalComputation Compute state [GeOp, IntExp    (ConstInt n1), IntExp    (ConstInt n2)] = returnBool $ n1 >= n2
+runExternalComputation Compute state [GeOp, StringExp (ConstStr n1), StringExp (ConstStr n2)] = returnBool $ n1 >= n2
+
+
+runExternalComputation Compute state [GT,  NumConst (ConstInt n1), NumConst (ConstInt n2)] = returnBool $ n1 > n2
+runExternalComputation Compute state [GTE, NumConst (ConstInt n1), NumConst (ConstInt n2)] = returnBool $ n1 >= n2
+
+
+runExternalComputation Compute state [AND, BConst True, BConst True] = returnBool Prelude.True
+runExternalComputation Compute state [AND, BConst l, BConst r]       = returnBool Prelude.False
+
+runExternalComputation Compute state [OR, BConst False, BConst False] = returnBool Prelude.False
+runExternalComputation Compute state [OR, BConst l, BConst r]         = returnBool Prelude.True
