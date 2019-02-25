@@ -236,7 +236,31 @@ tigerRules = sequence [
 
       ---- Record Exp
       ---- AssignExp
+
       ---- IfExp
+      , name "if-cong" $
+        mkPairRule2 $ \env env' ->
+        mkRule4 $ \e1 s1 s2 e1' ->
+          let (me1, ms1, ms2, me1') = (mv me1, mv s1, mv s2, mv e1') in
+            StepTo (conf (IfExp ve1 ms1 ms2) env)
+              (LetStepTo (conf me1' env') (conf me1 env)
+                (Build (conf (IfExp me1' ms1 ms2) env')))
+
+      , name "if-0" $
+        mkPairRule1 $ \env ->
+        mkRule2 $ \s1 s2 ->
+          let (ms1, ms2) = (mv s1, mv s2) in
+            StepTo (conf (IfExp (IntExp (ConstInt 0)) ms1 ms2) env)
+              (Build (conf ms2 env))
+
+      , name "if-true" $
+        mkPairRule1 $ \env ->
+        mkRule3 $ \v s1 s2 ->
+          let (vv, ms1, ms2) = (vv v, mv s1, mv s2) in
+            StepTo (conf (IfExp vv ms1 ms2) env)
+              (LetComputation (initConf NilExp) (extComp ValIsTrue (matchRedState env) [vv])
+                (Build (conf ms1 env)))
+
       ---- WhileExp
       ---- ForExp
       ---- LetExp
