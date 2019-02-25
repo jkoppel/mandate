@@ -216,12 +216,12 @@ tigerRules = sequence [
                 (LetStepTo (conf ms1' env')(conf ts1 env)
                   (Build (conf (SeqExp (ConsExpList ms1' ms2)) env')))
 
-    , name "seq-nil" $
+    , name "seq-next" $
       mkPairRule1 $ \env ->
-      mkRule1 $ \s ->
-        let ms = mv s in
-            StepTo (conf (SeqExp (ConsExpList NilExp ms)) env)
-                (Build (conf (SeqExp ms) env))
+      mkRule3 $ \val s ss ->
+        let (vval, ms, mss) = (vv val, mv s, mv ss) in
+            StepTo (conf (SeqExp (ConsExpList vval (ConsExpList ms mss))) env)
+                (Build (conf (SeqExp (ConsExpList ms mss)) env))
 
 
     , name "seq-done" $
@@ -354,7 +354,78 @@ tigerRules = sequence [
           (LetComputation (emptyConf NilExp) (extComp ValIsTrue (matchRedState env) [vv1])
             (Build (conf vv1 env)))
 
+      ---- Heap allocation
+
+    , name "heap-alloc-eval" $
+      mkPairRule1 $ \env ->
+      mkRule4 $ \h mu val ref ->
+        let (vval, mref, mmu) = (vv val, mv ref, mv mu) in
+          StepTo (Conf (HeapAlloc vval) (mmu, WholeSimpEnv h))
+            (LetComputation (emptyConf mref) (extComp AllocAddress (matchRedState (mu, h)) [NilExp])
+              (Build $ Conf (ReferenceVal mref) (mmu, AssocOneVal h mref vval)))
+
       ---- Record Exp
+
+    , name "record-cong" $
+      mkPairRule2 $ \env env' ->
+      mkRule3 $ \r r' s ->
+        let (tr, mr', ms) = (tv r, mv r', mv s) in
+            StepTo (conf (RecordExp tr ms) env)
+            (LetStepTo (conf mr' env') (conf tr env)
+              (Build $ conf (RecordExp mr' ms) env'))
+
+    , name "record-eval" $
+      mkPairRule2 $ \env env' ->
+      mkRule2 $ \r s ->
+        let (vr, ms) = (vv r, mv s) in
+            StepTo (conf (RecordExp vr ms) env)
+              (Build $ conf (HeapAlloc (ReducedRecord vr)) env)
+
+    , name "cons-efield-cong-car" $
+      mkPairRule2 $ \env env' ->
+      mkRule3 $ \r r' rs ->
+        let (tr, mr', mrs) = (tv r, mv r', mv rs) in
+          StepTo (conf (ConsEField tr mrs) env)
+            (LetStepTo (conf mr' env') (conf tr env)
+              (Build $ conf (ConsEField mr' mrs) env'))
+
+    , name "cons-efield-cong-cdr" $
+      mkPairRule2 $ \env env' ->
+      mkRule3 $ \r rs rs' ->
+        let (vr, trs, mrs') = (vv r, tv rs, mv rs') in
+          StepTo (conf (ConsEField vr trs) env)
+            (LetStepTo (conf mrs' env') (conf trs env)
+              (Build $ conf (ConsEField vr mrs') env'))
+
+    , name "cons-efield-eval" $
+      mkPairRule1 $ \env ->
+      mkRule2 $ \r rs ->
+        let (vr, vrs) = (vv r, vv rs) in
+          StepTo (conf (ConsEField vr vrs) env)
+            (Build $ conf (ReducedRecordCons vr vrs) env)
+
+    , name "efield-cong" $
+      mkPairRule2 $ \env env' ->
+      mkRule3 $ \k v v' ->
+        let (mk, tvv, mv') = (mv k, tv v, mv v') in
+          StepTo (conf (EField mk tvv) env)
+            (LetStepTo (conf mv' env') (conf tvv env)
+              (Build $ conf (EField mk mv') env'))
+
+    , name "efield-eval" $
+      mkPairRule1 $ \env ->
+      mkRule2 $ \key val ->
+        let (mkey, vval) = (mv key, vv val) in
+          StepTo (conf (EField mkey vval) env)
+            (Build $ conf (ReducedRecordPair mkey vval) env)
+
+    , name "nil-efield-eval" $
+      mkPairRule1 $ \env ->
+      mkRule0 $
+        StepTo (conf NilEField env)
+          (Build $ conf ReducedRecordNil env)
+
+
       ---- AssignExp
 
       ---- IfExp
@@ -550,6 +621,8 @@ runExternalComputation Compute state [GtOp, StringExp (ConstStr n1), StringExp (
 
 runExternalComputation Compute state [GeOp, IntExp    (ConstInt n1), IntExp    (ConstInt n2)] = returnBool $ n1 >= n2
 runExternalComputation Compute state [GeOp, StringExp (ConstStr n1), StringExp (ConstStr n2)] = returnBool $ n1 >= n2
+
+runExternalComputation AllocAddress (stack, heap) _ = return $ emptyConf (HeapAddr $ size heap)
 
 runExternalComputation ReadIndex (stack, heap)  [ReducedRecord r, i]      = return $ emptyConf $ readField heap r (show i)
 

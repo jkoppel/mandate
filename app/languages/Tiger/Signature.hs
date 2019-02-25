@@ -115,6 +115,7 @@ tigerSig = Signature [ NodeSig "PExp"  ["Exp"]     "Program"
 
                      ----- Runtime values
 
+                     , NodeSig "HeapAlloc" ["Exp"] "Exp"
 
                      , ValSig "NilFrame"  []                        "FrameList"
                      , ValSig "ConsFrame" ["HeapAddr", "FrameList"] "FrameList"
@@ -128,8 +129,6 @@ tigerSig = Signature [ NodeSig "PExp"  ["Exp"]     "Program"
                      , IntSig  "HeapAddr" "HeapAddr"
 
                      , ValSig  "ReducedRecord" ["ReducedRecordPairList"] "Exp"
-
-                     , NodeSig "RecordPair"        ["Symbol", "Exp"] "RecordPair"
                      , ValSig  "ReducedRecordPair" ["Symbol", "Exp"] "ReducedRecordPair"
 
                      , ValSig "Parent"            ["Exp"]                                        "ReducedRecordPairList"
@@ -355,6 +354,9 @@ pattern ConstStr s = StrNode "ConstStr" s
 
 pattern ConstInt :: Integer -> Term Tiger
 pattern ConstInt n = IntNode "ConstInt" n
+
+pattern HeapAlloc :: Term Tiger -> Term Tiger
+pattern HeapAlloc a = Node "HeapAlloc" [a]
 
 pattern NilFrame :: Term Tiger
 pattern NilFrame = Val "NilFrame" []
