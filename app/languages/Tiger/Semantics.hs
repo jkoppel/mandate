@@ -129,6 +129,9 @@ instance Lang Tiger where
 instance HasSOS Tiger where
     rules = tigerRules
 
+emptyConf :: Term Tiger -> Configuration Tiger
+emptyConf t = Conf t (ReducedRecordNil, EmptySimpEnv)
+
 conf :: Term Tiger -> (MetaVar, MetaVar) -> Configuration Tiger
 conf t (returnStack, heap) = Conf t (mv returnStack, WholeSimpEnv heap)
 
@@ -184,7 +187,7 @@ tigerRules = sequence [
       mkRule6 $ \ref sym stack h fr val ->
         let (mref, msym, mstack, vfr, vval) = (mv ref, mv sym, mv stack, vv fr, vv val) in
           StepTo (Conf (FieldVar (ReferenceVal mref) msym) (mstack, AssocOneVal h mref vfr))
-            (LetComputation (initConf vval) (extComp ReadField (mstack, AssocOneVal h mref vfr) [vfr, msym])
+            (LetComputation (emptyConf vval) (extComp ReadField (mstack, AssocOneVal h mref vfr) [vfr, msym])
               (Build $ Conf vval (mstack, AssocOneVal h mref vfr)))
 
     , name "subscript-cong" $
@@ -200,7 +203,7 @@ tigerRules = sequence [
       mkRule6 $ \ref i stack h fr val ->
         let (mref, vi, mstack, vfr, vval) = (mv ref, vv i, mv stack, vv fr, vv val) in
           StepTo (Conf (SubscriptVar (ReferenceVal mref) vi) (mstack, AssocOneVal h mref vfr))
-            (LetComputation (initConf vval) (extComp ReadIndex (mstack, AssocOneVal h mref vfr) [vfr, vi])
+            (LetComputation (emptyConf vval) (extComp ReadIndex (mstack, AssocOneVal h mref vfr) [vfr, vi])
               (Build $ Conf vval (mstack, AssocOneVal h mref vfr)))
 
       ---- Seq
@@ -308,7 +311,7 @@ tigerRules = sequence [
       mkRule4 $ \e1 e2 e2' op->
         let (ve1, te2, me2', mop) = (vv e1, tv e2, mv e2', mv op) in
           StepTo (conf (OpExp ve1 mop te2) env)
-            (LetComputation (initConf NilExp) (extComp OpIsntShortCircuit (matchRedState env) [mop])
+            (LetComputation (emptyConf NilExp) (extComp OpIsntShortCircuit (matchRedState env) [mop])
               (LetStepTo (conf me2' env') (conf te2 env)
                 (Build (conf (OpExp ve1 mop me2') env'))))
 
@@ -317,7 +320,7 @@ tigerRules = sequence [
       mkRule4 $ \v1 v2 v' op ->
         let (vv1, vv2, vv', mop) = (vv v1, vv v2, vv v', mv op) in
           StepTo (conf (OpExp vv1 mop vv2) env)
-            (LetComputation (initConf vv') (extComp Compute (matchRedState env) [mop, vv1, vv2])
+            (LetComputation (emptyConf vv') (extComp Compute (matchRedState env) [mop, vv1, vv2])
               (Build (conf vv' env)))
 
     , name "and-0" $
@@ -339,7 +342,7 @@ tigerRules = sequence [
       mkRule2 $ \v1 e2 ->
         let (vv1, me2) = (vv v1, mv e2) in
         StepTo (conf (OpExp vv1 AndOp me2) env)
-          (LetComputation (initConf NilExp) (extComp ValIsTrue (matchRedState env) [vv1])
+          (LetComputation (emptyConf NilExp) (extComp ValIsTrue (matchRedState env) [vv1])
             (Build (conf me2 env)))
 
     --- FIXME: I'm not sure if it should return v1 or (ConstInt 1). For CFG purposes, doesn't matter
@@ -348,7 +351,7 @@ tigerRules = sequence [
       mkRule2 $ \v1 e2 ->
         let (vv1, me2) = (vv v1, mv e2) in
         StepTo (conf (OpExp vv1 OrOp me2) env)
-          (LetComputation (initConf NilExp) (extComp ValIsTrue (matchRedState env) [vv1])
+          (LetComputation (emptyConf NilExp) (extComp ValIsTrue (matchRedState env) [vv1])
             (Build (conf vv1 env)))
 
       ---- Record Exp
@@ -376,7 +379,7 @@ tigerRules = sequence [
       mkRule3 $ \val s1 s2 ->
         let (vval, ms1, ms2) = (vv val, mv s1, mv s2) in
           StepTo (conf (IfExp vval ms1 ms2) env)
-            (LetComputation (initConf NilExp) (extComp ValIsTrue (matchRedState env) [vval])
+            (LetComputation (emptyConf NilExp) (extComp ValIsTrue (matchRedState env) [vval])
               (Build (conf ms1 env)))
 
       ---- WhileExp
@@ -399,7 +402,7 @@ tigerRules = sequence [
       mkRule3 $ \func ret arg ->
         let (mfunc, vret, varg) = (mv func, vv ret, vv arg) in
           StepTo (conf (Builtin mfunc varg) env)
-            (LetComputation (initConf vret) (extComp RunBuiltin (matchRedState env) [mfunc, varg])
+            (LetComputation (emptyConf vret) (extComp RunBuiltin (matchRedState env) [mfunc, varg])
               (Build (conf vret env)))
 
       --- Stop at FunctionDec
@@ -421,11 +424,11 @@ readField heap (Parent p) f = case Configuration.lookup p heap of
 readField heap item field = error (show heap ++ "\n\t" ++ show item ++ "\n\t" ++ show field)
 
 returnInt :: (Integral a, Monad m) => a -> m (Configuration Tiger)
-returnInt x = return $ initConf $ IntExp $ ConstInt $ toInteger x
+returnInt x = return $ emptyConf $ IntExp $ ConstInt $ toInteger x
 
 returnBool :: Monad m => Bool -> m (Configuration Tiger)
-returnBool True  = return $ initConf $ IntExp $ ConstInt 1
-returnBool False = return $ initConf $ IntExp $ ConstInt 0
+returnBool True  = return $ emptyConf $ IntExp $ ConstInt 1
+returnBool False = return $ emptyConf $ IntExp $ ConstInt 0
 
 matchRedState :: (MetaVar, MetaVar) -> RedState Tiger
 matchRedState (stack, heap) = (mv stack, WholeSimpEnv heap)
@@ -507,7 +510,7 @@ runOrd (c:cs) = ord c
 
 runChr :: Integer -> MatchEffect (Configuration Tiger)
 runChr n
-  | n >= 0 && n < 128 = return $ initConf $ StringExp $ ConstStr $ stringToIbs [chr $ fromInteger n]
+  | n >= 0 && n < 128 = return $ emptyConf $ StringExp $ ConstStr $ stringToIbs [chr $ fromInteger n]
   | otherwise         = mzero
 
 sublist :: [a] -> Integer -> Integer -> [a]
@@ -517,11 +520,11 @@ runExternalComputation :: CompFunc Tiger -> RedState Tiger -> [Term Tiger] -> Ma
 
 runExternalComputation OpIsntShortCircuit state [OrOp]  = mzero
 runExternalComputation OpIsntShortCircuit state [AndOp] = mzero
-runExternalComputation OpIsntShortCircuit state [_]     = return $ initConf NilExp
+runExternalComputation OpIsntShortCircuit state [_]     = return $ emptyConf NilExp
 
 
 runExternalComputation ValIsTrue state [IntExp (ConstInt 0)] = mzero
-runExternalComputation ValIsTrue state [_]                   = return $ initConf NilExp
+runExternalComputation ValIsTrue state [_]                   = return $ emptyConf NilExp
 
 
 
@@ -548,23 +551,23 @@ runExternalComputation Compute state [GtOp, StringExp (ConstStr n1), StringExp (
 runExternalComputation Compute state [GeOp, IntExp    (ConstInt n1), IntExp    (ConstInt n2)] = returnBool $ n1 >= n2
 runExternalComputation Compute state [GeOp, StringExp (ConstStr n1), StringExp (ConstStr n2)] = returnBool $ n1 >= n2
 
-runExternalComputation ReadIndex (stack, heap)  [ReducedRecord r, i]      = return $ initConf $ readField heap r (show i)
+runExternalComputation ReadIndex (stack, heap)  [ReducedRecord r, i]      = return $ emptyConf $ readField heap r (show i)
 
-runExternalComputation ReadField (stack, heap)  [ReducedRecord r, Symbol s] = return $ initConf $ readField heap r (ibsToString s)
+runExternalComputation ReadField (stack, heap)  [ReducedRecord r, Symbol s] = return $ emptyConf $ readField heap r (ibsToString s)
 
 
-runExternalComputation RunBuiltin (stack, heap) [Print, SingExp (StringExp (ConstStr s))] = matchEffectOutput (BS.pack $ ibsToString s) >> return (initConf NilExp)
-runExternalComputation RunBuiltin (stack, heap) [Flush] = matchEffectFlush >> return (initConf NilExp)
-runExternalComputation RunBuiltin (stack, heap) [GetChar] = initConf <$> StringExp <$> ConstStr <$> stringToIbs <$> (:[]) <$> matchEffectInputChar
+runExternalComputation RunBuiltin (stack, heap) [Print, SingExp (StringExp (ConstStr s))] = matchEffectOutput (BS.pack $ ibsToString s) >> return (emptyConf NilExp)
+runExternalComputation RunBuiltin (stack, heap) [Flush] = matchEffectFlush >> return (emptyConf NilExp)
+runExternalComputation RunBuiltin (stack, heap) [GetChar] = emptyConf <$> StringExp <$> ConstStr <$> stringToIbs <$> (:[]) <$> matchEffectInputChar
 runExternalComputation RunBuiltin (stack, heap) [Ord, SingExp (StringExp (ConstStr s))] = returnInt $ runOrd $ ibsToString s
 runExternalComputation RunBuiltin (stack, heap) [Chr, SingExp (IntExp (ConstInt n))] = runChr n
 runExternalComputation RunBuiltin (stack, heap) [Size, SingExp (StringExp (ConstStr s))] = returnInt $ length $ ibsToString s
 runExternalComputation RunBuiltin (stack, heap) [Substring, TripExp (StringExp (ConstStr s))
                                                                     (IntExp (ConstInt i))
-                                                                    (IntExp (ConstInt n))] = return $ initConf $ StringExp (ConstStr $ stringToIbs $ sublist (ibsToString s) i n)
+                                                                    (IntExp (ConstInt n))] = return $ emptyConf $ StringExp (ConstStr $ stringToIbs $ sublist (ibsToString s) i n)
 runExternalComputation RunBuiltin (stack, heap) [Concat, DoubExp (StringExp (ConstStr s1))
-                                                                 (StringExp (ConstStr s2))] = return $ initConf $ StringExp $ ConstStr $ stringToIbs $ ibsToString s1 ++ibsToString s2
+                                                                 (StringExp (ConstStr s2))] = return $ emptyConf $ StringExp $ ConstStr $ stringToIbs $ ibsToString s1 ++ibsToString s2
 runExternalComputation RunBuiltin (stack, heap) [Not, SingExp (IntExp (ConstInt n))] = if n == 0 then returnInt 1 else returnInt 0
-runExternalComputation RunBuiltin (stack, heap) [Exit, SingExp (IntExp (ConstInt n))] = return $ initConf $ DoExit (ConstInt n)
+runExternalComputation RunBuiltin (stack, heap) [Exit, SingExp (IntExp (ConstInt n))] = return $ emptyConf $ DoExit (ConstInt n)
 
 
