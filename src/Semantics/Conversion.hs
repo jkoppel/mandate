@@ -45,6 +45,10 @@ infNameStream nam = map (\i -> mconcat [nam, "-", BS.pack $ show i]) [1..]
 
 ----------------------------------- SOS to PAM conversion --------------------------------------------
 
+-- | The algorithm here pre-merges consecutive computations.
+-- It is less elegant than the one in the paper simply because I had not figured
+-- out that formulation when implementing this.
+
 -- | Strips off the first layer of nesting in a context. All computation up to the first
 -- KStepTo is converted into a PAM RHS. The remainder, if any, is returned for further conversion into the next rule.
 splitFrame :: (Lang l) => PosFrame l -> Context l -> (PAMRhs l, Context l, Maybe (Configuration l, PosFrame l))
