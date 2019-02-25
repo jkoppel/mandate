@@ -38,6 +38,9 @@ instance LangBase Tiger where
                             | WriteIndex   | AbsWriteIndex
                             | ReadIndex    | AbsReadIndex
                             | RunBuiltin   | AbsRunBuiltin
+                            | ValIsTrue    | AbsValIsTrue
+
+                            | OpIsntShortCircuit
             deriving ( Eq, Generic )
 
         compFuncName ReadField    = "readField"
@@ -47,6 +50,7 @@ instance LangBase Tiger where
         compFuncName WriteIndex   = "writeIndex"
         compFuncName ReadIndex    = "readIndex"
         compFuncName RunBuiltin   = "runBuiltin"
+        compFuncName ValIsTrue    = "valIsTrue"
 
         compFuncName AbsReadField    = "absreadField"
         compFuncName AbsWriteField   = "abswriteField"
@@ -55,6 +59,9 @@ instance LangBase Tiger where
         compFuncName AbsWriteIndex   = "abswriteIndex"
         compFuncName AbsReadIndex    = "absreadIndex"
         compFuncName AbsRunBuiltin   = "absrunBuiltin"
+        compFuncName AbsValIsTrue    = "absvalIsTrue"
+
+        compFuncName OpIsntShortCircuit = "opIsntShortCircuit"
 
         runCompFunc func (c:cs)  = runExternalComputation func (confState c) (map confTerm (c:cs))
 
@@ -68,6 +75,7 @@ instance Irrelevance (CompFunc Tiger) where
     irrelevance _ ReadIndex    = AbsReadIndex
     irrelevance _ WriteIndex   = AbsWriteIndex
     irrelevance _ RunBuiltin   = AbsRunBuiltin
+    irrelevance _ ValIsTrue    = AbsValIsTrue
 
     irrelevance _ AbsReadField    = AbsReadField
     irrelevance _ AbsAllocAddress = AbsAllocAddress
@@ -75,6 +83,9 @@ instance Irrelevance (CompFunc Tiger) where
     irrelevance _ AbsReadIndex    = AbsReadIndex
     irrelevance _ AbsWriteIndex   = AbsWriteIndex
     irrelevance _ AbsRunBuiltin   = AbsRunBuiltin
+    irrelevance _ AbsValIsTrue    = AbsValIsTrue
+
+    irrelevance _ OpIsntShortCircuit = OpIsntShortCircuit
 
 instance Lang Tiger where
     signature = tigerSig
@@ -122,3 +133,106 @@ tv = NonvalVar
 
 mv :: MetaVar -> Term Tiger
 mv = MetaVar
+
+
+tigerRules :: IO (NamedRules Tiger)
+tigerRules = sequence [
+
+      ---- Seq
+
+      name "seq-cong" $
+      mkPairRule2 $ \env env' ->
+      mkRule3 $ \s1 s2 s1' ->
+          let (ts1, ms2, ms1') = (tv s1, mv s2, mv s1') in
+              StepTo (conf (SeqExp ts1 ms2) env)
+                (LetStepTo (conf ms1' env')(conf ts1 env)
+                  (Build (conf (SeqExp ms1' ms2) env')))
+
+    , name "seq-nil" $
+      mkPairRule1 $ \env ->
+      mkRule1 $ \s ->
+        let ms = mv s in
+            StepTo (conf (SeqExp NilExp ms) env)
+                (Build (conf ms env))
+
+
+    , name "seq-break" $
+      mkPairRule1 $ \env ->
+      mkRule1 $ \s ->
+        let ms = mv s in
+            StepTo (conf (SeqExp BreakExp ms) env)
+                (Build (conf BreakExp env))
+
+
+    , name "seq-exit" $
+      mkPairRule1 $ \env ->
+      mkRule2 $ \s v ->
+        let (ms, mv) = (mv s, mv v) in
+            StepTo (conf (SeqExp (DoExit mv) ms) env)
+                (Build (conf (DoExit mv) env))
+
+
+      ---- Var
+
+      ---- App
+
+      ---- Op's
+
+    , name "op-cong-left" $
+      mkPairRule2 $ \env env' ->
+      mkRule4 $ \e1 e2 e1' op ->
+        let (te1, me2, me1', mop) = (tv e1, mv e2, mv e1', mv op) in
+          StepTo (conf (OpExp te1 mop me2) env)
+            (LetStepTo (conf me1' env') (conf te1 env)
+              (Build (conf (OpExp me1' mop me2) env')))
+
+    , name "op-cong-right" $
+      mkPairRule2 $ \env env' ->
+      mkRule4 $ \e1 e2 e2' op->
+        let (ve1, te2, me2', mop) = (vv e1, tv e2, mv e2', mv op) in
+          StepTo (conf (OpExp ve1 mop te2) env)
+            (LetComputation (initConf NilExp) (extComp OpIsntShortCircuit (matchRedState env) [mop])
+              (LetStepTo (conf me2' env') (conf te2 env)
+                (Build (conf (OpExp ve1 mop me2') env'))))
+
+    , name "op-eval" $
+      mkPairRule1 $ \env ->
+      mkRule4 $ \v1 v2 v' op ->
+        let (vv1, vv2, vv', mop) = (vv v1, vv v2, vv v', mv op) in
+          StepTo (conf (OpExp vv1 mop vv2))
+            (LetComputation (initConf vv') (extComp Compute (matchRedState env) [mop, vv1, vv2])
+              (Build (conf vv' env)))
+
+    , name "and-0" $
+      mkPairRule1 $ \env ->
+      mkRule1 $ \e2 ->
+        let me2 = mv e2 in
+          StepTo (conf (OpExp (IntExp (ConstInt 0)) AndOp me2) env)
+            (Build (conf (IntExp (ConstInt 0)) env))
+
+    , name "or-0" $
+      mkPairRule1 $ \env ->
+      mkRule1 $ \e2 ->
+        let me2 = mv e2 in
+          StepTo (conf (OpExp (IntExp (ConstInt 0)) OrOp me2) env)
+            (Build (conf me2 env))
+
+    , name "and-true" $
+      mkPairRule1 $ \env ->
+      mkRule2 $ \v1 e2 ->
+        let (vv1, me2) = (vv v1, mv e2) in
+        StepTo (conf (OpExp vv1 AndOp me2) env)
+          (LetComputation (initConf NilExp) (extComp ValIsTrue (matchRedState env) [vv1])
+            (Build (conf me2 env)))
+
+    --- FIXME: I'm not sure if it should return v1 or (ConstInt 1). For CFG purposes, doesn't matter
+    , name "or-true" $
+      mkPairRule1 $ \env ->
+      mkRule2 $ \v1 e2 ->
+        let (vv1, me2) = (vv v1, mv e2) in
+        StepTo (conf (OpExp vv1 OrOp me2) env)
+          (LetComputation (initConf NilExp) (extComp ValIsTrue (matchRedState env) [vv1])
+            (Build (conf vv1 env)))
+
+      --- Stop at FunctionDec
+    ]
