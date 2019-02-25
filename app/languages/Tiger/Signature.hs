@@ -123,9 +123,10 @@ tigerSig = Signature [ NodeSig "PExp"  ["Exp"]     "Program"
                      , ValSig "ReducedRecordNil"  []                                             "ReducedRecordPairList"
                      , ValSig "ReducedRecordCons" ["ReducedRecordPair", "ReducedRecordPairList"] "ReducedRecordPairList"
 
+                     , ValSig "ReferenceVal" ["HeapAddr"] "Exp"
                      , IntSig "HeapAddr" "HeapAddr"
-                     , NodeSig "RecordPair"        ["Name", "Exp"] "RecordPair"
-                     , ValSig  "ReducedRecordPair" ["Name", "Exp"] "ReducedRecordPair"
+                     , NodeSig "RecordPair"        ["Symbol", "Exp"] "RecordPair"
+                     , ValSig  "ReducedRecordPair" ["Symbol", "Exp"] "ReducedRecordPair"
 
                      , ValSig "DoExit" ["ConstInt"] "Exp"
 

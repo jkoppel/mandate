@@ -138,9 +138,50 @@ mv = MetaVar
 tigerRules :: IO (NamedRules Tiger)
 tigerRules = sequence [
 
+      --- PExp, PDecs
+
+      ---- Vars
+
+      name "var-lookup" $
+      mkRule4 $ \var frame rest h ->
+        let (mvar, mframe, mrest) = (mv var, mv frame, mv rest) in
+          StepTo (Conf (SimpleVar mvar) (ConsFrame mframe mrest, WholeSimpEnv h))
+            (Build $ Conf (FieldVar (ReferenceVal mframe) mvar) (ConsFrame mframe mrest, WholeSimpEnv h))
+
+    , name "field-cong" $
+      mkPairRule2 $ \env env' ->
+      mkRule4 $ \x x' s ->
+        let (tx, mx', ms) = (tv x, mv x', mv s) in
+          StepTo (conf (FieldVar tx s) env)
+            (LetStepTo (conf mx' env') (conf tx env)
+              (Build (conf (FieldVar mx' s))))
+
+    , name "field-read" $
+      mkRule6 $ \ref sym stack h fr val ->
+        let (mref, msym, mstack, vfr, vval) = (mv ref, mv sym, mv stack, vv fr, vv val) in
+          StepTo (Conf (FieldVar (ReferenceVal mref) msym) (mstack, AssocOneVal h mref vfr))
+            (LetComputation (initConf vval) (extComp ReadField (mstack, AssocOneVal h mref vfr) [vfr, msym])
+              (Build $ Conf vval (mstack, AssocOneVal h mref vfr)))
+
+    , name "subscript-cong" $
+      mkPairRule2 $ \env env' ->
+      mkRule4 $ \x x' s ->
+        let (tx, mx', ms) = (tv x, mv x', mv s) in
+          StepTo (conf (SubscriptVar tx s) env)
+            (LetStepTo (conf mx' env') (conf tx env)
+              (Build (conf (SubscriptVar mx' s))))
+
+
+    , name "subscript-read" $
+      mkRule6 $ \ref i stack h fr val ->
+        let (mref, vi, mstack, vfr, vval) = (mv ref, vv i, mv stack, vv fr, vv val) in
+          StepTo (Conf (SubscriptVar (ReferenceVal mref) i) (mstack, AssocOneVal h mref vfr))
+            (LetComputation (initConf vval) (extComp ReadIndex (mstack, AssocOneVal h mref vfr) [vfr, vi])
+              (Build $ Conf vval (mstack, AssocOneVal h mref vfr)))
+
       ---- Seq
 
-      name "seq-cong" $
+    , name "seq-cong" $
       mkPairRule2 $ \env env' ->
       mkRule3 $ \s1 s2 s1' ->
           let (ts1, ms2, ms1') = (tv s1, mv s2, mv s1') in
@@ -172,7 +213,22 @@ tigerRules = sequence [
                 (Build (conf (DoExit mv) env))
 
 
-      ---- Var
+      --- VarExp
+
+    , name "varexp-cong" $
+      mkPairRule2 $ \env env' ->
+      mkRule2 $ \x x' ->
+        let (tx, mx') = (tv x, mv x') in
+          StepTo (conf (VarExp tx) env)
+            (LetStepTo (conf mx' env') (conf tx env)
+              (Build (conf (VarExp mx') env')))
+
+    , name "varexp-done" $
+      mkPairRule1 $ \env ->
+      mkRule1 $ \val ->
+        let vval = vv val
+          StepTo (conf (VarExp vval) env)
+            (Build (conf vval env))
 
       ---- App
 
@@ -241,9 +297,9 @@ tigerRules = sequence [
       , name "if-cong" $
         mkPairRule2 $ \env env' ->
         mkRule4 $ \e1 s1 s2 e1' ->
-          let (me1, ms1, ms2, me1') = (mv me1, mv s1, mv s2, mv e1') in
-            StepTo (conf (IfExp ve1 ms1 ms2) env)
-              (LetStepTo (conf me1' env') (conf me1 env)
+          let (te1, ms1, ms2, me1') = (tv e1, mv s1, mv s2, mv e1') in
+            StepTo (conf (IfExp te1 ms1 ms2) env)
+              (LetStepTo (conf me1' env') (conf te1 env)
                 (Build (conf (IfExp me1' ms1 ms2) env')))
 
       , name "if-0" $
@@ -268,6 +324,15 @@ tigerRules = sequence [
 
       --- Stop at FunctionDec
     ]
+
+
+
+readField :: SimpEnv (Term Tiger) (Term Tiger) -> Term Tiger -> String -> Term Tiger
+readField' heap (ReducedRecordCons (ReducedRecordPair (Symbol k) v) rps) field = if ibsToString k == field then v else readField' heap rps field
+readField' heap (Parent p) f = case Configuration.lookup p heap of
+                                 Just (ReducedRecord parent) -> readField heap parent f
+                                 Nothing -> error "ERR: Dangling Pointer"
+readField' heap item field = error (show heap ++ "\n\t" ++ show item ++ "\n\t" ++ show field)
 
 returnInt :: Monad m => Integer -> m (Configuration Tiger)
 returnInt x = return $ initConf $ IntExp $ ConstInt x
@@ -312,3 +377,8 @@ runExternalComputation Compute state [AND, BConst l, BConst r]       = returnBoo
 
 runExternalComputation Compute state [OR, BConst False, BConst False] = returnBool Prelude.False
 runExternalComputation Compute state [OR, BConst l, BConst r]         = returnBool Prelude.True
+
+runExternalComputation ReadIndex (stack, heap)  [ReducedRecord r, i]      = return $ initConf $ readField heap r (toString i heap)
+
+runExternalComputation ReadField (stack, heap)  [ReducedRecord r, Symbol s] = return $ initConf $ readField heap r (ibsToString s)
+
