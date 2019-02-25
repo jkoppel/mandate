@@ -15,6 +15,15 @@ tigerSorts = [ "Program",  "Exp", "ExpList", "ExpOpt", "Dec", "DecList"
              , "Var", "FunDec" , "FunDecList", "Ty", "TField", "TFieldList"
              , "Oper", "EField", "EFieldList", "VarDec", "Formals", "TypeDec", "TypeDecList"
              , "Symbol", "SymOpt", "ConstInt", "ConstStr"
+
+             --- Runtime values
+             , "Frame", "FrameList"
+             , "RecordPair", "RecordPairList"
+             , "ReducedRecordPair", "ReducedRecordPairList"
+             , "HeapAddr"
+
+             --- Builtins
+             , "Builtin"
              ]
 
 
@@ -99,10 +108,38 @@ tigerSig = Signature [ NodeSig "PExp"  ["Exp"]     "Program"
                      , NodeSig "NoneSym" []         "SymOpt"
                      , NodeSig "JustSym" ["Symbol"] "SymOpt"
 
-
                      , StrSig "Symbol" "Symbol"
                      , StrSig "ConstStr" "ConstStr"
                      , IntSig "ConstInt" "ConstInt"
+
+
+                     ----- Runtime values
+
+
+                     , ValSig "NilFrame"  []                        "FrameList"
+                     , ValSig "ConsFrame" ["HeapAddr", "FrameList"] "FrameList"
+
+                     , ValSig "Parent"            ["Exp"]
+                     , ValSig "ReducedRecordNil"  []                                             "ReducedRecordPairList"
+                     , ValSig "ReducedRecordCons" ["ReducedRecordPair", "ReducedRecordPairList"] "ReducedRecordPairList"
+
+                     , IntSig "HeapAddr" "HeapAddr"
+                     , NodeSig "RecordPair"        ["Name", "Exp"] "RecordPair"
+                     , ValSig  "ReducedRecordPair" ["Name", "Exp"] "ReducedRecordPair"
+
+                     , ValSig "DoExit" ["ConstInt"] "Exp"
+
+                     ----- Builtins
+                     , NodeSig "Print"     [] "Builtin"
+                     , NodeSig "Flush"     [] "Builtin"
+                     , NodeSig "GetChar"   [] "Builtin"
+                     , NodeSig "Ord"       [] "Builtin"
+                     , NodeSig "Chr"       [] "Builtin"
+                     , NodeSig "Size"      [] "Builtin"
+                     , NodeSig "Substring" [] "Builtin"
+                     , NodeSig "Concat"    [] "Builtin"
+                     , NodeSig "Not"       [] "Builtin"
+                     , NodeSig "Exit"      [] "Builtin"
                      ]
 
 --------------------------------------------------------------------------------------------------------------------
