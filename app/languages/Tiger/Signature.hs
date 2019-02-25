@@ -119,18 +119,31 @@ tigerSig = Signature [ NodeSig "PExp"  ["Exp"]     "Program"
                      , ValSig "NilFrame"  []                        "FrameList"
                      , ValSig "ConsFrame" ["HeapAddr", "FrameList"] "FrameList"
 
-                     , ValSig "Parent"            ["Exp"]
+
+
+                     , ValSig "ReducedNilExp"  []                  "ExpList"
+                     , ValSig "ReducedConsExp" ["Exp", "ExpList"]  "ExpList"
+
+                     , ValSig  "ReferenceVal" ["HeapAddr"] "Exp"
+                     , IntSig  "HeapAddr" "HeapAddr"
+
+                     , ValSig  "ReducedRecord" ["ReducedRecordPairList"] "Exp"
+
+                     , NodeSig "RecordPair"        ["Symbol", "Exp"] "RecordPair"
+                     , ValSig  "ReducedRecordPair" ["Symbol", "Exp"] "ReducedRecordPair"
+
+                     , ValSig "Parent"            ["Exp"]                                        "ReducedRecordPairList"
                      , ValSig "ReducedRecordNil"  []                                             "ReducedRecordPairList"
                      , ValSig "ReducedRecordCons" ["ReducedRecordPair", "ReducedRecordPairList"] "ReducedRecordPairList"
 
-                     , ValSig "ReferenceVal" ["HeapAddr"] "Exp"
-                     , IntSig "HeapAddr" "HeapAddr"
-                     , NodeSig "RecordPair"        ["Symbol", "Exp"] "RecordPair"
-                     , ValSig  "ReducedRecordPair" ["Symbol", "Exp"] "ReducedRecordPair"
+                     , ValSig "Closure" ["TFieldList", "Exp", "HeapAddr"] "Exp"
 
                      , ValSig "DoExit" ["ConstInt"] "Exp"
 
                      ----- Builtins
+
+                     , NodeSig "Builtin" ["Builtin", "ExpList"] "Exp"
+
                      , NodeSig "Print"     [] "Builtin"
                      , NodeSig "Flush"     [] "Builtin"
                      , NodeSig "GetChar"   [] "Builtin"
@@ -145,8 +158,21 @@ tigerSig = Signature [ NodeSig "PExp"  ["Exp"]     "Program"
 
 --------------------------------------------------------------------------------------------------------------------
 
--- Generated using "patSymForSigNode" in Term.hs; fixed by hand
 
+-- Hand-made
+
+pattern SingExp :: Term Tiger -> Term Tiger
+pattern SingExp e = ConsExpList e NilExpList
+
+pattern DoubExp :: Term Tiger -> Term Tiger -> Term Tiger
+pattern DoubExp e f = ConsExpList e (SingExp f)
+
+pattern TripExp :: Term Tiger -> Term Tiger -> Term Tiger -> Term Tiger
+pattern TripExp e f g = ConsExpList e (DoubExp f g)
+
+----------------
+
+-- Generated using "patSymForSigNode" in Term.hs; fixed by hand
 pattern PExp :: Term Tiger -> Term Tiger
 pattern PExp a = Node "PExp" [a]
 
@@ -329,3 +355,78 @@ pattern ConstStr s = StrNode "ConstStr" s
 
 pattern ConstInt :: Integer -> Term Tiger
 pattern ConstInt n = IntNode "ConstInt" n
+
+pattern NilFrame :: Term Tiger
+pattern NilFrame = Val "NilFrame" []
+
+pattern ConsFrame :: Term Tiger -> Term Tiger -> Term Tiger
+pattern ConsFrame a b = Val "ConsFrame" [a, b]
+
+pattern Parent :: Term Tiger -> Term Tiger
+pattern Parent a = Val "Parent" [a]
+
+pattern ReducedRecordNil :: Term Tiger
+pattern ReducedRecordNil = Val "ReducedRecordNil" []
+
+pattern ReducedRecordCons :: Term Tiger -> Term Tiger -> Term Tiger
+pattern ReducedRecordCons a b = Val "ReducedRecordCons" [a, b]
+
+pattern ReducedNilExp :: Term Tiger
+pattern ReducedNilExp = Val "ReducedNilExp" []
+
+pattern ReducedConsExp :: Term Tiger -> Term Tiger -> Term Tiger
+pattern ReducedConsExp a b = Val "ReducedConsExp" [a, b]
+
+pattern ReferenceVal :: Term Tiger -> Term Tiger
+pattern ReferenceVal a = Val "ReferenceVal" [a]
+
+pattern HeapAddr :: Integer -> Term Tiger
+pattern HeapAddr n = IntNode "HeapAddr" n
+
+pattern ReducedRecord :: Term Tiger -> Term Tiger
+pattern ReducedRecord a = Val "ReducedRecord" [a]
+
+pattern RecordPair :: Term Tiger -> Term Tiger -> Term Tiger
+pattern RecordPair a b = Node "RecordPair" [a, b]
+
+pattern ReducedRecordPair :: Term Tiger -> Term Tiger -> Term Tiger
+pattern ReducedRecordPair a b = Val "ReducedRecordPair" [a, b]
+
+pattern Closure :: Term Tiger -> Term Tiger -> Term Tiger -> Term Tiger
+pattern Closure a b c = Val "Closure" [a, b, c]
+
+pattern DoExit :: Term Tiger -> Term Tiger
+pattern DoExit a = Val "DoExit" [a]
+
+pattern Builtin :: Term Tiger -> Term Tiger -> Term Tiger
+pattern Builtin a b = Node "Builtin" [a, b]
+
+pattern Print :: Term Tiger
+pattern Print = Node "Print" []
+
+pattern Flush :: Term Tiger
+pattern Flush = Node "Flush" []
+
+pattern GetChar :: Term Tiger
+pattern GetChar = Node "GetChar" []
+
+pattern Ord :: Term Tiger
+pattern Ord = Node "Ord" []
+
+pattern Chr :: Term Tiger
+pattern Chr = Node "Chr" []
+
+pattern Size :: Term Tiger
+pattern Size = Node "Size" []
+
+pattern Substring :: Term Tiger
+pattern Substring = Node "Substring" []
+
+pattern Concat :: Term Tiger
+pattern Concat = Node "Concat" []
+
+pattern Not :: Term Tiger
+pattern Not = Node "Not" []
+
+pattern Exit :: Term Tiger
+pattern Exit = Node "Exit" []
