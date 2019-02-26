@@ -94,36 +94,44 @@ instance Irrelevance (CompFunc Tiger) where
 
     irrelevance _ OpIsntShortCircuit = OpIsntShortCircuit
 
+realStartingEnv :: SimpEnv (Term Tiger) (Term Tiger)
+realStartingEnv = JustSimpMap $ SimpEnvMap $ Map.fromList
+                      [
+                        (HeapAddr 0, ReducedRecord
+                                         $ ReducedRecordCons (ReducedRecordPair (Symbol "print")     (ReferenceVal $ HeapAddr 1))
+                                         $ ReducedRecordCons (ReducedRecordPair (Symbol "flush")     (ReferenceVal $ HeapAddr 2))
+                                         $ ReducedRecordCons (ReducedRecordPair (Symbol "getchar")   (ReferenceVal $ HeapAddr 3))
+                                         $ ReducedRecordCons (ReducedRecordPair (Symbol "ord")       (ReferenceVal $ HeapAddr 4))
+                                         $ ReducedRecordCons (ReducedRecordPair (Symbol "chr")       (ReferenceVal $ HeapAddr 5))
+                                         $ ReducedRecordCons (ReducedRecordPair (Symbol "size")      (ReferenceVal $ HeapAddr 6))
+                                         $ ReducedRecordCons (ReducedRecordPair (Symbol "substring") (ReferenceVal $ HeapAddr 7))
+                                         $ ReducedRecordCons (ReducedRecordPair (Symbol "concat")    (ReferenceVal $ HeapAddr 8))
+                                         $ ReducedRecordCons (ReducedRecordPair (Symbol "not")       (ReferenceVal $ HeapAddr 9))
+                                         $ ReducedRecordCons (ReducedRecordPair (Symbol "exit")      (ReferenceVal $ HeapAddr 10))
+                                         $ Parent $ HeapAddr $ -1)
+                      , (HeapAddr 1,  builtinPrint)
+                      , (HeapAddr 2,  builtinFlush)
+                      , (HeapAddr 3,  builtinGetChar)
+                      , (HeapAddr 4,  builtinOrd)
+                      , (HeapAddr 5,  builtinChr)
+                      , (HeapAddr 6,  builtinSize)
+                      , (HeapAddr 7,  builtinSubstring)
+                      , (HeapAddr 8,  builtinConcat)
+                      , (HeapAddr 9,  builtinNot)
+                      , (HeapAddr 10, builtinExit)
+                      ]
+
+reducedStartingEnv :: SimpEnv (Term Tiger) (Term Tiger)
+reducedStartingEnv = JustSimpMap $ SingletonSimpMap
+                                     (HeapAddr 0)
+                                     (ReducedRecord $ Parent $ HeapAddr (-1))
+
 instance Lang Tiger where
     signature = tigerSig
 
-    initConf t = Conf t (
-        ConsFrame (HeapAddr 0) NilFrame,
-        JustSimpMap $ SimpEnvMap $ Map.fromList
-            [
-                (HeapAddr 0, ReducedRecord
-                                $ ReducedRecordCons (ReducedRecordPair (Symbol "print")     (ReferenceVal $ HeapAddr 1))
-                                $ ReducedRecordCons (ReducedRecordPair (Symbol "flush")     (ReferenceVal $ HeapAddr 2))
-                                $ ReducedRecordCons (ReducedRecordPair (Symbol "getchar")   (ReferenceVal $ HeapAddr 3))
-                                $ ReducedRecordCons (ReducedRecordPair (Symbol "ord")       (ReferenceVal $ HeapAddr 4))
-                                $ ReducedRecordCons (ReducedRecordPair (Symbol "chr")       (ReferenceVal $ HeapAddr 5))
-                                $ ReducedRecordCons (ReducedRecordPair (Symbol "size")      (ReferenceVal $ HeapAddr 6))
-                                $ ReducedRecordCons (ReducedRecordPair (Symbol "substring") (ReferenceVal $ HeapAddr 7))
-                                $ ReducedRecordCons (ReducedRecordPair (Symbol "concat")    (ReferenceVal $ HeapAddr 8))
-                                $ ReducedRecordCons (ReducedRecordPair (Symbol "not")       (ReferenceVal $ HeapAddr 9))
-                                $ ReducedRecordCons (ReducedRecordPair (Symbol "exit")      (ReferenceVal $ HeapAddr 10))
-                                $ Parent $ HeapAddr $ -1)
-              , (HeapAddr 1,  builtinPrint)
-              , (HeapAddr 2,  builtinFlush)
-              , (HeapAddr 3,  builtinGetChar)
-              , (HeapAddr 4,  builtinOrd)
-              , (HeapAddr 5,  builtinChr)
-              , (HeapAddr 6,  builtinSize)
-              , (HeapAddr 7,  builtinSubstring)
-              , (HeapAddr 8,  builtinConcat)
-              , (HeapAddr 9,  builtinNot)
-              , (HeapAddr 10, builtinExit)
-            ])
+    initConf t = Conf t (ConsFrame (HeapAddr 0) NilFrame,
+                         realStartingEnv)
+
 
 
 instance HasSOS Tiger where
@@ -428,6 +436,60 @@ tigerRules = sequence [
 
       ---- AssignExp
 
+    , name "assn-rhs-cong" $
+      mkPairRule2 $ \env env' ->
+      mkRule3 $ \l e e' ->
+        let (ml, te, me') = (mv l, tv e, mv e') in
+          StepTo (conf (AssignExp ml te) env)
+            (LetStepTo (conf me' env') (conf te env)
+              (Build (conf (AssignExp ml me') env')))
+
+    , name "assn-simplevar-cong" $
+      mkRule6 $ \var val mu h frame rest->
+        let (mvar, vval, mframe, mrest) = (mv var, vv val, mv frame, mv rest) in
+          StepTo (Conf (AssignExp (SimpleVar mvar) vval) (ConsFrame mframe mrest, WholeSimpEnv h))
+            (Build $ Conf (AssignExp (FieldVar (ReferenceVal mframe) mvar) vval) (ConsFrame mframe mrest, WholeSimpEnv h))
+
+    , name "assn-field-cong" $
+      mkPairRule2 $ \env env' ->
+      mkRule4 $ \l l' sym r ->
+        let (tl, ml', msym, vr) = (tv l, mv l', mv sym, vv r) in
+          StepTo (conf (AssignExp (FieldVar tl msym) vr) env)
+            (LetStepTo (conf ml' env') (conf tl env)
+              (Build (conf (AssignExp (FieldVar ml' msym) vr) env')))
+
+
+    , name "subscript-cong-1" $
+      mkPairRule2 $ \env env' ->
+      mkRule4 $ \l l' e r ->
+        let (tl, ml', me, vr) = (tv l, mv l', mv e, vv r) in
+          StepTo (conf (AssignExp (SubscriptVar tl me) vr) env)
+            (LetStepTo (conf ml' env') (conf tl env)
+              (Build (conf (AssignExp (SubscriptVar ml' me) vr) env')))
+
+    , name "subscript-cong-2" $
+      mkPairRule2 $ \env env' ->
+      mkRule4 $ \l e e' r ->
+        let (vl, te, me', vr) = (vv l, tv e, mv e', vv r) in
+          StepTo (conf (AssignExp (SubscriptVar vl te) vr) env)
+            (LetStepTo (conf me' env') (conf te env)
+              (Build (conf (AssignExp (SubscriptVar vl me') vr) env')))
+
+    , name "field-assn-eval-field" $
+      mkRule7 $ \val field ref mu h re re'->
+        let (vval, mref, mfield, vre, vre', mmu) = (vv val, mv ref, mv field, vv re, vv re', mv mu) in
+          StepTo (Conf (AssignExp (FieldVar (ReferenceVal mref) mfield) vval) (mmu, AssocOneVal h mref vre))
+            (LetComputation (emptyConf (ReducedRecord vre')) (extComp WriteField (mmu, AssocOneVal h mref vre) [vre, mfield, vval])
+              (Build $ Conf NilExp (mmu, AssocOneVal h mref (ReducedRecord vre'))))
+
+    , name "index-assn-eval" $
+      mkRule7 $ \val index ref mu h re re'->
+        let (vval, mref, mindex, vre, vre', mmu) = (vv val, mv ref, mv index, vv re, vv re', mv mu) in
+          StepTo (Conf (AssignExp (SubscriptVar (ReferenceVal mref) mindex) vval) (mmu, AssocOneVal h mref vre))
+            (LetComputation (emptyConf vre')
+                               (extComp WriteIndex (mmu, AssocOneVal h mref vre) [vre, mindex, vval])
+              (Build $ Conf NilExp (mmu, AssocOneVal h mref vre')))
+
       ---- IfExp
 
     , name "if-cong" $
@@ -492,7 +554,17 @@ readField heap (ReducedRecordCons (ReducedRecordPair (Symbol k) v) rps) field = 
 readField heap (Parent p) f = case Configuration.lookup p heap of
                                 Just (ReducedRecord parent) -> readField heap parent f
                                 Nothing -> error "ERR: Dangling Pointer"
-readField heap item field = error (show heap ++ "\n\t" ++ show item ++ "\n\t" ++ show field)
+readField heap item field = error ("Error in read: \n" ++ show heap ++ "\n\t" ++ show item ++ "\n\t" ++ show field)
+
+
+-- TODO: This doesn't work; adapted erroneously from a language with explicit globals
+writeField :: SimpEnv (Term Tiger) (Term Tiger) -> Term Tiger -> String -> Term Tiger -> Term Tiger
+writeField heap (ReducedRecordCons (ReducedRecordPair (Symbol k) v) rps) field val =
+  if ibsToString k == field then ReducedRecordCons (ReducedRecordPair (Symbol k) val) rps
+                            else ReducedRecordCons (ReducedRecordPair (Symbol k) v) (writeField heap rps field val)
+writeField heap ReducedRecordNil field val = ReducedRecordCons (ReducedRecordPair (Symbol (stringToIbs field)) val) ReducedRecordNil
+writeField heap (Parent p) field val       = ReducedRecordCons (ReducedRecordPair (Symbol (stringToIbs field)) val) (Parent p)
+
 
 returnInt :: (Integral a, Monad m) => a -> m (Configuration Tiger)
 returnInt x = return $ emptyConf $ IntExp $ ConstInt $ toInteger x
@@ -626,7 +698,8 @@ runExternalComputation AllocAddress (stack, heap) _ = return $ emptyConf (HeapAd
 
 runExternalComputation ReadIndex (stack, heap)  [ReducedRecord r, i]      = return $ emptyConf $ readField heap r (show i)
 
-runExternalComputation ReadField (stack, heap)  [ReducedRecord r, Symbol s] = return $ emptyConf $ readField heap r (ibsToString s)
+runExternalComputation ReadField  (stack, heap) [ReducedRecord r, Symbol s]        = return $ emptyConf $ readField heap r (ibsToString s)
+runExternalComputation WriteField (stack, heap) [ReducedRecord r, Symbol f, val]   = return $ emptyConf $ ReducedRecord $ writeField heap r (ibsToString f) val
 
 
 runExternalComputation RunBuiltin (stack, heap) [Print, SingExp (StringExp (ConstStr s))] = matchEffectOutput (BS.pack $ ibsToString s) >> return (emptyConf NilExp)
