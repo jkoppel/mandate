@@ -44,6 +44,7 @@ instance LangBase Tiger where
                             | Compute      | AbsCompute
                             | WriteIndex   | AbsWriteIndex
                             | ReadIndex    | AbsReadIndex
+                            | MakeArray    | AbsMakeArray
                             | RunBuiltin   | AbsRunBuiltin
                             | ValIsTrue    | AbsValIsTrue
 
@@ -56,6 +57,7 @@ instance LangBase Tiger where
         compFuncName Compute      = "compute"
         compFuncName WriteIndex   = "writeIndex"
         compFuncName ReadIndex    = "readIndex"
+        compFuncName MakeArray    = "makeArray"
         compFuncName RunBuiltin   = "runBuiltin"
         compFuncName ValIsTrue    = "valIsTrue"
 
@@ -64,6 +66,7 @@ instance LangBase Tiger where
         compFuncName AbsAllocAddress = "absallocAddress"
         compFuncName AbsCompute      = "abscompute"
         compFuncName AbsWriteIndex   = "abswriteIndex"
+        compFuncName AbsMakeArray    = "absMakeArray"
         compFuncName AbsReadIndex    = "absreadIndex"
         compFuncName AbsRunBuiltin   = "absrunBuiltin"
         compFuncName AbsValIsTrue    = "absvalIsTrue"
@@ -81,6 +84,7 @@ instance Irrelevance (CompFunc Tiger) where
     irrelevance _ Compute      = AbsCompute
     irrelevance _ ReadIndex    = AbsReadIndex
     irrelevance _ WriteIndex   = AbsWriteIndex
+    irrelevance _ MakeArray    = AbsMakeArray
     irrelevance _ RunBuiltin   = AbsRunBuiltin
     irrelevance _ ValIsTrue    = AbsValIsTrue
 
@@ -89,6 +93,7 @@ instance Irrelevance (CompFunc Tiger) where
     irrelevance _ AbsCompute      = AbsCompute
     irrelevance _ AbsReadIndex    = AbsReadIndex
     irrelevance _ AbsWriteIndex   = AbsWriteIndex
+    irrelevance _ AbsMakeArray    = AbsMakeArray
     irrelevance _ AbsRunBuiltin   = AbsRunBuiltin
     irrelevance _ AbsValIsTrue    = AbsValIsTrue
 
@@ -434,6 +439,33 @@ tigerRules = sequence [
           (Build $ conf ReducedRecordNil env)
 
 
+      ---- ArrayExp
+
+    , name "array-exp-cong-1" $
+      mkPairRule2 $ \env env' ->
+      mkRule4 $ \t n n' init ->
+        let (mt, tn, mn', minit) = (mv t, tv n, mv n', mv init) in
+          StepTo (conf (ArrayExp mt tn minit) env)
+            (LetStepTo (conf mn' env') (conf tn env)
+              (Build (conf (ArrayExp mt mn' minit) env')))
+
+    , name "array-exp-cong-2" $
+      mkPairRule2 $ \env env' ->
+      mkRule4 $ \t n init init' ->
+        let (mt, vn, tinit, minit') = (mv t, vv n, tv init, mv init') in
+          StepTo (conf (ArrayExp mt vn tinit) env)
+            (LetStepTo (conf minit' env') (conf tinit env)
+              (Build (conf (ArrayExp mt vn minit') env')))
+
+    , name "array-exp-eval" $
+      mkPairRule1 $ \env ->
+      mkRule4 $ \t n init val ->
+        let (mt, vn, vinit, vval) = (mv t, vv n, vv init, vv val) in
+          StepTo (conf (ArrayExp mt vn vinit) env)
+            (LetComputation (emptyConf vval) (extComp MakeArray (matchRedState env) [vn, vinit])
+              (Build (conf (HeapAlloc vval) env)))
+
+
       ---- AssignExp
 
     , name "assn-rhs-cong" $
@@ -518,7 +550,7 @@ tigerRules = sequence [
       ---- WhileExp
       ---- ForExp
       ---- LetExp
-      ---- ArrayExp
+
 
       ---- Builtins
 
@@ -559,12 +591,22 @@ readField heap item field = error ("Error in read: \n" ++ show heap ++ "\n\t" ++
 
 -- TODO: This doesn't work; adapted erroneously from a language with explicit globals
 writeField :: SimpEnv (Term Tiger) (Term Tiger) -> Term Tiger -> String -> Term Tiger -> Term Tiger
-writeField heap (ReducedRecordCons (ReducedRecordPair (Symbol k) v) rps) field val =
-  if ibsToString k == field then ReducedRecordCons (ReducedRecordPair (Symbol k) val) rps
-                            else ReducedRecordCons (ReducedRecordPair (Symbol k) v) (writeField heap rps field val)
-writeField heap ReducedRecordNil field val = ReducedRecordCons (ReducedRecordPair (Symbol (stringToIbs field)) val) ReducedRecordNil
-writeField heap (Parent p) field val       = ReducedRecordCons (ReducedRecordPair (Symbol (stringToIbs field)) val) (Parent p)
+writeField heap rec field val = ReducedRecord $ writeField' rec
+  where
+    writeField' (ReducedRecordCons (ReducedRecordPair (Symbol k) v) rps) =
+      if ibsToString k == field then ReducedRecordCons (ReducedRecordPair (Symbol k) val) rps
+                                else ReducedRecordCons (ReducedRecordPair (Symbol k) v) (writeField' rps)
+    writeField' ReducedRecordNil = ReducedRecordCons (ReducedRecordPair (Symbol (stringToIbs field)) val) ReducedRecordNil
+    writeField' (Parent p)       = ReducedRecordCons (ReducedRecordPair (Symbol (stringToIbs field)) val) (Parent p)
 
+
+-- NOTE: I'm being very lazy/deadline-pressured in just turning integers to strings to use as keys;
+--       would better to refactor to let other vals be keys
+makeArray :: Integer -> Term Tiger -> Term Tiger
+makeArray n v = ReducedRecord $ makeArray' n
+  where
+    makeArray' 0 = ReducedRecordNil
+    makeArray' x = ReducedRecordCons (ReducedRecordPair (Symbol (stringToIbs $ show (x-1))) v) $ makeArray' (x-1)
 
 returnInt :: (Integral a, Monad m) => a -> m (Configuration Tiger)
 returnInt x = return $ emptyConf $ IntExp $ ConstInt $ toInteger x
@@ -696,11 +738,13 @@ runExternalComputation Compute state [GeOp, StringExp (ConstStr n1), StringExp (
 
 runExternalComputation AllocAddress (stack, heap) _ = return $ emptyConf (HeapAddr $ size heap)
 
-runExternalComputation ReadIndex (stack, heap)  [ReducedRecord r, i]      = return $ emptyConf $ readField heap r (show i)
+runExternalComputation ReadIndex  (stack, heap) [ReducedRecord r, IntExp (ConstInt i)]       = return $ emptyConf $ readField  heap r (show i)
+runExternalComputation WriteIndex (stack, heap) [ReducedRecord r, IntExp (ConstInt i), val]  = return $ emptyConf $ writeField heap r (show i) val
 
-runExternalComputation ReadField  (stack, heap) [ReducedRecord r, Symbol s]        = return $ emptyConf $ readField heap r (ibsToString s)
-runExternalComputation WriteField (stack, heap) [ReducedRecord r, Symbol f, val]   = return $ emptyConf $ ReducedRecord $ writeField heap r (ibsToString f) val
+runExternalComputation ReadField  (stack, heap) [ReducedRecord r, Symbol s]        = return $ emptyConf $ readField  heap r (ibsToString s)
+runExternalComputation WriteField (stack, heap) [ReducedRecord r, Symbol f, val]   = return $ emptyConf $ writeField heap r (ibsToString f) val
 
+runExternalComputation MakeArray (stack, heap) [IntExp (ConstInt n), val] = return $ emptyConf $ makeArray n val
 
 runExternalComputation RunBuiltin (stack, heap) [Print, SingExp (StringExp (ConstStr s))] = matchEffectOutput (BS.pack $ ibsToString s) >> return (emptyConf NilExp)
 runExternalComputation RunBuiltin (stack, heap) [Flush] = matchEffectFlush >> return (emptyConf NilExp)
