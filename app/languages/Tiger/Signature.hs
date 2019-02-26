@@ -112,10 +112,13 @@ tigerSig = Signature [ NodeSig "PExp"  ["Exp"]     "Program"
                      , StrSig "ConstStr" "ConstStr"
                      , IntSig "ConstInt" "ConstInt"
 
-
-                     ----- Runtime values
+                     ---- Intermediate expressions
 
                      , NodeSig "HeapAlloc" ["Exp"] "Exp"
+
+                     , NodeSig "LoopBody" ["Exp", "Exp"] "Exp"
+
+                     ----- Runtime values
 
                      , ValSig "NilFrame"  []                        "FrameList"
                      , ValSig "ConsFrame" ["HeapAddr", "FrameList"] "FrameList"
@@ -357,6 +360,9 @@ pattern ConstInt n = IntNode "ConstInt" n
 
 pattern HeapAlloc :: Term Tiger -> Term Tiger
 pattern HeapAlloc a = Node "HeapAlloc" [a]
+
+pattern LoopBody :: Term Tiger -> Term Tiger -> Term Tiger
+pattern LoopBody a b = Node "LoopBody" [a, b]
 
 pattern NilFrame :: Term Tiger
 pattern NilFrame = Val "NilFrame" []

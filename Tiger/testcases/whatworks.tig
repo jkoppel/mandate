@@ -13,7 +13,21 @@ y[9] := 107;
 
 y[0];
 
-y[9]
+y[9];
+
+i := 0;
+s := 1;
+
+/*
+while i < 5 do
+  (i := i + 1;
+   s := s * i)
+*/
+
+while 1 do
+  (i := i + 1;
+   s := s * i;
+   if i = 5 then break)
 
 /*
 ;

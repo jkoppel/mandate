@@ -179,6 +179,20 @@ tigerRules = sequence [
 
 
       -- PDecs
+    , name "pdecs-cong" $
+      mkPairRule2 $ \env env' ->
+      mkRule2 $ \es es' ->
+        let (tes, mes') = (tv es, mv es') in
+          StepTo (conf (PDecs tes) env)
+            (LetStepTo (conf mes' env') (conf tes env)
+              (Build (conf (PDecs mes') env')))
+
+    , name "pdecs-done" $
+      mkPairRule1 $ \env ->
+      mkRule1 $ \es ->
+        let ves = vv es in
+          StepTo (conf (PDecs ves) env)
+            (Build (conf ves env))
 
       ---- Vars
 
@@ -548,6 +562,35 @@ tigerRules = sequence [
               (Build (conf ms1 env)))
 
       ---- WhileExp
+    , name "while-start" $
+      mkPairRule1 $ \env ->
+      mkRule2 $ \e s ->
+        let (me, ms) = (mv e, mv s) in
+          StepTo (conf (WhileExp me ms) env)
+            (Build (conf (IfExp me (LoopBody ms (WhileExp me ms)) NilExp) env))
+
+    , name "loop-cong" $
+      mkPairRule2 $ \env env' ->
+      mkRule3 $ \a a' b ->
+        let (ta, ma', mb) = (tv a, mv a', mv b) in
+          StepTo (conf (LoopBody ta mb) env)
+            (LetStepTo (conf ma' env') (conf ta env)
+              (Build (conf (LoopBody ma' mb) env')))
+
+    , name "loop-break" $
+      mkPairRule1 $ \env ->
+      mkRule1 $ \b ->
+        let mb = mv b in
+          StepTo (conf (LoopBody BreakExp mb) env)
+            (Build (conf NilExp env))
+
+    , name "loop-done" $
+      mkPairRule1 $ \env ->
+      mkRule2 $ \a b ->
+        let (va, mb) = (vv a, mv b) in
+          StepTo (conf (LoopBody va mb) env)
+            (Build (conf mb env))
+
       ---- ForExp
       ---- LetExp
 
