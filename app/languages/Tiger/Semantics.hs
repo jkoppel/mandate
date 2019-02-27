@@ -103,27 +103,17 @@ realStartingEnv :: SimpEnv (Term Tiger) (Term Tiger)
 realStartingEnv = JustSimpMap $ SimpEnvMap $ Map.fromList
                       [
                         (HeapAddr 0, ReducedRecord
-                                         $ ReducedRecordCons (ReducedRecordPair (Symbol "print")     (ReferenceVal $ HeapAddr 1))
-                                         $ ReducedRecordCons (ReducedRecordPair (Symbol "flush")     (ReferenceVal $ HeapAddr 2))
-                                         $ ReducedRecordCons (ReducedRecordPair (Symbol "getchar")   (ReferenceVal $ HeapAddr 3))
-                                         $ ReducedRecordCons (ReducedRecordPair (Symbol "ord")       (ReferenceVal $ HeapAddr 4))
-                                         $ ReducedRecordCons (ReducedRecordPair (Symbol "chr")       (ReferenceVal $ HeapAddr 5))
-                                         $ ReducedRecordCons (ReducedRecordPair (Symbol "size")      (ReferenceVal $ HeapAddr 6))
-                                         $ ReducedRecordCons (ReducedRecordPair (Symbol "substring") (ReferenceVal $ HeapAddr 7))
-                                         $ ReducedRecordCons (ReducedRecordPair (Symbol "concat")    (ReferenceVal $ HeapAddr 8))
-                                         $ ReducedRecordCons (ReducedRecordPair (Symbol "not")       (ReferenceVal $ HeapAddr 9))
-                                         $ ReducedRecordCons (ReducedRecordPair (Symbol "exit")      (ReferenceVal $ HeapAddr 10))
+                                         $ ReducedRecordCons (ReducedRecordPair (Symbol "print")     builtinPrint)
+                                         $ ReducedRecordCons (ReducedRecordPair (Symbol "flush")     builtinFlush)
+                                         $ ReducedRecordCons (ReducedRecordPair (Symbol "getchar")   builtinGetChar)
+                                         $ ReducedRecordCons (ReducedRecordPair (Symbol "ord")       builtinOrd)
+                                         $ ReducedRecordCons (ReducedRecordPair (Symbol "chr")       builtinChr)
+                                         $ ReducedRecordCons (ReducedRecordPair (Symbol "size")      builtinSize)
+                                         $ ReducedRecordCons (ReducedRecordPair (Symbol "substring") builtinSubstring)
+                                         $ ReducedRecordCons (ReducedRecordPair (Symbol "concat")    builtinConcat)
+                                         $ ReducedRecordCons (ReducedRecordPair (Symbol "not")       builtinNot)
+                                         $ ReducedRecordCons (ReducedRecordPair (Symbol "exit")      builtinExit)
                                          $ Parent $ HeapAddr $ -1)
-                      , (HeapAddr 1,  builtinPrint)
-                      , (HeapAddr 2,  builtinFlush)
-                      , (HeapAddr 3,  builtinGetChar)
-                      , (HeapAddr 4,  builtinOrd)
-                      , (HeapAddr 5,  builtinChr)
-                      , (HeapAddr 6,  builtinSize)
-                      , (HeapAddr 7,  builtinSubstring)
-                      , (HeapAddr 8,  builtinConcat)
-                      , (HeapAddr 9,  builtinNot)
-                      , (HeapAddr 10, builtinExit)
                       ]
 
 reducedStartingEnv :: SimpEnv (Term Tiger) (Term Tiger)
@@ -227,6 +217,13 @@ tigerRules = sequence [
             (LetStepTo (conf mx' env') (conf tx env)
               (Build (conf (SubscriptVar mx' ms) env')))
 
+    , name "subscript-cong-index" $
+      mkPairRule2 $ \env env' ->
+      mkRule3 $ \arr e e' ->
+        let (varr, te, me') = (vv arr, tv e, mv e') in
+          StepTo (conf (SubscriptVar varr te) env)
+            (LetStepTo (conf me' env') (conf te env)
+              (Build (conf (SubscriptVar varr me') env')))
 
     , name "subscript-read" $
       mkRule6 $ \ref i stack h fr val ->
@@ -301,7 +298,7 @@ tigerRules = sequence [
           StepTo (conf (VarExp vval) env)
             (Build (conf vval env))
 
-      ---- App
+      ---- App: Explist
 
     , name "explist-cong-1" $
       mkPairRule2 $ \env env' ->
@@ -330,7 +327,44 @@ tigerRules = sequence [
         let (ve1, ves) = (vv e1, vv es) in
           StepTo (conf (ConsExpList ve1 ves) env) (Build $ conf (ReducedConsExp ve1 ves) env)
 
-      -- Rest of app
+      -- App: The real part
+
+    , name "appexp-cong" $
+      mkPairRule2 $ \env env' ->
+      mkRule3 $ \fn args args' ->
+        let (mfn, targs, margs') = (mv fn, tv args, mv args') in
+          StepTo (conf (AppExp mfn targs) env)
+            (LetStepTo (conf margs' env') (conf targs env)
+              (Build (conf (AppExp mfn margs') env')))
+
+    , name "app-cong-fn" $
+      mkPairRule2 $ \env env' ->
+      mkRule3 $ \fn fn' args ->
+        let (tfn, mfn', vargs) = (tv fn, mv fn', vv args) in
+          StepTo (conf (AppExp tfn vargs) env)
+            (LetStepTo (conf mfn' env') (conf tfn env)
+              (Build (conf (AppExp mfn' vargs) env')))
+
+    , name "app-enter" $
+      mkRule6 $ \params body addr args stack h ->
+        let (mparams, mbody, maddr, vargs, mstack) = (mv params, mv body, mv addr, vv args, mv stack) in
+          StepTo (Conf (AppExp (Closure mparams mbody maddr) vargs) (mstack, WholeSimpEnv h))
+            (Build (Conf (Scope (LetExp (AssnFnArgs mparams vargs)
+                                        mbody))
+                         (ConsFrame maddr mstack, WholeSimpEnv h)))
+
+    , name "assn-fn-args-1" $
+      mkPairRule1 $ \env ->
+      mkRule5 $ \nm ty ps a as ->
+        let (mnm, mty, mps, va, vas) = (mv nm, mv ty, mv ps, vv a, vv as) in
+          StepTo (conf (AssnFnArgs (ConsTField (TField mnm mty) mps) (ReducedConsExp va vas)) env)
+            (Build (conf (ConsDecList (VarDecDec (VarDec mnm) (JustSym mty) va) (AssnFnArgs mps vas)) env))
+
+    , name "assn-fn-args-done" $
+      mkPairRule1 $ \env ->
+      mkRule0 $
+        StepTo (conf (AssnFnArgs NilTField ReducedNilExp) env)
+          (Build (conf NilDecList env))
 
       ---- Op's
 
@@ -539,9 +573,9 @@ tigerRules = sequence [
 
     , name "index-assn-eval" $
       mkRule7 $ \val ref index re' addr mu h ->
-        let (vval, mref, mindex, vre', maddr, mmu) = (vv val, mv ref, mv index, vv re', mv addr, mv mu) in
-          StepTo (Conf (AssignExp (SubscriptVar (ReferenceVal mref) mindex) vval) (mmu, WholeSimpEnv h))
-            (LetComputation (emptyConf (ReducedRecordPair maddr vre')) (extComp WriteIndex (mmu, WholeSimpEnv h) [mref, mindex, vval])
+        let (vval, mref, vindex, vre', maddr, mmu) = (vv val, mv ref, vv index, vv re', mv addr, mv mu) in
+          StepTo (Conf (AssignExp (SubscriptVar (ReferenceVal mref) vindex) vval) (mmu, WholeSimpEnv h))
+            (LetComputation (emptyConf (ReducedRecordPair maddr vre')) (extComp WriteIndex (mmu, WholeSimpEnv h) [mref, vindex, vval])
               (Build $ Conf NilExp (mmu, AssocOneVal h maddr vre')))
 
       ---- IfExp
@@ -654,25 +688,6 @@ tigerRules = sequence [
           StepTo (conf (DoLet NilDecList me) env)
             (Build (conf me env))
 
-
-      ---- Builtins
-
-    , name "builtin-cong" $
-      mkPairRule2 $ \env env' ->
-      mkRule3 $ \b es es' ->
-        let (mb, tes, mes') = (mv b, tv es, mv es') in
-          StepTo (conf (Builtin mb tes) env)
-            (LetStepTo (conf mes' env') (conf tes env)
-              (Build (conf (Builtin mb mes') env')))
-
-    , name "builtin-eval" $
-      mkPairRule1 $ \env ->
-      mkRule3 $ \func ret arg ->
-        let (mfunc, vret, varg) = (mv func, vv ret, vv arg) in
-          StepTo (conf (Builtin mfunc varg) env)
-            (LetComputation (emptyConf vret) (extComp RunBuiltin (matchRedState env) [mfunc, varg])
-              (Build (conf vret env)))
-
       --- Decs
 
     , name "declist-cong" $
@@ -715,8 +730,76 @@ tigerRules = sequence [
           StepTo (conf (TypeDecDec mtd) env)
             (Build (conf NilExp env))
 
+    , name "functiondec-cong" $
+      mkPairRule2 $ \env env' ->
+      mkRule2 $ \fs fs' ->
+        let (tfs, mfs') = (tv fs, mv fs') in
+          StepTo (conf (FunctionDec tfs) env)
+            (LetStepTo (conf mfs' env') (conf tfs env)
+              (Build (conf (FunctionDec mfs') env')))
+
+    , name "functiondec-done" $
+      mkPairRule1 $ \env ->
+      mkRule0 $
+        StepTo (conf (FunctionDec NilExp) env)
+          (Build (conf NilExp env))
+
     --- Function dec
 
+    , name "fundeclist-cong" $
+      mkPairRule2 $ \env env' ->
+      mkRule3 $ \d d' ds ->
+        let (td, md', mds) = (tv d, mv d', mv ds) in
+          StepTo (conf (ConsFunDec td mds) env)
+            (LetStepTo (conf md' env') (conf td env)
+              (Build (conf (ConsFunDec md' mds) env')))
+
+    , name "fundeclist-next" $
+      mkPairRule1 $ \env ->
+      mkRule1 $ \d ->
+        let md = mv d in
+          StepTo (conf (ConsFunDec NilExp md) env)
+            (Build (conf md env))
+
+    , name "fundeclist-done" $
+      mkPairRule1 $ \env ->
+      mkRule0 $
+        StepTo (conf NilFunDec env)
+          (Build (conf NilExp env))
+
+    -- NOTE: If there are multiple mutually-recursive function blocks in a single let-exp
+    -- with overlapping names, not sure this works properly
+    , name "fundec-initialize" $
+      mkRule8 $ \nm args sym body addr stack h rec ->
+        let (mnm, margs, msym, mbody, maddr, mstack, vrec) =
+                                    (mv nm, mv args, mv sym, mv body, mv addr, mv stack, vv rec) in
+          StepTo (Conf (FunDec mnm margs msym mbody) (ConsFrame maddr mstack,
+                                                      AssocOneVal h maddr (ReducedRecord vrec)))
+            (Build $ Conf NilExp
+                          (ConsFrame maddr mstack,
+                           AssocOneVal h maddr
+                                         (ReducedRecord $
+                                            ReducedRecordCons
+                                              (ReducedRecordPair mnm (Closure margs mbody maddr))
+                                              vrec)))
+
+      ---- Builtins
+
+    , name "builtin-cong" $
+      mkPairRule2 $ \env env' ->
+      mkRule3 $ \b es es' ->
+        let (mb, tes, mes') = (mv b, tv es, mv es') in
+          StepTo (conf (Builtin mb tes) env)
+            (LetStepTo (conf mes' env') (conf tes env)
+              (Build (conf (Builtin mb mes') env')))
+
+    , name "builtin-eval" $
+      mkPairRule1 $ \env ->
+      mkRule3 $ \func ret arg ->
+        let (mfunc, vret, varg) = (mv func, vv ret, vv arg) in
+          StepTo (conf (Builtin mfunc varg) env)
+            (LetComputation (emptyConf vret) (extComp RunBuiltin (matchRedState env) [mfunc, varg])
+              (Build (conf vret env)))
     ]
 
 ibsToString :: InternedByteString -> String
@@ -897,8 +980,8 @@ runExternalComputation WriteField (stack, heap) [addr, Symbol f, val]       = re
 runExternalComputation MakeArray (stack, heap) [IntExp (ConstInt n), val] = return $ emptyConf $ makeArray n val
 
 runExternalComputation RunBuiltin (stack, heap) [Print, SingExp (StringExp (ConstStr s))] = matchEffectOutput (BS.pack $ ibsToString s) >> return (emptyConf NilExp)
-runExternalComputation RunBuiltin (stack, heap) [Flush] = matchEffectFlush >> return (emptyConf NilExp)
-runExternalComputation RunBuiltin (stack, heap) [GetChar] = emptyConf <$> StringExp <$> ConstStr <$> stringToIbs <$> (:[]) <$> matchEffectInputChar
+runExternalComputation RunBuiltin (stack, heap) [Flush, ReducedNilExp] = matchEffectFlush >> return (emptyConf NilExp)
+runExternalComputation RunBuiltin (stack, heap) [GetChar, ReducedNilExp] = emptyConf <$> StringExp <$> ConstStr <$> stringToIbs <$> (:[]) <$> (matchEffectOutput "Prompt: " >> matchEffectInputChar)
 runExternalComputation RunBuiltin (stack, heap) [Ord, SingExp (StringExp (ConstStr s))] = returnInt $ runOrd $ ibsToString s
 runExternalComputation RunBuiltin (stack, heap) [Chr, SingExp (IntExp (ConstInt n))] = runChr n
 runExternalComputation RunBuiltin (stack, heap) [Size, SingExp (StringExp (ConstStr s))] = returnInt $ length $ ibsToString s
@@ -911,3 +994,4 @@ runExternalComputation RunBuiltin (stack, heap) [Not, SingExp (IntExp (ConstInt 
 runExternalComputation RunBuiltin (stack, heap) [Exit, SingExp (IntExp (ConstInt n))] = return $ emptyConf $ DoExit (ConstInt n)
 
 
+runExternalComputation fn _ args = error ("Unhandled case in runExternalComputation: " ++ show fn ++ " " ++ show args)

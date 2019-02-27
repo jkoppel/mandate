@@ -40,7 +40,9 @@ tigerSig = Signature [ NodeSig "PExp"  ["Exp"]     "Program"
                      , ValSig  "IntExp"    ["ConstInt"]                    "Exp"
                      , ValSig  "StringExp" ["ConstStr"]                    "Exp"
                      , NodeSig "SeqExp"    ["ExpList"]                     "Exp"
-                     , NodeSig "AppExp"    ["Symbol", "ExpList"]           "Exp"
+
+                     -- Taking a departure for simplicity; using Var instead of Symbol
+                     , NodeSig "AppExp"    ["Var", "ExpList"]              "Exp"
                      , NodeSig "OpExp"     ["Exp", "Oper", "Exp"]          "Exp"
                      , NodeSig "RecordExp" ["EFieldList", "Symbol"]        "Exp"
                      , NodeSig "AssignExp" ["Var", "Exp"]                  "Exp"
@@ -117,6 +119,7 @@ tigerSig = Signature [ NodeSig "PExp"  ["Exp"]     "Program"
                      , NodeSig "LoopBody" ["Exp", "Exp"] "Exp"
                      , NodeSig "Scope" ["Exp"] "Exp"
                      , NodeSig "DoLet" ["DecList", "Exp"] "Exp"
+                     , NodeSig "AssnFnArgs" ["TFieldList", "ExpList"] "DecList"
 
                      ----- Runtime values
 
@@ -127,11 +130,11 @@ tigerSig = Signature [ NodeSig "PExp"  ["Exp"]     "Program"
                      , ValSig "ReducedNilExp"  []                  "ExpList"
                      , ValSig "ReducedConsExp" ["Exp", "ExpList"]  "ExpList"
 
-                     , ValSig  "ReferenceVal" ["HeapAddr"] "Exp"
-                     , IntSig  "HeapAddr" "HeapAddr"
+                     , ValSig "ReferenceVal" ["HeapAddr"] "Exp"
+                     , IntSig "HeapAddr" "HeapAddr"
 
-                     , ValSig  "ReducedRecord" ["ReducedRecordPairList"] "Exp"
-                     , ValSig  "ReducedRecordPair" ["Symbol", "Exp"] "ReducedRecordPair"
+                     , ValSig "ReducedRecord" ["ReducedRecordPairList"] "Exp"
+                     , ValSig "ReducedRecordPair" ["Symbol", "Exp"] "ReducedRecordPair"
 
                      , ValSig "Parent"            ["Exp"]                                        "ReducedRecordPairList"
                      , ValSig "ReducedRecordNil"  []                                             "ReducedRecordPairList"
@@ -163,13 +166,13 @@ tigerSig = Signature [ NodeSig "PExp"  ["Exp"]     "Program"
 -- Hand-made
 
 pattern SingExp :: Term Tiger -> Term Tiger
-pattern SingExp e = ConsExpList e NilExpList
+pattern SingExp e = ReducedConsExp e ReducedNilExp
 
 pattern DoubExp :: Term Tiger -> Term Tiger -> Term Tiger
-pattern DoubExp e f = ConsExpList e (SingExp f)
+pattern DoubExp e f = ReducedConsExp e (SingExp f)
 
 pattern TripExp :: Term Tiger -> Term Tiger -> Term Tiger -> Term Tiger
-pattern TripExp e f g = ConsExpList e (DoubExp f g)
+pattern TripExp e f g = ReducedConsExp e (DoubExp f g)
 
 ----------------
 
@@ -368,6 +371,9 @@ pattern Scope a = Node "Scope" [a]
 
 pattern DoLet :: Term Tiger -> Term Tiger -> Term Tiger
 pattern DoLet a b = Node "DoLet" [a, b]
+
+pattern AssnFnArgs :: Term Tiger -> Term Tiger -> Term Tiger
+pattern AssnFnArgs a b = Node "AssnFnArgs" [a, b]
 
 pattern NilFrame :: Term Tiger
 pattern NilFrame = Val "NilFrame" []

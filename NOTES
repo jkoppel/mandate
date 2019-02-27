@@ -13,3 +13,7 @@ Also, the definition we used for graph projection was wrong; should be modified 
 2/26/2019
 
 In MITScript/Tiger currently, stack frames may become unreachable, but they're never removed from the heap. This must be so because heap addresses are allocated based on the size of the heap, and this could otherwise cause heap addresses to be reused.. Could cause problems later on, though as of now it gives us some path-sensitivity that we shouldn't have.
+
+-----------------
+
+Functions seem to mostly work...but there's a bug exhibited in merge.tig. readInt() seems to always be returning 1. Possibly related to Lazy I/O.
