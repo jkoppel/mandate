@@ -17,7 +17,7 @@ import Term
 rules <- mitScriptRules
 pamRules <- sosToPam rules
 amRules <- pamToAM pamRules
-eval term = evaluationSequenceL (initConf term) >>= mapM_ (putStrLn.show)
+eval term = evaluationSequenceL (initConf term) >>= mapM_ (\x -> putStrLn (show x) >> putStrLn "\n")
 showGraph graph = putStrLn $ unpack $ renderDot $ toDot $ graphToDot (defaultParams { fmtNode = \(n,l) -> [toLabel "", shape BoxShape], fmtEdge = \(n1,n2,l) -> [toLabel "", shape BoxShape]}) (toRealGraph @Gr graph)
 interpret file = do x <- parseFile file; eval (toGeneric x :: Term MITScript)
 parse file = do x <- parseFile file; return (toGeneric x :: Term MITScript)

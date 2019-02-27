@@ -2,8 +2,10 @@
 
 module MatchEffect (
     MatchEffect(..) -- I'd like to only reveal the internals to the Match module
+  , matchEffectInputChar
   , matchEffectInput
   , matchEffectOutput
+  , matchEffectFlush
   ) where
 
 import Control.Applicative
@@ -11,6 +13,8 @@ import Control.Monad (MonadPlus)
 import Control.Monad.Logic ( LogicT(..), runLogicT, observeAllT, lift )
 import Data.ByteString.Char8 ( ByteString )
 import qualified Data.ByteString.Char8 as BS
+
+import System.IO ( hFlush, stdout )
 
 
 -- | This file exists to break a circular dependency between Matching.hs and LangBase.hs
@@ -26,8 +30,14 @@ import qualified Data.ByteString.Char8 as BS
 newtype MatchEffect a = MatchEffect (LogicT IO a)
   deriving ( Functor, Applicative, Monad, MonadPlus, Alternative )
 
+matchEffectInputChar :: MatchEffect Char
+matchEffectInputChar = MatchEffect $ lift getChar
+
 matchEffectInput :: MatchEffect ByteString
 matchEffectInput = MatchEffect $ lift BS.getLine
 
 matchEffectOutput :: ByteString -> MatchEffect ()
 matchEffectOutput s = MatchEffect $ lift $ BS.putStr s
+
+matchEffectFlush :: MatchEffect ()
+matchEffectFlush = MatchEffect $ lift $ hFlush stdout

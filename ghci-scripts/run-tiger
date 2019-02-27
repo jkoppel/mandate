@@ -1,0 +1,29 @@
+:set -XOverloadedStrings
+:set -XTypeApplications
+:l Languages.Tiger.Semantics
+import Control.DeepSeq
+import Configuration
+import Data.Text.Lazy
+import Data.GraphViz
+import Data.Graph.Inductive.Example
+import Data.GraphViz.Printing
+import Data.Graph.Inductive.PatriciaTree
+import Graph
+import Rose
+import Semantics.AbstractMachine
+import Semantics.Conversion
+import Semantics.PAM
+import Term
+
+import Languages.Tiger.Parse
+
+rules <- tigerRules
+pamRules <- sosToPam rules
+amRules <- pamToAM pamRules
+eval term = evaluationSequenceL (initConf term) >>= mapM_ (\x -> putStrLn (show x) >> putStrLn "\n")
+showGraph graph = putStrLn $ unpack $ renderDot $ toDot $ graphToDot (defaultParams { fmtNode = \(n,l) -> [toLabel "", shape BoxShape], fmtEdge = \(n1,n2,l) -> [toLabel "", shape BoxShape]}) (toRealGraph @Gr graph)
+interpret file = do x <- parseFile file; eval (toGeneric x :: Term Tiger)
+parse file = do x <- parseFile file; return (toGeneric x :: Term Tiger)
+-- term1 <- parse "MITScript/tests/what-works.mit"
+putStrLn "Try this: interpret [file]"
+--putStrLn "Or this: abstractAmCfg (irrelevance (SortIrr \"Exp\")) (irrelevance (SortIrr \"Exp\")) amRules term1"
