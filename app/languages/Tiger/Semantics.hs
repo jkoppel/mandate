@@ -157,6 +157,8 @@ tv = NonvalVar
 mv :: MetaVar -> Term Tiger
 mv = MetaVar
 
+loopHiSym :: Term Tiger
+loopHiSym = Symbol "___for_loop_hi_bound"
 
 tigerRules :: IO (NamedRules Tiger)
 tigerRules = sequence [
@@ -274,6 +276,13 @@ tigerRules = sequence [
             StepTo (conf (SeqExp (ConsExpList (DoExit mval) ms)) env)
                 (Build (conf (DoExit mval) env))
 
+
+     -- I don't know why the parser produces terms like this
+     , name "seq-empty" $
+       mkPairRule1 $ \env ->
+       mkRule0 $
+         StepTo (conf (SeqExp NilExpList) env)
+           (Build (conf NilExp env))
 
       --- VarExp
 
@@ -591,6 +600,19 @@ tigerRules = sequence [
             (Build (conf mb env))
 
       ---- ForExp
+    , name "do-for" $
+      mkPairRule1 $ \env ->
+      mkRule4 $ \i low hi e ->
+        let (mi, mlow, mhi, me) = (mv i, mv low, mv hi, mv e) in
+          StepTo (conf (ForExp (VarDec mi) mlow mhi me) env)
+            (Build $ conf (LetExp (ConsDecList (VarDecDec (VarDec mi) NoneSym mlow)
+                                     (ConsDecList (VarDecDec (VarDec loopHiSym) NoneSym mhi)
+                                        NilDecList))
+                                  (WhileExp (OpExp (VarExp (SimpleVar mi)) LtOp (VarExp (SimpleVar loopHiSym)))
+                                       (SeqExp (ConsExpList me
+                                                  (ConsExpList (AssignExp (SimpleVar mi) (OpExp (VarExp $ SimpleVar mi) PlusOp (IntExp (ConstInt 1))))
+                                                    NilExpList)))))
+                          env)
 
       ---- LetExp
 
