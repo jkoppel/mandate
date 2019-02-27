@@ -26,8 +26,6 @@ tigerSorts = [ "Program",  "Exp", "ExpList", "ExpOpt", "Dec", "DecList"
              , "Builtin"
              ]
 
-
--- TODO: Nodes for runtime values (e.g.: eval'd record, stack frame)
 tigerSig :: Signature Tiger
 tigerSig = Signature [ NodeSig "PExp"  ["Exp"]     "Program"
                      , NodeSig "PDecs" ["DecList"] "Program"
@@ -78,7 +76,8 @@ tigerSig = Signature [ NodeSig "PExp"  ["Exp"]     "Program"
 
                      , NodeSig "TField" ["Symbol", "Symbol"] "TField"
 
-                     -- What is that "escape" boolean in their grammar
+                     -- The "escape" boolean in their Vardec node is
+                     ---- actually later analysis, not part of the syntax
                      , NodeSig "VarDec" ["Symbol"] "VarDec"
 
                      , NodeSig "Formals" ["VarDec", "Symbol"] "Formals"
@@ -115,14 +114,14 @@ tigerSig = Signature [ NodeSig "PExp"  ["Exp"]     "Program"
                      ---- Intermediate expressions
 
                      , NodeSig "HeapAlloc" ["Exp"] "Exp"
-
                      , NodeSig "LoopBody" ["Exp", "Exp"] "Exp"
+                     , NodeSig "Scope" ["Exp"] "Exp"
+                     , NodeSig "DoLet" ["DecList", "Exp"] "Exp"
 
                      ----- Runtime values
 
                      , ValSig "NilFrame"  []                        "FrameList"
                      , ValSig "ConsFrame" ["HeapAddr", "FrameList"] "FrameList"
-
 
 
                      , ValSig "ReducedNilExp"  []                  "ExpList"
@@ -363,6 +362,12 @@ pattern HeapAlloc a = Node "HeapAlloc" [a]
 
 pattern LoopBody :: Term Tiger -> Term Tiger -> Term Tiger
 pattern LoopBody a b = Node "LoopBody" [a, b]
+
+pattern Scope :: Term Tiger -> Term Tiger
+pattern Scope a = Node "Scope" [a]
+
+pattern DoLet :: Term Tiger -> Term Tiger -> Term Tiger
+pattern DoLet a b = Node "DoLet" [a, b]
 
 pattern NilFrame :: Term Tiger
 pattern NilFrame = Val "NilFrame" []

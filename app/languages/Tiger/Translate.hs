@@ -233,6 +233,7 @@ instance FromGeneric Tiger [T.Tfield] where
   fromGeneric _ = Nothing
 
 instance FromGeneric Tiger T.Vardec where
+  -- The "escape" attribute seems to be an artifact of later analysis; not part of syntax
   fromGeneric (G.VarDec s) = T.Vardec <$> fromGeneric s <*> return False
   fromGeneric _ = Nothing
 

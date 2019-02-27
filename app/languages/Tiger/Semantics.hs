@@ -522,19 +522,18 @@ tigerRules = sequence [
               (Build (conf (AssignExp (SubscriptVar vl me') vr) env')))
 
     , name "field-assn-eval-field" $
-      mkRule7 $ \val field ref mu h re re'->
-        let (vval, mref, mfield, vre, vre', mmu) = (vv val, mv ref, mv field, vv re, vv re', mv mu) in
-          StepTo (Conf (AssignExp (FieldVar (ReferenceVal mref) mfield) vval) (mmu, AssocOneVal h mref vre))
-            (LetComputation (emptyConf (ReducedRecord vre')) (extComp WriteField (mmu, AssocOneVal h mref vre) [vre, mfield, vval])
-              (Build $ Conf NilExp (mmu, AssocOneVal h mref (ReducedRecord vre'))))
+      mkRule7 $ \val ref field re' addr mu h->
+        let (vval, mref, mfield, vre', maddr, mmu) = (vv val, mv ref, mv field, vv re', mv addr, mv mu) in
+          StepTo (Conf (AssignExp (FieldVar (ReferenceVal mref) mfield) vval) (mmu, WholeSimpEnv h))
+            (LetComputation (emptyConf (ReducedRecordPair maddr vre')) (extComp WriteField (mmu, WholeSimpEnv h) [mref, mfield, vval])
+              (Build $ Conf NilExp (mmu, AssocOneVal h maddr vre')))
 
     , name "index-assn-eval" $
-      mkRule7 $ \val index ref mu h re re'->
-        let (vval, mref, mindex, vre, vre', mmu) = (vv val, mv ref, mv index, vv re, vv re', mv mu) in
-          StepTo (Conf (AssignExp (SubscriptVar (ReferenceVal mref) mindex) vval) (mmu, AssocOneVal h mref vre))
-            (LetComputation (emptyConf vre')
-                               (extComp WriteIndex (mmu, AssocOneVal h mref vre) [vre, mindex, vval])
-              (Build $ Conf NilExp (mmu, AssocOneVal h mref vre')))
+      mkRule7 $ \val ref index re' addr mu h ->
+        let (vval, mref, mindex, vre', maddr, mmu) = (vv val, mv ref, mv index, vv re', mv addr, mv mu) in
+          StepTo (Conf (AssignExp (SubscriptVar (ReferenceVal mref) mindex) vval) (mmu, WholeSimpEnv h))
+            (LetComputation (emptyConf (ReducedRecordPair maddr vre')) (extComp WriteIndex (mmu, WholeSimpEnv h) [mref, mindex, vval])
+              (Build $ Conf NilExp (mmu, AssocOneVal h maddr vre')))
 
       ---- IfExp
 
@@ -592,7 +591,46 @@ tigerRules = sequence [
             (Build (conf mb env))
 
       ---- ForExp
+
       ---- LetExp
+
+
+    , name "let-start" $
+      mkRule6 $ \ds e top stack addr h ->
+        let (mds, me, mtop, mstack, maddr) = (mv ds, mv e, mv top, mv stack, mv addr) in
+          StepTo (Conf (LetExp mds me) (ConsFrame mtop mstack, WholeSimpEnv h))
+            (LetComputation (emptyConf maddr) (extComp AllocAddress (ConsFrame mtop mstack, WholeSimpEnv h) [NilExp])
+              (Build (Conf (Scope (DoLet mds me))
+                           (ConsFrame maddr (ConsFrame mtop mstack), AssocOneVal h maddr (ReducedRecord $ Parent mtop)))))
+
+    , name "scope-cong" $
+      mkPairRule2 $ \env env' ->
+      mkRule2 $ \e e' ->
+        let (te, me') = (tv e, mv e') in
+          StepTo (conf (Scope te) env)
+            (LetStepTo (conf me' env') (conf te env)
+              (Build (conf (Scope me') env')))
+
+    , name "scope-done" $
+      mkRule4 $ \val top stack h ->
+        let (vval, mtop, mstack) = (vv val, mv top, mv stack) in
+          StepTo (Conf (Scope vval) (ConsFrame mtop mstack, WholeSimpEnv h))
+            (Build (Conf vval (mstack, WholeSimpEnv h)))
+
+    , name "dolet-cong-decl" $
+      mkPairRule2 $ \env env' ->
+      mkRule3 $ \ds ds' e ->
+        let (tds, mds', me) = (tv ds, mv ds', mv e) in
+          StepTo (conf (DoLet tds me) env)
+            (LetStepTo (conf mds' env') (conf tds env)
+              (Build (conf (DoLet mds' me) env')))
+
+    , name "dolet-finish-decls" $
+      mkPairRule1 $ \env ->
+      mkRule1 $ \e ->
+        let me = mv e in
+          StepTo (conf (DoLet NilDecList me) env)
+            (Build (conf me env))
 
 
       ---- Builtins
@@ -613,8 +651,49 @@ tigerRules = sequence [
             (LetComputation (emptyConf vret) (extComp RunBuiltin (matchRedState env) [mfunc, varg])
               (Build (conf vret env)))
 
-      --- Stop at FunctionDec
+      --- Decs
 
+    , name "declist-cong" $
+      mkPairRule2 $ \env env' ->
+      mkRule3 $ \d d' ds ->
+        let (td, md', mds) = (tv d, mv d', mv ds) in
+          StepTo (conf (ConsDecList td mds) env)
+            (LetStepTo (conf md' env') (conf td env)
+              (Build (conf (ConsDecList md' mds) env')))
+
+    , name "declist-next" $
+      mkPairRule1 $ \env ->
+      mkRule1 $ \ds ->
+        let mds = mv ds in
+          StepTo (conf (ConsDecList NilExp mds) env)
+            (Build (conf mds env))
+
+    , name "vardec-cong" $
+      mkPairRule2 $ \env env' ->
+      mkRule4 $ \nm ty e e' ->
+        let (mnm, mty, te, me') = (mv nm, mv ty, tv e, mv e') in
+          StepTo (conf (VarDecDec mnm mty te) env)
+            (LetStepTo (conf me' env') (conf te env)
+              (Build (conf (VarDecDec mnm mty me') env')))
+
+    , name "vardec-initialize" $
+      mkRule7 $ \addr rest re nm ty val h ->
+        let (maddr, mrest, vre, mnm, mty, vval) = (mv addr, mv rest, vv re, mv nm, mv ty, vv val) in
+          StepTo (Conf (VarDecDec (VarDec mnm) mty vval) (ConsFrame maddr mrest, AssocOneVal h maddr (ReducedRecord vre)))
+            (Build (Conf NilExp (ConsFrame maddr mrest,
+                                 AssocOneVal h maddr
+                                               (ReducedRecord (ReducedRecordCons
+                                                                 (ReducedRecordPair mnm vval)
+                                                                 vre)))))
+
+    , name "typedec-skip" $
+      mkPairRule1 $ \env ->
+      mkRule1 $ \td ->
+        let mtd = mv td in
+          StepTo (conf (TypeDecDec mtd) env)
+            (Build (conf NilExp env))
+
+    --- Function dec
 
     ]
 
@@ -628,19 +707,25 @@ readField :: SimpEnv (Term Tiger) (Term Tiger) -> Term Tiger -> String -> Term T
 readField heap (ReducedRecordCons (ReducedRecordPair (Symbol k) v) rps) field = if ibsToString k == field then v else readField heap rps field
 readField heap (Parent p) f = case Configuration.lookup p heap of
                                 Just (ReducedRecord parent) -> readField heap parent f
-                                Nothing -> error "ERR: Dangling Pointer"
+                                Nothing -> error ("ERR: Dangling Pointer " ++ show f)
 readField heap item field = error ("Error in read: \n" ++ show heap ++ "\n\t" ++ show item ++ "\n\t" ++ show field)
 
 
--- TODO: This doesn't work; adapted erroneously from a language with explicit globals
+-- Returns (as a ReducedRecordPair, with some abuse of constructors) a pair of (addr of frame to update, new frame bindings)
 writeField :: SimpEnv (Term Tiger) (Term Tiger) -> Term Tiger -> String -> Term Tiger -> Term Tiger
-writeField heap rec field val = ReducedRecord $ writeField' rec
+writeField heap addr field val = writeField' (Parent addr) (\t -> error "Unreachable")
   where
-    writeField' (ReducedRecordCons (ReducedRecordPair (Symbol k) v) rps) =
-      if ibsToString k == field then ReducedRecordCons (ReducedRecordPair (Symbol k) val) rps
-                                else ReducedRecordCons (ReducedRecordPair (Symbol k) v) (writeField' rps)
-    writeField' ReducedRecordNil = ReducedRecordCons (ReducedRecordPair (Symbol (stringToIbs field)) val) ReducedRecordNil
-    writeField' (Parent p)       = ReducedRecordCons (ReducedRecordPair (Symbol (stringToIbs field)) val) (Parent p)
+    writeField' :: Term Tiger -> (Term Tiger -> Term Tiger) -> Term Tiger
+    writeField' (ReducedRecordCons (ReducedRecordPair (Symbol k) v) rps) kont =
+      if ibsToString k == field then kont $ ReducedRecordCons (ReducedRecordPair (Symbol k) val) rps
+                                else writeField' rps (\t -> kont $ ReducedRecordCons (ReducedRecordPair (Symbol k) v) t)
+    writeField' ReducedRecordNil kont = error ("ERR: Dangling pointer " ++ show field)
+    writeField' (Parent addr)    kont =
+        case Configuration.lookup addr heap of
+          Just (ReducedRecord parRec) -> writeField' parRec
+                                                     (\t -> ReducedRecordPair addr (ReducedRecord t))
+
+          Nothing -> error ("ERR: Dangling Pointer " ++ show field)
 
 
 -- NOTE: I'm being very lazy/deadline-pressured in just turning integers to strings to use as keys;
@@ -781,11 +866,11 @@ runExternalComputation Compute state [GeOp, StringExp (ConstStr n1), StringExp (
 
 runExternalComputation AllocAddress (stack, heap) _ = return $ emptyConf (HeapAddr $ size heap)
 
-runExternalComputation ReadIndex  (stack, heap) [ReducedRecord r, IntExp (ConstInt i)]       = return $ emptyConf $ readField  heap r (show i)
-runExternalComputation WriteIndex (stack, heap) [ReducedRecord r, IntExp (ConstInt i), val]  = return $ emptyConf $ writeField heap r (show i) val
+runExternalComputation ReadIndex  (stack, heap) [ReducedRecord r, IntExp (ConstInt i)] = return $ emptyConf $ readField  heap r (show i)
+runExternalComputation WriteIndex (stack, heap) [addr, IntExp (ConstInt i), val]       = return $ emptyConf $ writeField heap addr (show i) val
 
-runExternalComputation ReadField  (stack, heap) [ReducedRecord r, Symbol s]        = return $ emptyConf $ readField  heap r (ibsToString s)
-runExternalComputation WriteField (stack, heap) [ReducedRecord r, Symbol f, val]   = return $ emptyConf $ writeField heap r (ibsToString f) val
+runExternalComputation ReadField  (stack, heap) [ReducedRecord r, Symbol f] = return $ emptyConf $ readField  heap r (ibsToString f)
+runExternalComputation WriteField (stack, heap) [addr, Symbol f, val]       = return $ emptyConf $ writeField heap addr (ibsToString f) val
 
 runExternalComputation MakeArray (stack, heap) [IntExp (ConstInt n), val] = return $ emptyConf $ makeArray n val
 
