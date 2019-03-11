@@ -11,7 +11,7 @@ import Languages.Translation
 
 import Languages.AddMul
 
-import Languages.Lockstep
+import Languages.LockStep
 --import Languages.MITScript.Parse
 import Languages.MITScript.Semantics
 import Languages.MITScript.Signature

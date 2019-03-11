@@ -1,6 +1,6 @@
 :set -XOverloadedStrings
 :set -XTypeApplications
-:l Languages.Lockstep
+:l Languages.LockStep
 import Control.DeepSeq
 import Configuration
 import Graph
