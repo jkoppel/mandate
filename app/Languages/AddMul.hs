@@ -26,11 +26,12 @@ data AddMulLang
 instance LangBase AddMulLang where
   type RedState AddMulLang = EmptyState
 
-  data CompFunc AddMulLang = RunAdd | AbsRunAdd | RunMul | AbsRunMul
+  data CompFunc AddMulLang = RunAdd | AbsRunAdd | RunMul | AbsRunMul | RunMin | AbsRunMin
     deriving ( Eq, Generic )
 
   compFuncName RunMul = "runMul"
   compFuncName RunAdd = "runAdd"
+  compFuncName RunMin = "runMin"
 
   runCompFunc func (c:cs)  = runExternalComputation func (confState c) (map confTerm (c:cs))
 
@@ -39,6 +40,8 @@ instance Irrelevance (CompFunc AddMulLang) where
   irrelevance _ AbsRunAdd = AbsRunAdd
   irrelevance _ RunMul    = AbsRunMul
   irrelevance _ AbsRunMul = AbsRunMul
+  irrelevance _ RunMin  = AbsRunMin
+  irrelevance _ AbsRunMin = AbsRunMin
 
 instance Hashable (CompFunc AddMulLang)
 
@@ -52,6 +55,7 @@ instance HasSOS AddMulLang where
 addMulLangSig :: Signature AddMulLang
 addMulLangSig = Signature [ NodeSig "+" ["Exp", "Exp"] "Exp"
                        , NodeSig "*" ["Exp", "Exp"] "Exp"
+                       , NodeSig "-" ["Exp", "Exp"] "Exp"
                        , ValSig "EVal" ["Const"] "Exp"
                        , IntSig "Const" "Const"]
 
@@ -60,6 +64,9 @@ pattern Plus x y = Node "+" [x, y]
 
 pattern Times :: Term AddMulLang -> Term AddMulLang -> Term AddMulLang
 pattern Times x y = Node "*" [x, y]
+
+pattern Sub :: Term AddMulLang -> Term AddMulLang -> Term AddMulLang
+pattern Sub x y = Node "-" [x, y]
 
 pattern EVal :: Term AddMulLang -> Term AddMulLang
 pattern EVal n = Val "EVal" [n]
@@ -103,6 +110,27 @@ addMulLangRules = sequence [
                                (LetComputation (conf vv') (extComp RunAdd EmptyState [vv1, vv2])
                                (Build $ conf vv'))
 
+                 , name "sub-cong-1" $
+                   mkRule3 $ \e1 e2 e1' ->
+                             let (te1, me2, me1') = (tv e1, mv e2, mv e1') in
+                             StepTo (conf $ Sub te1 me2)
+                               (LetStepTo (conf me1') (conf te1)
+                               (Build $ conf $ Sub me1' me2))
+
+                 , name "sub-cong-2" $
+                   mkRule3 $ \v1 e2 e2' ->
+                             let (vv1, te2, me2') = (vv v1, tv e2, mv e2') in
+                             StepTo (conf $ Sub vv1 te2)
+                               (LetStepTo (conf me2') (conf te2)
+                               (Build $ conf $ Sub vv1 me2'))
+
+                 , name "sub-eval" $
+                   mkRule3 $ \v1 v2 v' ->
+                             let (vv1, vv2, vv') = (vv v1, vv v2, vv v') in
+                             StepTo (conf $ Sub vv1 vv2)
+                               (LetComputation (conf vv') (extComp RunMin EmptyState [vv1, vv2])
+                               (Build $ conf vv'))
+
                  , name "times-cong-1" $
                    mkRule3 $ \e1 e2 e1' ->
                              let (te1, me2, me1') = (tv e1, mv e2, mv e1') in
@@ -128,6 +156,7 @@ addMulLangRules = sequence [
 runExternalComputation :: Monad m => CompFunc AddMulLang -> RedState AddMulLang -> [Term AddMulLang] -> m (Configuration AddMulLang)
 runExternalComputation RunAdd state [EVal (Const n1), EVal (Const n2)] = return $ initConf $ EVal (Const (n1+n2))
 runExternalComputation RunMul state [EVal (Const n1), EVal (Const n2)] = return $ initConf $ EVal (Const (n1*n2))
+runExternalComputation RunMin state [EVal (Const n1), EVal (Const n2)] = return $ initConf $ EVal (Const (n1-n2))
 
 runExternalComputation func state [GStar _, _] = return $ initConf ValStar
 runExternalComputation func state [_, GStar _] = return $ initConf ValStar
@@ -135,5 +164,5 @@ runExternalComputation func state [_, GStar _] = return $ initConf ValStar
 -----------
 
 term1 :: Term AddMulLang
-term1 = Plus (Plus (EVal $ Const 1) (EVal $ Const 2)) (Times (EVal $ Const 3) (EVal $ Const 4))
+term1 = Sub (Plus (EVal $ Const 1) (EVal $ Const 2)) (Times (EVal $ Const 3) (EVal $ Const 4))
 
