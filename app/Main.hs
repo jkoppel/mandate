@@ -8,12 +8,12 @@ import System.Exit
 import Control.DeepSeq
 import Configuration
 -- import Data.GraphViz
--- import Data.Graph.Inductive.Example
+import Data.Graph.Inductive.Example
 -- import Data.GraphViz.Printing
--- import Data.Graph.Inductive.PatriciaTree
 import Graph
 import Rose
 import Semantics.AbstractMachine
+import Semantics.Abstraction
 import Semantics.Conversion
 import Semantics.PAM
 import Term
@@ -42,22 +42,30 @@ import Languages.Tiger.Translate
 main :: IO ()
 main = do
   args <- getArgs
-  validate args (length args)
+  validate args (length args) >>= putStrLn
 
 usage = "Usage: derive-cfg [language name] [path to source]"
 
-validate :: [String] -> Int -> IO ()
+validate :: [String] -> Int -> IO String
 validate args 2 = makeGraph (head args) (last args)
 validate _ _ = return usage
 
-makeGraph :: String -> String -> IO ()
+makeGraph :: String -> String -> IO String
 makeGraph lang fs = case lang of
-  "mitscript" -> makeCfg (parse fs)
+  "mitscript" -> return (show (parse fs)) 
   _           -> return "Unsupported language"
 
-parse fs = toGeneric (MITParse.parseFile fs) :: Term MITScript
-makeCfg term = do
+parse fs = do
+  x <- MITParse.parseFile fs
+  mitScriptRules <- (rules :: IO (NamedRules MITScript))
+  pamRules <- sosToPam mitScriptRules
+  amRules <- pamToAM pamRules
+  absCfg <- abstractAmCfg (irrelevance ValueIrr) (irrelevance ValueIrr) amRules (toGeneric x :: Term MITScript)
+  return (toRealGraph absCfg)
+
+{- makeCfg term = do
   mitrules <- rules term
   pamRules <- sosToPam mitrules
   amRules <- pamToAM pamRules
-  abstractAmCfg (irrelevance term) (irrelevance term) amRules term
+  toRealGraph $ abstractAmCfg (irrelevance term) (irrelevance term) amRules term
+-} 
