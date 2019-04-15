@@ -7,9 +7,9 @@ import System.Exit
 
 import Control.DeepSeq
 import Configuration
--- import Data.GraphViz
+import Data.GraphViz as GraphViz
 import Data.Graph.Inductive.Example
--- import Data.GraphViz.Printing
+import Data.GraphViz.Printing
 import Graph
 import Rose
 import Semantics.AbstractMachine
@@ -52,10 +52,10 @@ validate _ _ = return usage
 
 makeGraph :: String -> String -> IO String
 makeGraph lang fs = case lang of
-  "mitscript" -> return (show (parse fs)) 
+  "mitscript" -> return (show (convertMITScript fs)) 
   _           -> return "Unsupported language"
 
-parse fs = do
+convertMITScript fs = do
   x <- MITParse.parseFile fs
   mitScriptRules <- (rules :: IO (NamedRules MITScript))
   pamRules <- sosToPam mitScriptRules
