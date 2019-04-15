@@ -20,7 +20,6 @@ mitScriptSorts = [ "Name",  "NameList", "Stmt", "StmtList"
                 ]
 
 
--- TODO: More nodes needed to implement runtime values
 mitScriptSig :: Signature MITScript
 mitScriptSig = Signature [ StrSig "Name" "Name"
 
