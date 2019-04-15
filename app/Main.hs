@@ -7,8 +7,10 @@ import System.Exit
 
 import Control.DeepSeq
 import Configuration
+import Data.Text.Lazy as Lazy
 import Data.GraphViz as GraphViz
 import Data.Graph.Inductive.Example
+import Data.Graph.Inductive.PatriciaTree
 import Data.GraphViz.Printing
 import Graph
 import Rose
@@ -42,17 +44,17 @@ import Languages.Tiger.Translate
 main :: IO ()
 main = do
   args <- getArgs
-  validate args (length args) >>= putStrLn
+  validate args (Prelude.length args) >>= putStrLn
 
 usage = "Usage: derive-cfg [language name] [path to source]"
 
 validate :: [String] -> Int -> IO String
-validate args 2 = makeGraph (head args) (last args)
+validate args 2 = makeGraph (Prelude.head args) (Prelude.last args)
 validate _ _ = return usage
 
 makeGraph :: String -> String -> IO String
 makeGraph lang fs = case lang of
-  "mitscript" -> return (show (convertMITScript fs)) 
+  "mitscript" -> graphToString <$> convertMITScript fs 
   _           -> return "Unsupported language"
 
 convertMITScript fs = do
@@ -61,11 +63,6 @@ convertMITScript fs = do
   pamRules <- sosToPam mitScriptRules
   amRules <- pamToAM pamRules
   absCfg <- abstractAmCfg (irrelevance ValueIrr) (irrelevance ValueIrr) amRules (toGeneric x :: Term MITScript)
-  return (toRealGraph absCfg)
+  return absCfg
 
-{- makeCfg term = do
-  mitrules <- rules term
-  pamRules <- sosToPam mitrules
-  amRules <- pamToAM pamRules
-  toRealGraph $ abstractAmCfg (irrelevance term) (irrelevance term) amRules term
--} 
+graphToString graph = unpack $ renderDot $ toDot $ graphToDot (nonClusteredParams { fmtNode = \(n,l) -> [toLabel "", shape BoxShape], fmtEdge = \(n1,n2,l) -> [toLabel "", shape BoxShape]}) (toRealGraph @Gr graph)
