@@ -58,6 +58,10 @@ library
                    TigerLexer
                    TigerParser
                    TigerSymbol
+                   TigerAssem
+                   TigerGraph
+                   TigerRegisters
+                   TigerTemp
  
   other-modules:   TigerGenSymLabTmp
 
