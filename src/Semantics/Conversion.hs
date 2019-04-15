@@ -51,11 +51,11 @@ infNameStream nam = map (\i -> mconcat [nam, "-", BS.pack $ show i]) [1..]
 
 -- | Strips off the first layer of nesting in a context. All computation up to the first
 -- KStepTo is converted into a PAM RHS. The remainder, if any, is returned for further conversion into the next rule.
-splitFrame :: (Lang l) => PosFrame l -> Context l -> (PAMRhs l, Context l, Maybe (Configuration l, PosFrame l))
+splitFrame :: (Lang l) => PosFrame l -> Context l -> (PAMRhs l, Context l, Maybe (Configuration l, PosFrame l, Phase))
 splitFrame (KBuild c) k = (GenAMRhs $ PAMState c k Up, k, Nothing)
-splitFrame (KStepTo c f@(KInp i pf)) k = (GenAMRhs $ PAMState c (KPush f k) Down, (KPush f k), Just (i, pf))
-splitFrame (KComputation comp (KInp c pf)) k = let (subRhs, ctx, rest) = splitFrame pf k in
-                                               (GenAMLetComputation c comp subRhs, ctx, rest)
+splitFrame (KStepTo c f@(KInp i pf)) k = (GenAMRhs $ PAMState c (KPush f k) Down, (KPush f k), Just (i, pf, Up))
+splitFrame (KComputation comp f@(KInp c pf)) k = (GenAMLetComputation c comp (GenAMRhs $ PAMState c (KPush f k) Down),
+                                                (KPush f k), Just(c, pf, Down))
 
 sosRuleToPam' :: (Lang l) => InfNameStream -> PAMState l -> Context l -> PosFrame l -> IO [NamedPAMRule l]
 sosRuleToPam' (nm:nms) st k fr = do
@@ -63,7 +63,8 @@ sosRuleToPam' (nm:nms) st k fr = do
     let (rhs, k', frRest) = splitFrame fr k
     restRules <- case frRest of
                    Nothing           -> return []
-                   Just (conf', fr') -> sosRuleToPam' nms (PAMState conf' k' Up) k fr'
+                   Just (conf', fr', Up) -> sosRuleToPam' nms (PAMState conf' k' Up) k fr'
+                   Just (conf', fr', Down) -> sosRuleToPam' nms (PAMState conf' k' Down) k fr'
     rule <- fromJust <$> runMatchUnique (NamedPAMRule nm <$> (PAM <$> normalizeBoundVars st <*> normalizeBoundVars rhs))
     return (rule : restRules)
 
