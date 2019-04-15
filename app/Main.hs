@@ -55,7 +55,16 @@ validate _ _ = return usage
 makeGraph :: String -> String -> IO String
 makeGraph lang fs = case lang of
   "mitscript" -> graphToString <$> convertMITScript fs 
+  "tiger"     -> graphToString <$> convertTiger fs
   _           -> return "Unsupported language"
+
+convertTiger fs = do
+  x <- TigerParse.parseFile fs
+  tigerRules <- (rules :: IO (NamedRules Tiger))
+  pamRules <- sosToPam tigerRules
+  amRules <- pamToAM pamRules
+  absCfg <- abstractAmCfg (irrelevance ValueIrr) (irrelevance ValueIrr) amRules (toGeneric x :: Term Tiger)
+  return absCfg
 
 convertMITScript fs = do
   x <- MITParse.parseFile fs
