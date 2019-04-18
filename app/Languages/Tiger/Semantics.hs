@@ -993,5 +993,14 @@ runExternalComputation RunBuiltin (stack, heap) [Concat, DoubExp (StringExp (Con
 runExternalComputation RunBuiltin (stack, heap) [Not, SingExp (IntExp (ConstInt n))] = if n == 0 then returnInt 1 else returnInt 0
 runExternalComputation RunBuiltin (stack, heap) [Exit, SingExp (IntExp (ConstInt n))] = return $ emptyConf $ DoExit (ConstInt n)
 
+runExternalComputation func state [GStar _] = return $ emptyConf ValStar
+runExternalComputation func state [_]       = return $ emptyConf ValStar
+
+runExternalComputation func state [GStar _, _] = return $ emptyConf ValStar
+runExternalComputation func state [_, GStar _] = return $ emptyConf ValStar
+
+runExternalComputation func state [GStar _, _, _] = return $ emptyConf ValStar
+runExternalComputation func state [_, GStar _, _] = return $ emptyConf ValStar
+runExternalComputation func state [_, _, GStar _] = return $ emptyConf ValStar
 
 runExternalComputation fn _ args = error ("Unhandled case in runExternalComputation: " ++ show fn ++ " " ++ show args)
