@@ -18,6 +18,7 @@ import Semantics.AbstractMachine
 import Semantics.Abstraction
 import Semantics.Conversion
 import Semantics.PAM
+import Semantics.GeneralMachine as GM
 import Term
 
 import Lang
@@ -74,4 +75,4 @@ convertMITScript fs = do
   absCfg <- abstractAmCfg (irrelevance ValueIrr) (irrelevance ValueIrr) amRules (toGeneric x :: Term MITScript)
   return absCfg
 
-graphToString graph = unpack $ renderDot $ toDot $ graphToDot (nonClusteredParams { fmtNode = \(n,l) -> [toLabel "", shape BoxShape], fmtEdge = \(n1,n2,l) -> [toLabel "", shape BoxShape]}) (toRealGraph @Gr graph)
+graphToString graph = unpack $ renderDot $ toDot $ graphToDot (nonClusteredParams { fmtNode = \(n,l) -> [toLabel l, shape BoxShape], fmtEdge = \(n1,n2,l) -> [toLabel l, shape BoxShape]}) (toRealGraph @Gr graph)
