@@ -4,6 +4,11 @@
 module Languages.Imp (
     ImpLang
   , amStateReduce
+
+  , term1
+  , term3
+  , term4
+  , termBalanceParens
   ) where
 
 import Prelude hiding ( True, False, LT )
@@ -60,11 +65,13 @@ instance Irrelevance (CompFunc ImpLang) where
   irrelevance _ RunLT      = AbsRunLT
   irrelevance _ DoReadInt  = AbsDoReadInt
   irrelevance _ DoWriteInt = AbsDoWriteInt
+  irrelevance _ DoWrite    = AbsDoWrite
 
   irrelevance _ AbsRunAdd     = AbsRunAdd
   irrelevance _ AbsRunLT      = AbsRunLT
   irrelevance _ AbsDoReadInt  = AbsDoReadInt
   irrelevance _ AbsDoWriteInt = AbsDoWriteInt
+  irrelevance _ AbsDoWrite    = AbsDoWrite
 
 instance Lang ImpLang where
   signature = impLangSig
@@ -81,8 +88,8 @@ impLangSig = Signature [ NodeSig ":=" ["Var", "Exp"] "Exp"
                        , NodeSig "While" ["Exp", "Stmt"] "Stmt"
 
                        , NodeSig "ReadInt" [] "Exp"
-                       , NodeSig "WriteInt" ["Exp"] "Exp"
-                       , NodeSig "Write" ["Exp"] "Exp"
+                       , NodeSig "WriteInt" ["Exp"] "Stmt"
+                       , NodeSig "Write" ["Exp"] "Stmt"
 
                        , NodeSig "Var" ["VarName"] "Var"
                        , StrSig "VarName" "VarName"
@@ -92,7 +99,7 @@ impLangSig = Signature [ NodeSig ":=" ["Var", "Exp"] "Exp"
                        , ValSig "false" [] "Exp"
                        , ValSig "EVal" ["Const"] "Exp"
                        , IntSig "Const" "Const"
-                       , StrSig "Str" "Const"
+                       , StrSig "StrConst" "Const"
 
                        , NodeSig "+" ["Exp", "Exp"] "Exp"
                        , NodeSig "<" ["Exp", "Exp"] "Exp"
@@ -163,6 +170,9 @@ pattern (:<) l r = LT l r
 
 intConst :: Integer -> Term ImpLang
 intConst n = EVal $ Const n
+
+strConst :: InternedByteString -> Term ImpLang
+strConst s = EVal $ StrConst s
 
 conf :: Term ImpLang -> MetaVar -> Configuration ImpLang
 conf t v = Conf t (WholeSimpEnv v)
@@ -398,11 +408,11 @@ termBalanceParens =
     $ Seq ("right" := ReadInt)
     $ Seq ("b" := (LT (varExp "prec") (intConst 5)))
     $ Seq (If (varExp "b")
-             (Write (StrConst "("))
+             (Write (strConst "("))
              Skip)
     $ Seq (WriteInt (varExp "left"))
-    $ Seq (Write (StrConst "+"))
+    $ Seq (Write (strConst "+"))
     $ Seq (WriteInt (varExp "right"))
     $ (If (varExp "b")
-          (Write (StrConst ")"))
+          (Write (strConst ")"))
           Skip)

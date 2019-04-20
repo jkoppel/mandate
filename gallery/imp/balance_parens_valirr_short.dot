@@ -1,0 +1,123 @@
+digraph {
+    0 [label="*v",shape=box];
+    1 [label="*v",shape=box];
+    2 [label="VarExp(Var(VarName(\"right\")))"
+      ,shape=box];
+    3 [label="*v",shape=box];
+    4 [label="Seq(:=(Var(VarName(\"right\")), ReadInt()), Seq(:=(Var(VarName(\"b\")), <(VarExp(Var(VarName(\"prec\"))), *v)), Seq(If(VarExp(Var(VarName(\"b\"))), Write(*v), *v), Seq(WriteInt(VarExp(Var(VarName(\"left\")))), Seq(Write(*v), Seq(WriteInt(VarExp(Var(VarName(\"right\")))), If(VarExp(Var(VarName(\"b\"))), Write(*v), *v)))))))"
+      ,shape=box];
+    5 [label="*v",shape=box];
+    6 [label="VarExp(Var(VarName(\"prec\")))"
+      ,shape=box];
+    7 [label=":=(Var(VarName(\"b\")), <(VarExp(Var(VarName(\"prec\"))), *v))"
+      ,shape=box];
+    8 [label="*v",shape=box];
+    9 [label="<(VarExp(Var(VarName(\"prec\"))), *v)"
+      ,shape=box];
+    10 [label="*v",shape=box];
+    11 [label="WriteInt(VarExp(Var(VarName(\"right\"))))"
+       ,shape=box];
+    12 [label="Write(*v)"
+       ,shape=box];
+    13 [label="WriteInt(VarExp(Var(VarName(\"left\"))))"
+       ,shape=box];
+    14 [label="*v",shape=box];
+    15 [label="Seq(:=(Var(VarName(\"b\")), <(VarExp(Var(VarName(\"prec\"))), *v)), Seq(If(VarExp(Var(VarName(\"b\"))), Write(*v), *v), Seq(WriteInt(VarExp(Var(VarName(\"left\")))), Seq(Write(*v), Seq(WriteInt(VarExp(Var(VarName(\"right\")))), If(VarExp(Var(VarName(\"b\"))), Write(*v), *v))))))"
+       ,shape=box];
+    16 [label="*v",shape=box];
+    17 [label="VarExp(Var(VarName(\"left\")))"
+       ,shape=box];
+    18 [label="VarExp(Var(VarName(\"b\")))"
+       ,shape=box];
+    19 [label="*v",shape=box];
+    20 [label="Write(*v)"
+       ,shape=box];
+    21 [label="*v",shape=box];
+    22 [label="Write(*v)"
+       ,shape=box];
+    23 [label="Seq(:=(Var(VarName(\"left\")), ReadInt()), Seq(:=(Var(VarName(\"right\")), ReadInt()), Seq(:=(Var(VarName(\"b\")), <(VarExp(Var(VarName(\"prec\"))), *v)), Seq(If(VarExp(Var(VarName(\"b\"))), Write(*v), *v), Seq(WriteInt(VarExp(Var(VarName(\"left\")))), Seq(Write(*v), Seq(WriteInt(VarExp(Var(VarName(\"right\")))), If(VarExp(Var(VarName(\"b\"))), Write(*v), *v))))))))"
+       ,shape=box];
+    24 [label="*v",shape=box];
+    25 [label="ReadInt()"
+       ,shape=box];
+    26 [label=":=(Var(VarName(\"left\")), ReadInt())"
+       ,shape=box];
+    27 [label="*v",shape=box];
+    28 [label="Seq(If(VarExp(Var(VarName(\"b\"))), Write(*v), *v), Seq(WriteInt(VarExp(Var(VarName(\"left\")))), Seq(Write(*v), Seq(WriteInt(VarExp(Var(VarName(\"right\")))), If(VarExp(Var(VarName(\"b\"))), Write(*v), *v)))))"
+       ,shape=box];
+    29 [label="If(VarExp(Var(VarName(\"b\"))), Write(*v), *v)"
+       ,shape=box];
+    30 [label="ReadInt()"
+       ,shape=box];
+    31 [label="*v",shape=box];
+    32 [label=":=(Var(VarName(\"right\")), ReadInt())"
+       ,shape=box];
+    33 [label="*v",shape=box];
+    34 [label="Seq(Write(*v), Seq(WriteInt(VarExp(Var(VarName(\"right\")))), If(VarExp(Var(VarName(\"b\"))), Write(*v), *v)))"
+       ,shape=box];
+    35 [label="If(VarExp(Var(VarName(\"b\"))), Write(*v), *v)"
+       ,shape=box];
+    36 [label="*v",shape=box];
+    37 [label="VarExp(Var(VarName(\"b\")))"
+       ,shape=box];
+    38 [label="ReadInt()"
+       ,shape=box];
+    39 [label=":=(Var(VarName(\"prec\")), ReadInt())"
+       ,shape=box];
+    40 [label="*v",shape=box];
+    41 [label="*v",shape=box];
+    42 [label="*v",shape=box];
+    43 [label="Seq(WriteInt(VarExp(Var(VarName(\"right\")))), If(VarExp(Var(VarName(\"b\"))), Write(*v), *v))"
+       ,shape=box];
+    44 [label="Seq(:=(Var(VarName(\"prec\")), ReadInt()), Seq(:=(Var(VarName(\"left\")), ReadInt()), Seq(:=(Var(VarName(\"right\")), ReadInt()), Seq(:=(Var(VarName(\"b\")), <(VarExp(Var(VarName(\"prec\"))), *v)), Seq(If(VarExp(Var(VarName(\"b\"))), Write(*v), *v), Seq(WriteInt(VarExp(Var(VarName(\"left\")))), Seq(Write(*v), Seq(WriteInt(VarExp(Var(VarName(\"right\")))), If(VarExp(Var(VarName(\"b\"))), Write(*v), *v)))))))))"
+       ,shape=box];
+    45 [label="Seq(WriteInt(VarExp(Var(VarName(\"left\")))), Seq(Write(*v), Seq(WriteInt(VarExp(Var(VarName(\"right\")))), If(VarExp(Var(VarName(\"b\"))), Write(*v), *v))))"
+       ,shape=box];
+    1 -> 10 [label="",shape=box];
+    2 -> 1 [label="",shape=box];
+    3 -> 28 [label="",shape=box];
+    4 -> 32 [label="",shape=box];
+    5 -> 8 [label="",shape=box];
+    6 -> 5 [label="",shape=box];
+    7 -> 9 [label="",shape=box];
+    8 -> 3 [label="",shape=box];
+    9 -> 6 [label="",shape=box];
+    10 -> 29 [label="",shape=box];
+    11 -> 2 [label="",shape=box];
+    12 -> 0 [label="",shape=box];
+    13 -> 17 [label="",shape=box];
+    14 -> 34 [label="",shape=box];
+    15 -> 7 [label="",shape=box];
+    16 -> 14 [label="",shape=box];
+    17 -> 16 [label="",shape=box];
+    18 -> 36 [label="",shape=box];
+    19 -> 23 [label="",shape=box];
+    20 -> 42 [label="",shape=box];
+    21 -> 43 [label="",shape=box];
+    22 -> 21 [label="",shape=box];
+    23 -> 26 [label="",shape=box];
+    24 -> 27 [label="",shape=box];
+    25 -> 24 [label="",shape=box];
+    26 -> 25 [label="",shape=box];
+    27 -> 4 [label="",shape=box];
+    28 -> 35 [label="",shape=box];
+    29 -> 18 [label="",shape=box];
+    30 -> 31 [label="",shape=box];
+    31 -> 33 [label="",shape=box];
+    32 -> 30 [label="",shape=box];
+    33 -> 15 [label="",shape=box];
+    34 -> 22 [label="",shape=box];
+    35 -> 37 [label="",shape=box];
+    36 -> 0 [label="",shape=box];
+    36 -> 12 [label="",shape=box];
+    37 -> 41 [label="",shape=box];
+    38 -> 40 [label="",shape=box];
+    39 -> 38 [label="",shape=box];
+    40 -> 19 [label="",shape=box];
+    41 -> 20 [label="",shape=box];
+    41 -> 42 [label="",shape=box];
+    42 -> 45 [label="",shape=box];
+    43 -> 11 [label="",shape=box];
+    44 -> 39 [label="",shape=box];
+    45 -> 13 [label="",shape=box];
+}

@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE OverloadedStrings, TypeApplications #-}
 
 module Main where
 
@@ -35,7 +35,7 @@ import Languages.MITScript.Signature
 import Languages.MITScript.Syntax
 import Languages.MITScript.Translate
 
-import Languages.Imp
+import Languages.Imp as Imp
 
 import Languages.Tiger.Parse as TigerParse
 import Languages.Tiger.Semantics
@@ -57,6 +57,7 @@ makeGraph :: String -> String -> IO String
 makeGraph lang fs = case lang of
   "mitscript" -> graphToString <$> convertMITScript fs 
   "tiger"     -> graphToString <$> convertTiger fs
+  "imp"       -> graphToString <$> convertImp fs
   _           -> return "Unsupported language"
 
 convertTiger fs = do
@@ -72,7 +73,23 @@ convertMITScript fs = do
   mitScriptRules <- (rules :: IO (NamedRules MITScript))
   pamRules <- sosToPam mitScriptRules
   amRules <- pamToAM pamRules
-  absCfg <- abstractAmCfg (irrelevance ValueIrr) (irrelevance ValueIrr) amRules (toGeneric x :: Term MITScript)
+  absCfg <- abstractAmCfg (irrelevance (SortIrr "Exp")) (irrelevance (SortIrr "Exp")) amRules (toGeneric x :: Term MITScript)
   return absCfg
 
-graphToString graph = unpack $ renderDot $ toDot $ graphToDot (nonClusteredParams { fmtNode = \(n,l) -> [toLabel l, shape BoxShape], fmtEdge = \(n1,n2,l) -> [toLabel l, shape BoxShape]}) (toRealGraph @Gr graph)
+convertImp fs = do
+  let x = case fs of
+            "term1"             -> Imp.term1
+            "term3"             -> Imp.term3
+            "term4"             -> Imp.term4
+            "termBalanceParens" -> Imp.termBalanceParens
+
+  impRules <- (rules :: IO (NamedRules ImpLang))
+  pamRules <- sosToPam impRules
+  amRules <- pamToAM pamRules
+  absCfg <- abstractAmCfg (irrelevance (VarNotIrr "b")) (irrelevance (VarNotIrr "b")) amRules x
+  return absCfg
+
+graphToString graph = unpack $ renderDot $ toDot $ graphToDot (nonClusteredParams { fmtNode = \(n,l) -> [toLabel l, shape BoxShape], fmtEdge = \(n1,n2,l) -> [toLabel l, shape BoxShape]}) (toRealConvGraph @Gr graph id)
+
+getTerm :: AMState l -> Term l
+getTerm (AMState (Conf t _) _) = t
