@@ -13,6 +13,7 @@ import GHC.Generics ( Generic )
 import Control.Monad
 import Data.ByteString.Char8 ( ByteString )
 import qualified Data.ByteString.Char8 as BS
+import Data.Interned ( unintern )
 import Data.Interned.ByteString ( InternedByteString(..) )
 import Data.Hashable ( Hashable )
 
@@ -40,14 +41,15 @@ data ImpLang
 instance LangBase ImpLang where
   type RedState ImpLang = SimpEnv (Term ImpLang) (Term ImpLang)
 
-  data CompFunc ImpLang = RunAdd    | RunLT    | DoReadInt    | DoWriteInt
-                        | AbsRunAdd | AbsRunLT | AbsDoReadInt | AbsDoWriteInt
+  data CompFunc ImpLang = RunAdd    | RunLT    | DoReadInt    | DoWriteInt | DoWrite
+                        | AbsRunAdd | AbsRunLT | AbsDoReadInt | AbsDoWriteInt | AbsDoWrite
     deriving ( Eq, Generic )
 
   compFuncName RunAdd   = "runAdd"
   compFuncName RunLT    = "runLT"
   compFuncName DoReadInt  = "read"
-  compFuncName DoWriteInt = "write"
+  compFuncName DoWriteInt = "writeInt"
+  compFuncName DoWrite    = "write"
 
   runCompFunc func (c:cs)  = runExternalComputation func (confState c) (map confTerm (c:cs))
 
@@ -80,6 +82,7 @@ impLangSig = Signature [ NodeSig ":=" ["Var", "Exp"] "Exp"
 
                        , NodeSig "ReadInt" [] "Exp"
                        , NodeSig "WriteInt" ["Exp"] "Exp"
+                       , NodeSig "Write" ["Exp"] "Exp"
 
                        , NodeSig "Var" ["VarName"] "Var"
                        , StrSig "VarName" "VarName"
@@ -89,6 +92,7 @@ impLangSig = Signature [ NodeSig ":=" ["Var", "Exp"] "Exp"
                        , ValSig "false" [] "Exp"
                        , ValSig "EVal" ["Const"] "Exp"
                        , IntSig "Const" "Const"
+                       , StrSig "Str" "Const"
 
                        , NodeSig "+" ["Exp", "Exp"] "Exp"
                        , NodeSig "<" ["Exp", "Exp"] "Exp"
@@ -115,6 +119,9 @@ pattern ReadInt = Node "ReadInt" []
 pattern WriteInt :: Term ImpLang -> Term ImpLang
 pattern WriteInt x = Node "WriteInt" [x]
 
+pattern Write :: Term ImpLang -> Term ImpLang
+pattern Write x = Node "Write" [x]
+
 pattern Var :: Term ImpLang -> Term ImpLang
 pattern Var x = Node "Var" [x]
 
@@ -135,6 +142,9 @@ pattern EVal n = Val "EVal" [n]
 
 pattern Const :: Integer -> Term ImpLang
 pattern Const n = IntNode "Const" n
+
+pattern StrConst :: InternedByteString -> Term ImpLang
+pattern StrConst s = StrNode "StrConst" s
 
 pattern Plus :: Term ImpLang -> Term ImpLang -> Term ImpLang
 pattern Plus x y = Node "+" [x, y]
@@ -245,6 +255,21 @@ impLangRules = sequence [
                                (LetComputation (initConf $ MetaVar val) (extComp DoWriteInt (WholeSimpEnv mu) [varg])
                                (Build $ conf Skip mu))
 
+
+                 , name "write-cong" $
+                   mkRule4 $ \arg arg' mu mu' ->
+                             let (targ, marg') = (tv arg, mv arg') in
+                             StepTo (conf (Write targ) mu)
+                               (LetStepTo (conf marg' mu') (conf targ mu)
+                               (Build $ conf (Write marg') mu'))
+
+                 , name "write" $
+                   mkRule3 $ \arg val mu ->
+                             let (varg) = (vv arg) in
+                             StepTo (conf (Write varg) mu)
+                               (LetComputation (initConf $ MetaVar val) (extComp DoWrite (WholeSimpEnv mu) [varg])
+                               (Build $ conf Skip mu))
+
                  ------------------------ Vars  ---------------------------------------------
 
                  , name "var-lookup" $
@@ -307,6 +332,7 @@ runExternalComputation RunLT  state [EVal (Const n1), EVal (Const n2)] = if n1 <
 
 runExternalComputation DoWriteInt state [EVal (Const n)] = matchEffectOutput (BS.pack $ show n) >> return (initConf Skip)
 runExternalComputation DoReadInt  state [Skip] = initConf <$> EVal <$> Const <$> read <$> BS.unpack <$> matchEffectInput
+runExternalComputation DoWrite state [EVal (StrConst s)] = matchEffectOutput (unintern s) >> return (initConf Skip)
 
 runExternalComputation AbsRunAdd state [GStar _, _] = return $ initConf ValStar
 runExternalComputation AbsRunAdd state [_, GStar _] = return $ initConf ValStar
@@ -315,6 +341,7 @@ runExternalComputation AbsRunLT  state [_, GStar _] = (return $ initConf True) `
 
 runExternalComputation AbsDoReadInt   state [_] = return $ initConf ValStar
 runExternalComputation AbsDoWriteInt  state [_] = return $ initConf Skip
+runExternalComputation AbsDoWrite     state [_] = return $ initConf Skip
 
 ------------------------------------------------------------------------------------------------------------------
 
@@ -363,3 +390,19 @@ term4 =       ("u" := ReadInt)
         `Seq` ("b" := (varExp "u" :< varExp "i"))
         `Seq` (If (varExp "b") ( (WriteInt $ varExp "u") ) Skip )
         `Seq` (If (varExp "b") ( (WriteInt $ varExp "u") ) Skip )
+
+termBalanceParens :: Term ImpLang
+termBalanceParens =
+    Seq ("prec" := ReadInt)
+    $ Seq ("left" := ReadInt)
+    $ Seq ("right" := ReadInt)
+    $ Seq ("b" := (LT (varExp "prec") (intConst 5)))
+    $ Seq (If (varExp "b")
+             (Write (StrConst "("))
+             Skip)
+    $ Seq (WriteInt (varExp "left"))
+    $ Seq (Write (StrConst "+"))
+    $ Seq (WriteInt (varExp "right"))
+    $ (If (varExp "b")
+          (Write (StrConst ")"))
+          Skip)
