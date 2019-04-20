@@ -64,6 +64,9 @@ executables:
     - process
     - syb
     - tiger-haskell
+    - fgl
+    - graphviz
+    - text
 
 
 

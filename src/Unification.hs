@@ -26,7 +26,7 @@ occursCheck :: (Matchable m) => MetaVar -> m -> Bool
 occursCheck v m = v `Set.member` getVars m
 
 class (MonadMatchable m) => MonadUnify m where
-  elimVar :: (Matchable a, Eq a) => MetaVar -> a -> m ()
+  elimVar :: (Matchable a, Meetable a) => MetaVar -> a -> m ()
 
 instance (MonadMatchable m) => MonadUnify m where
   elimVar v x = do guard (not $ occursCheck v x)

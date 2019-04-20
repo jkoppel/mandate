@@ -1,0 +1,56 @@
+digraph {
+    0 [label="*v",shape=box];
+    1 [label="Seq(*v, Seq(*v, Seq(*v, Seq(If(*v, Write(*v), *v), Seq(WriteInt(*v), Seq(Write(*v), Seq(WriteInt(*v), If(*v, Write(*v), *v))))))))"
+      ,shape=box];
+    2 [label="Seq(Write(*v), Seq(WriteInt(*v), If(*v, Write(*v), *v)))"
+      ,shape=box];
+    3 [label="*v",shape=box];
+    4 [label="*v",shape=box];
+    5 [label="Write(*v)",shape=box];
+    6 [label="Write(*v)",shape=box];
+    7 [label="Seq(*v, Seq(*v, Seq(If(*v, Write(*v), *v), Seq(WriteInt(*v), Seq(Write(*v), Seq(WriteInt(*v), If(*v, Write(*v), *v)))))))"
+      ,shape=box];
+    8 [label="WriteInt(*v)"
+      ,shape=box];
+    9 [label="If(*v, Write(*v), *v)"
+      ,shape=box];
+    10 [label="Seq(WriteInt(*v), If(*v, Write(*v), *v))"
+       ,shape=box];
+    11 [label="Seq(WriteInt(*v), Seq(Write(*v), Seq(WriteInt(*v), If(*v, Write(*v), *v))))"
+       ,shape=box];
+    12 [label="If(*v, Write(*v), *v)"
+       ,shape=box];
+    13 [label="Seq(*v, Seq(If(*v, Write(*v), *v), Seq(WriteInt(*v), Seq(Write(*v), Seq(WriteInt(*v), If(*v, Write(*v), *v))))))"
+       ,shape=box];
+    14 [label="WriteInt(*v)"
+       ,shape=box];
+    15 [label="*v",shape=box];
+    16 [label="Seq(If(*v, Write(*v), *v), Seq(WriteInt(*v), Seq(Write(*v), Seq(WriteInt(*v), If(*v, Write(*v), *v)))))"
+       ,shape=box];
+    17 [label="Seq(*v, Seq(*v, Seq(*v, Seq(*v, Seq(If(*v, Write(*v), *v), Seq(WriteInt(*v), Seq(Write(*v), Seq(WriteInt(*v), If(*v, Write(*v), *v)))))))))"
+       ,shape=box];
+    18 [label="*v",shape=box];
+    19 [label="Write(*v)"
+       ,shape=box];
+    1 -> 7 [label="",shape=box];
+    2 -> 19 [label="",shape=box];
+    3 -> 11 [label="",shape=box];
+    4 -> 12 [label="",shape=box];
+    5 -> 0 [label="",shape=box];
+    6 -> 3 [label="",shape=box];
+    7 -> 13 [label="",shape=box];
+    8 -> 4 [label="",shape=box];
+    9 -> 3 [label="",shape=box];
+    9 -> 6 [label="",shape=box];
+    10 -> 8 [label="",shape=box];
+    11 -> 14 [label="",shape=box];
+    12 -> 0 [label="",shape=box];
+    12 -> 5 [label="",shape=box];
+    13 -> 16 [label="",shape=box];
+    14 -> 15 [label="",shape=box];
+    15 -> 2 [label="",shape=box];
+    16 -> 9 [label="",shape=box];
+    17 -> 1 [label="",shape=box];
+    18 -> 10 [label="",shape=box];
+    19 -> 18 [label="",shape=box];
+}

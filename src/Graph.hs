@@ -7,6 +7,7 @@ module Graph (
   , insert
   , member
   , toRealGraph
+  , toRealConvGraph
   , graphQuotient
   ) where
 
@@ -85,6 +86,9 @@ indexToNode g n = M.keys (getGraph g) !! n
 realNodes :: (Eq a, Show a) => Graph a -> [RealGraph.LNode String]
 realNodes g = map (\key -> (nodeToIndex g key, show key)) (M.keys $ getGraph g)
 
+realNodesConv :: (Eq a, Show b) => Graph a -> (a -> b) -> [RealGraph.LNode String]
+realNodesConv g conv = map (\key -> (nodeToIndex g key, show $ conv key)) (M.keys $ getGraph g)
+
 realEdgesForNode :: (Eq a) => Graph a -> a -> GraphNode a -> [RealGraph.LEdge String]
 realEdgesForNode g n es = S.toList $ S.map (\edge -> (nodeToIndex g n, nodeToIndex g edge, "")) (edges es)
 
@@ -113,6 +117,9 @@ member a = M.member a . getGraph
 
 toRealGraph :: (RealGraph.Graph gr, Eq a, Show a) => Graph a -> gr String String
 toRealGraph g = RealGraph.mkGraph (realNodes g) (realEdges g)
+
+toRealConvGraph :: (RealGraph.Graph gr, Eq a, Show b) => Graph a -> (a -> b) -> gr String String
+toRealConvGraph g conv = RealGraph.mkGraph (realNodesConv g conv) (realEdges g)
 
 type Projection a b = a -> b
 

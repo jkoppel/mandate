@@ -1,0 +1,36 @@
+
+f = fun(){
+  t = 5;
+  return fun(x){ return x + t; };
+};
+
+g = f();
+print("g(5) = " + g(5));
+q = f();
+h = g;
+
+if(h == g){
+  print("You should print this");
+}
+
+if(g == q){
+  print("But not this");
+}	
+
+a = {x:1; y:1;};
+b = {x:1; y:1;};
+c = a;
+
+if(a == c){
+  print("You should print this");
+}
+if(a == b){  
+  print("But not this");
+}
+if(a == g){
+  print("Or this, but the check should not crash");
+}
+if(!(a==g)){
+  print("One last thing to print " + (a==g));
+}
+print("Bye!");

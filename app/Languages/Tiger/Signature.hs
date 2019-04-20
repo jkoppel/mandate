@@ -26,6 +26,9 @@ tigerSorts = [ "Program",  "Exp", "ExpList", "ExpOpt", "Dec", "DecList"
              , "Builtin"
              ]
 
+-- FIXME: I just changed "NilDecList" from nonval to val because
+-- it violated the Sanity of Values assumption (and hence resulted in the PAM-AM conversion
+-- being incorrect). I suspect there are many other Sanity of Value violations in here.
 tigerSig :: Signature Tiger
 tigerSig = Signature [ NodeSig "PExp"  ["Exp"]     "Program"
                      , NodeSig "PDecs" ["DecList"] "Program"
@@ -88,7 +91,7 @@ tigerSig = Signature [ NodeSig "PExp"  ["Exp"]     "Program"
 
                      , NodeSig "FunDec" ["Symbol", "TFieldList", "SymOpt", "Exp"] "FunDec"
 
-                     , NodeSig "NilDecList"  []                 "DecList"
+                     , ValSig  "NilDecList"  []                 "DecList"
                      , NodeSig "ConsDecList" ["Dec", "DecList"] "DecList"
 
                      , NodeSig "NilFunDec"  []                       "FunDecList"
@@ -310,7 +313,7 @@ pattern FunDec :: Term Tiger -> Term Tiger -> Term Tiger -> Term Tiger -> Term T
 pattern FunDec a b c d = Node "FunDec" [a, b, c, d]
 
 pattern NilDecList :: Term Tiger
-pattern NilDecList = Node "NilDecList" []
+pattern NilDecList = Val "NilDecList" []
 
 pattern ConsDecList :: Term Tiger -> Term Tiger -> Term Tiger
 pattern ConsDecList a b = Node "ConsDecList" [a, b]

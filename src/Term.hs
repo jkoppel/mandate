@@ -12,6 +12,7 @@ module Term (
 
 , MatchType(..)
 , matchTypeCompat
+, matchTypeMeet
 
 , Term
 , pattern Node
@@ -133,6 +134,14 @@ matchTypeCompat :: MatchType -> MatchType -> Bool
 matchTypeCompat ValueOnly  NonvalOnly = False
 matchTypeCompat NonvalOnly ValueOnly  = False
 matchTypeCompat _          _          = True
+
+matchTypeMeet :: MatchType -> MatchType -> Maybe MatchType
+matchTypeMeet ValueOnly  ValueOnly    = Just ValueOnly
+matchTypeMeet NonvalOnly NonvalOnly   = Just NonvalOnly
+matchTypeMeet TermOrValue mt          = Just mt
+matchTypeMeet mt          TermOrValue = Just mt
+matchTypeMeet ValueOnly   NonvalOnly  = Nothing
+matchTypeMeet NonvalOnly  ValueOnly   = Nothing
 
 -- | Terms in language `l`. These should be syntactically valid according to the signature for language `l`
 -- of which only one should exist.

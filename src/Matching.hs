@@ -1,7 +1,9 @@
 {-# LANGUAGE EmptyDataDecls, FlexibleContexts, FlexibleInstances, GADTs, Rank2Types, ScopedTypeVariables, TypeApplications, UndecidableInstances #-}
 
 module Matching (
-    MonadMatchable(..)
+    Meetable(..)
+
+  , MonadMatchable(..)
   , refreshVar
   , Match
   , matchChoose
@@ -167,8 +169,28 @@ import Var
 ------
 ------------------------------------------------------------------
 
+-- TODO: Find a proper algebraic structure to use here and incorporate it into the code properly
+-- TODO: Put this somewhere proper in the code
+-- This is deadline design
+class (Eq m) => Meetable m where
+  meet :: m -> m -> Maybe m
+
+instance {-# OVERLAPPABLE #-} (Eq m) => Meetable m where
+  meet a b = if a == b then Just a else Nothing
+
+instance Meetable (Term l) where
+  -- TODO: What to do if there's a var?
+  meet x y
+    | x == y = Just x
+  meet (GStar mt1) (GStar mt2) = GStar <$> matchTypeMeet mt1 mt2
+  meet t s@(GStar _) = meet s t
+  meet (GStar mt) v@(Val  _ _) = if matchTypeCompat ValueOnly mt  then Just v else Nothing
+  meet (GStar mt) t@(Node _ _) = if matchTypeCompat NonvalOnly mt then Just t else Nothing
+  meet Star       x            = Just x
+  meet _          _            = Nothing
+
 data AnyMatchable where
-  AnyMatchable :: (Matchable m, Eq m) => m -> AnyMatchable
+  AnyMatchable :: (Matchable m, Meetable m) => m -> AnyMatchable
 
 instance Show AnyMatchable where
   showsPrec d (AnyMatchable x) = showsPrec d x
@@ -208,14 +230,14 @@ instance MonadVarAllocator Match where
 
 class (MonadPlus m, MonadVarAllocator m, MonadIO m) => MonadMatchable m where
   hasVar :: MetaVar -> m Bool
-  putVar :: (Matchable a, Eq a) => MetaVar -> a -> m ()
+  putVar :: (Matchable a, Meetable a) => MetaVar -> a -> m ()
   clearVar :: MetaVar -> m ()
-  overrideVar :: (Matchable a, Eq a) => MetaVar -> a -> m ()
+  overrideVar :: (Matchable a, Meetable a) => MetaVar -> a -> m ()
   getVarMaybe :: Matchable a => MetaVar -> (a -> m b) -> m b -> m b
   getVarDefault :: Matchable a => MetaVar -> m a -> m a
   getVar :: Matchable a => MetaVar -> m a
 
-  modifyVars :: (forall a. (Matchable a, Eq a) => MetaVar -> a -> m a) -> m ()
+  modifyVars :: (forall a. (Matchable a, Meetable a) => MetaVar -> a -> m a) -> m ()
 
   withSubCtx   :: m x -> m x
   withFreshCtx :: m x -> m x
@@ -238,13 +260,18 @@ withModCtxState f m = do old <- get
                          put old
                          return res
 
+
+hoistMaybe :: MonadPlus m => Maybe a -> m a
+hoistMaybe = maybe mzero return
+
 instance {-# OVERLAPPABLE #-} (MonadState MatchState m, MonadVarAllocator m, MonadIO m, MonadPlus m) => MonadMatchable m where
   hasVar var = Map.member var <$> ms_varMap <$> get
   putVar var val = do curVal <- getVarMaybe var (return.Just) (return Nothing)
                       case curVal of
                         Nothing   -> do debugM $ "Setting var " ++ show var
                                         modify (modVarMap $ Map.insert var (AnyMatchable val))
-                        Just val' -> guard (val == val')
+                        Just val' -> do newVal <- hoistMaybe $ meet val val'
+                                        modify (modVarMap $ Map.insert var (AnyMatchable newVal))
 
   clearVar var = modify (modVarMap $ Map.delete var)
 
@@ -275,7 +302,7 @@ instance {-# OVERLAPPING #-} (MonadPlus UnusedMonad, MonadVarAllocator UnusedMon
   withVarAllocator = error "Using UnusedMonad"
   debugVars = error "Using UnusedMonads"
 
-refreshVar :: (MonadMatchable m, Matchable a, Eq a) => (MetaVar -> a) -> MetaVar -> m MetaVar
+refreshVar :: (MonadMatchable m, Matchable a, Meetable a) => (MetaVar -> a) -> MetaVar -> m MetaVar
 refreshVar f v = do v' <- allocVarM
                     putVar v (f v')
                     return v'
