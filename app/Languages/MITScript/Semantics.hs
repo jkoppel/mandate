@@ -686,9 +686,11 @@ runExternalComputation WriteIndex (stack, heap) [ReducedRecord r, i, val] = retu
 runExternalComputation ReadField (stack, heap)  [ReducedRecord r, Name f] = return $ emptyConf $ readField heap r (ibsToString f)
 runExternalComputation WriteField (stack, heap) [ReducedRecord r, Name f, val]   = return $ emptyConf $ writeField heap r (ibsToString f) val
 
-runExternalComputation RunBuiltin state         [Read]        = emptyConf <$> Str <$> ConstStr <$> intern <$> matchEffectInput
+runExternalComputation RunBuiltin state         [Read, None]  = emptyConf <$> Str <$> ConstStr <$> intern <$> matchEffectInput
 runExternalComputation RunBuiltin (stack, heap) [Print, vv]   = matchEffectOutput (BS.pack $ fromString $ toString vv heap) >> return (emptyConf None)
 runExternalComputation RunBuiltin (stack, heap) [IntCast, vv] = returnInt $ read $ toString vv heap
+
+runExternalComputation AbsAllocAddress _ _ = return $ emptyConf ValStar
 
 runExternalComputation func state [GStar _] = return $ emptyConf ValStar
 runExternalComputation func state [_]       = return $ emptyConf ValStar
