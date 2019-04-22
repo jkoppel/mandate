@@ -52,6 +52,18 @@ class (MonadPlus m, MonadVarAllocator m, MonadIO m) => MonadMatchable m where
   getVarDefault v = getVarMaybe v return
   getVar var = getVarDefault var mzero
 
+
+------------------------------------------------------------------
+------
+------ A matching engine for type x is given fundamentally by one function:
+------    match :: Pattern x -> x -> m (Pattern x -> m x)
+------
+------ This is weaker than the current match/fillMatch interface (and less compositional). Note that getVars is only used internally
+------ (i.e.: would be a protected method in Java), and refreshVars is just me not knowing how to do higher-order matching
+------ (which I think should still sit behind the same interface).
+------------------------------------------------------------------
+
+
 -- These exist to make arguments more clear now that we're not putting Open/Closed in the types
 -- We do have the option of giving these a smart constructor which checks closed-ness for a more sophisticated definition
 -- of closedness which includes binders
