@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts, FlexibleInstances, UndecidableInstances #-}
+{-# LANGUAGE EmptyDataDecls, FlexibleContexts, FlexibleInstances, UndecidableInstances #-}
 
 module Unification (
     MonadUnify(..)
@@ -15,7 +15,6 @@ import qualified Data.Set as Set
 import Data.Typeable ( Typeable )
 
 import Configuration
-import LangBase
 import Matching
 import Matching.Class
 import Term
@@ -90,7 +89,8 @@ instance {-# OVERLAPPABLE #-} (Typeable (GConfiguration s l)) => Unifiable (GCon
   unify (Conf t1 s1) (Conf t2 s2) = unify t1 t2 >> unify s1 s2
 
 -- Hack to prevent over-eagerly expanding (Matchable (Configuration l)) constraints
-instance {-# OVERLAPPING #-} (LangBase UnusedLanguage, Unifiable s) => Unifiable (GConfiguration s UnusedLanguage) where
+data UnusedLanguage
+instance {-# OVERLAPPING #-} (Unifiable s) => Unifiable (GConfiguration s UnusedLanguage) where
   unify = error "Unifying UnusedLanguage"
 
 instance Unifiable EmptyState where

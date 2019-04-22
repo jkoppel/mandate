@@ -35,7 +35,7 @@ import Languages.MITScript.Signature
 import Languages.MITScript.Translate
 import Languages.MITScript.Parse
 
-instance LangBase MITScript where
+instance Lang MITScript where
 
         type RedState MITScript = (Term MITScript, SimpEnv (Term MITScript) (Term MITScript))
 
@@ -66,6 +66,24 @@ instance LangBase MITScript where
 
         runCompFunc func (c:cs)  = runExternalComputation func (confState c) (map confTerm (c:cs))
 
+        signature = mitScriptSig
+
+        initConf t = Conf t (
+            ConsFrame (HeapAddr 0) NilFrame,
+            JustSimpMap $ SimpEnvMap $ Map.fromList
+                [
+                    (HeapAddr 0, ReducedRecord
+                                    $ ReducedRecordCons (ReducedRecordPair (Name "print")   (ReferenceVal $ HeapAddr 1))
+                                    $ ReducedRecordCons (ReducedRecordPair (Name "read")    (ReferenceVal $ HeapAddr 2))
+                                    $ ReducedRecordCons (ReducedRecordPair (Name "intcast") (ReferenceVal $ HeapAddr 3))
+                                    $ Parent $ HeapAddr $ -1)
+                  , (HeapAddr 1, builtinPrint)
+                  , (HeapAddr 2, builtinRead)
+                  , (HeapAddr 3, builtinIntCast)
+                ])
+
+
+
 instance Hashable (CompFunc MITScript)
 
 instance Irrelevance (CompFunc MITScript) where
@@ -83,23 +101,6 @@ instance Irrelevance (CompFunc MITScript) where
     irrelevance _ AbsReadIndex    = AbsReadIndex
     irrelevance _ AbsWriteIndex   = AbsWriteIndex
     irrelevance _ AbsRunBuiltin   = AbsRunBuiltin
-
-instance Lang MITScript where
-    signature = mitScriptSig
-
-    initConf t = Conf t (
-        ConsFrame (HeapAddr 0) NilFrame,
-        JustSimpMap $ SimpEnvMap $ Map.fromList
-            [
-                (HeapAddr 0, ReducedRecord
-                                $ ReducedRecordCons (ReducedRecordPair (Name "print")   (ReferenceVal $ HeapAddr 1))
-                                $ ReducedRecordCons (ReducedRecordPair (Name "read")    (ReferenceVal $ HeapAddr 2))
-                                $ ReducedRecordCons (ReducedRecordPair (Name "intcast") (ReferenceVal $ HeapAddr 3))
-                                $ Parent $ HeapAddr $ -1)
-              , (HeapAddr 1, builtinPrint)
-              , (HeapAddr 2, builtinRead)
-              , (HeapAddr 3, builtinIntCast)
-            ])
 
 instance HasSOS MITScript where
     rules = mitScriptRules

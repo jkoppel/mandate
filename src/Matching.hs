@@ -40,7 +40,6 @@ import Control.Monad.Logic ( LogicT(..), runLogicT, observeAllT )
 
 import Configuration
 import Debug
-import LangBase
 import MatchEffect
 import Term
 import Var
@@ -367,6 +366,7 @@ instance {-# OVERLAPPABLE #-} (Typeable (GConfiguration s l)) => Matchable (GCon
   fillMatch   (Conf t s) = Conf <$> fillMatch   t <*> fillMatch   s
 
 -- Hack to prevent over-eagerly expanding (Matchable (Configuration l)) constraints
+data UnusedLanguage
 instance {-# OVERLAPPING #-} (Matchable s) => Matchable (GConfiguration s UnusedLanguage) where
   getVars = error "Matching UnusedLanguage"
   match = error "Matching UnusedLanguage"

@@ -22,7 +22,6 @@ import Data.Hashable ( Hashable )
 
 import Configuration
 import Lang
-import LangBase
 import Matching
 import Semantics.General
 import Semantics.SOS
