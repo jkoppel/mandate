@@ -380,8 +380,8 @@ fillMatchList = mapM fillMatch
 fillMatchTermGen :: (MonadMatchable m, Typeable l) => (MetaVar -> MatchType -> m (Term l)) -> Term l -> m (Term l)
 fillMatchTermGen f (Node s ts)     = Node s <$> (mapM (fillMatchTermGen f) ts)
 fillMatchTermGen f (Val  s ts)     = Val s <$> (mapM (fillMatchTermGen f) ts)
-fillMatchTermGen f (IntNode s i)   = return (IntNode s i) -- This could just be unsafeCoerce....or hopefully just coerce
-fillMatchTermGen f (StrNode s x)   = return (StrNode s x) -- This could just be unsafeCoerce....or hopefully just coerce
+fillMatchTermGen f (IntNode s i)   = return (IntNode s i)
+fillMatchTermGen f (StrNode s x)   = return (StrNode s x)
 fillMatchTermGen f (GMetaVar v mt) = f v mt
 fillMatchTermGen f (GStar mt)      = return (GStar mt)
 

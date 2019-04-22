@@ -352,7 +352,7 @@ mapTerm f t = runIdentity (traverseTerm (Identity . f) t)
 
 -- | `checkSig` checks that a signature only contains sorts from the given list
 
--- I feel like a hypocrite using string constants in signature definitions.
+-- I feel like a hypocrite using string literals (as opposed to named constants) in signature definitions.
 -- The reason is that I really don't want to give a non-capitalized name
 -- to any sort constant....but Haskell won't let me use capitalized names
 -- (unless I make them all pattern synonyms, with all the syntax that entails).

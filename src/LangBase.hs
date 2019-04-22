@@ -22,8 +22,6 @@ import GConfiguration
 -- or semantics. Most modules should rely on 'Lang' instead.
 
 
--- This definition really should be in Configuration, but.....breaking circular dependencies
-
 -- | The configuration is the object of the transition system defined by
 -- a language's semantics. It contains a term together with the extra information
 -- (i.e.: environment) computed and transformed when running a program.
@@ -44,9 +42,6 @@ class (Typeable l, Typeable (RedState l), Eq (CompFunc l), Eq (RedState l), Show
   -- using Haskell's meta-level addition and multiplication operators. The language implementation may define CompFunc
   -- to have constructors "AddOp" and "MulOp", and define them separately by implementing `runCompFunc`.
   -- This way, SOS rules may be given entirely as first-order terms (no lambdas).
-  --
-  -- Note that all semantics functions must be well-behaved when given abstract terms
-
   data CompFunc l
 
   -- | Gives a human-readable name for the input meta-level operations. Used when displaying rules.
