@@ -1,4 +1,4 @@
-{-# LANGUAGE EmptyDataDecls, FlexibleContexts, FlexibleInstances, UndecidableInstances #-}
+{-# LANGUAGE EmptyDataDecls, FlexibleContexts, FlexibleInstances, ScopedTypeVariables, TypeApplications, UndecidableInstances #-}
 
 module Unification (
     MonadUnify(..)
@@ -35,7 +35,7 @@ instance (MonadMatchable m) => MonadUnify m where
                    putVar v x
 
 
-unifyTerm' :: (Unifiable (Term l), MonadUnify m) => Term l -> Term l -> m ()
+unifyTerm' :: forall l m. (Unifiable (Term l), MonadUnify m) => Term l -> Term l -> m ()
 unifyTerm' (Node f1 ts1) (Node f2 ts2) = do guard (f1 == f2)
                                             forM_ (zip ts1 ts2) $ \(t1, t2) -> unify t1 t2
 unifyTerm' (Val  f1 ts1) (Val  f2 ts2) = do guard (f1 == f2)
@@ -64,11 +64,14 @@ unifyTerm' t@(GMetaVar v1 _)   (MetaVar  v2)   = elimVar v2 t
 unifyTerm' (ValVar    v) t@(ValVar    _) = elimVar v t
 unifyTerm' (NonvalVar v) t@(NonvalVar _) = elimVar v t
 
-unifyTerm' (GMetaVar v1 mt1) t@(GMetaVar v2 mt2) = do guard (matchTypeCompat mt1 mt2)
-                                                      if (v1 == v2) then
-                                                        return ()
-                                                       else
-                                                        elimVar v1 t
+unifyTerm' (GMetaVar v1 mt1) t@(GMetaVar v2 mt2) =
+  case mt1 `matchTypeMeet` mt2 of
+    Just mtMeet -> if v1 == v2 then
+                     return () -- FIXME: Can I get rid of this case
+                   else
+                     elimVar v1 (GMetaVar @l v2 mtMeet)
+
+    Nothing -> mzero
 
 -- No unification on star nodes
 

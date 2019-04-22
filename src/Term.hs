@@ -11,7 +11,7 @@ module Term (
 , Signature(..)
 
 , MatchType(..)
-, matchTypeCompat
+, matchTypePrec
 , matchTypeMeet
 
 , Term
@@ -114,7 +114,7 @@ data Signature l = Signature [SigNode]
   deriving ( Eq, Ord, Show, Generic )
 
 
------------------------------ Terms -------------------------------------
+----------------------------- Terms: Match Types -------------------------------------
 
 -- Rules of Val nodes:
 -- * May never be reduced
@@ -129,19 +129,18 @@ data MatchType = ValueOnly | NonvalOnly | TermOrValue
 
 instance Hashable MatchType
 
--- FIXME: This is currently symmetric. I'm not sure it should be.
-matchTypeCompat :: MatchType -> MatchType -> Bool
-matchTypeCompat ValueOnly  NonvalOnly = False
-matchTypeCompat NonvalOnly ValueOnly  = False
-matchTypeCompat _          _          = True
+matchTypePrec :: MatchType -> MatchType -> Bool
+matchTypePrec _          TermOrValue = True
+matchTypePrec ValueOnly  ValueOnly   = True
+matchTypePrec NonvalOnly  NonvalOnly = True
+matchTypePrec _          _           = False
 
 matchTypeMeet :: MatchType -> MatchType -> Maybe MatchType
-matchTypeMeet ValueOnly  ValueOnly    = Just ValueOnly
-matchTypeMeet NonvalOnly NonvalOnly   = Just NonvalOnly
-matchTypeMeet TermOrValue mt          = Just mt
-matchTypeMeet mt          TermOrValue = Just mt
-matchTypeMeet ValueOnly   NonvalOnly  = Nothing
-matchTypeMeet NonvalOnly  ValueOnly   = Nothing
+matchTypeMeet a b = if a `matchTypePrec` b then Just a
+                    else if b `matchTypePrec` a then Just b
+                    else Nothing
+
+----------------------------- Terms -------------------------------------
 
 -- | Terms in language `l`. These should be syntactically valid according to the signature for language `l`
 -- of which only one should exist.

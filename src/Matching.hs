@@ -179,8 +179,8 @@ instance Meetable (Term l) where
     | x == y = Just x
   meet (GStar mt1) (GStar mt2) = GStar <$> matchTypeMeet mt1 mt2
   meet t s@(GStar _) = meet s t
-  meet (GStar mt) v@(Val  _ _) = if matchTypeCompat ValueOnly mt  then Just v else Nothing
-  meet (GStar mt) t@(Node _ _) = if matchTypeCompat NonvalOnly mt then Just t else Nothing
+  meet (GStar mt) v@(Val  _ _) = if ValueOnly  `matchTypePrec` mt then Just v else Nothing
+  meet (GStar mt) t@(Node _ _) = if NonvalOnly `matchTypePrec` mt then Just t else Nothing
   meet Star       x            = Just x
   meet _          _            = Nothing
 
@@ -325,7 +325,9 @@ instance (Typeable l) => Matchable (Term l) where
   match (Pattern (MetaVar v))      (Matchee t@(GMetaVar _ _)) = putVar v t
   match (Pattern (MetaVar v))      (Matchee t@(IntNode  _ _)) = putVar v t
   match (Pattern (MetaVar v))      (Matchee t@(StrNode  _ _)) = putVar v t
-  match (Pattern (GMetaVar v mt1)) (Matchee t@(GStar    mt2)) = guard (matchTypeCompat mt1 mt2) >> putVar v t
+  match (Pattern (GMetaVar v mt1)) (Matchee t@(GStar    mt2)) = case mt1 `matchTypeMeet` mt2 of
+                                                                  Just mtMeet -> putVar v (GStar @l mtMeet)
+                                                                  Nothing     -> mzero
 
   match (Pattern (Node _ _))      (Matchee ValStar   ) = mzero
   match (Pattern (Node _ ts))     (Matchee (GStar mt)) = forM_ ts $ \ t -> match (Pattern t) (Matchee (GStar mt))
@@ -347,11 +349,11 @@ instance (Typeable l) => Matchable (Term l) where
       guardValMatches TermOrValue t                 = return t
       guardValMatches ValueOnly   t@(Val       _ _) = return t
       guardValMatches ValueOnly   t@(ValVar      _) = return t
-      guardValMatches ValueOnly   t@(GStar mt)      = guard (matchTypeCompat ValueOnly mt) >> return t
+      guardValMatches ValueOnly   t@(GStar mt)      = guard (ValueOnly `matchTypePrec` mt) >> return t
 
       guardValMatches NonvalOnly  t@(Node      _ _) = return t
       guardValMatches NonvalOnly  t@(NonvalVar   _) = return t
-      guardValMatches NonvalOnly  t@(GStar mt)      = guard (matchTypeCompat ValueOnly mt) >> return t
+      guardValMatches NonvalOnly  t@(GStar mt)      = guard (ValueOnly `matchTypePrec` mt) >> return t
       guardValMatches _           _                 = mzero
 
 
