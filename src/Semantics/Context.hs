@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveGeneric, FlexibleContexts, ScopedTypeVariables, StandaloneDeriving, TypeApplications, UndecidableInstances #-}
+{-# LANGUAGE DeriveGeneric, FlexibleContexts, ScopedTypeVariables, TypeApplications, UndecidableInstances #-}
 
 module Semantics.Context (
     PosFrame(..)
@@ -45,9 +45,7 @@ import Var
 data PosFrame l = KBuild  !(Configuration l)
                 | KStepTo !(Configuration l) !(Frame l)
                 | KComputation !(ExtComp l) !(Frame l)
-  deriving ( Generic )
-
-deriving instance (Eq (Configuration l), Lang l) => Eq (PosFrame l)
+  deriving ( Eq, Generic )
 
 -- | A frame awaits the result of some computation as input, binds it to a variable, and
 -- then performs another computation.
@@ -58,17 +56,13 @@ deriving instance (Eq (Configuration l), Lang l) => Eq (PosFrame l)
 -- Rule for frames: all PosFrame's may have no free variables except those bound by a surrounding KInp
 data Frame l = KInp !(Configuration l) -- this is a binder
                     !(PosFrame l)
-  deriving ( Generic )
-
-deriving instance (Eq (Configuration l), Lang l) => Eq (Frame l)
+  deriving ( Eq, Generic )
 
 
 data Context l = KHalt
                | KPush !(Frame l) !(Context l)
                | KVar !MetaVar                  -- E.g.: the "K" in the pattern `[\x -> x +5 ] . K`
-  deriving ( Generic )
-
-deriving instance (Eq (Frame l)) => Eq (Context l)
+  deriving ( Eq, Generic )
 
 --------------------------------------- Equality, printing, hashing ------------------------------------------
 
