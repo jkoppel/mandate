@@ -43,7 +43,7 @@ data ImpLang
 --
 -- Also, now may actually need to operate on states with metavariable keys
 
-instance LangBase ImpLang where
+instance Lang ImpLang where
   type RedState ImpLang = SimpEnv (Term ImpLang) (Term ImpLang)
 
   data CompFunc ImpLang = RunAdd    | RunLT    | DoReadInt    | DoWriteInt | DoWrite
@@ -57,6 +57,9 @@ instance LangBase ImpLang where
   compFuncName DoWrite    = "write"
 
   runCompFunc func (c:cs)  = runExternalComputation func (confState c) (map confTerm (c:cs))
+
+  signature = impLangSig
+  initConf t = Conf t EmptySimpEnv
 
 instance Hashable (CompFunc ImpLang)
 
@@ -72,10 +75,6 @@ instance Irrelevance (CompFunc ImpLang) where
   irrelevance _ AbsDoReadInt  = AbsDoReadInt
   irrelevance _ AbsDoWriteInt = AbsDoWriteInt
   irrelevance _ AbsDoWrite    = AbsDoWrite
-
-instance Lang ImpLang where
-  signature = impLangSig
-  initConf t = Conf t EmptySimpEnv
 
 instance HasSOS ImpLang where
   rules = impLangRules

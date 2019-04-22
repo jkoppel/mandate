@@ -1,7 +1,6 @@
 {-# LANGUAGE DeriveGeneric, FlexibleContexts, FlexibleInstances, GADTs, PatternSynonyms, ScopedTypeVariables, StandaloneDeriving, TupleSections, TypeApplications, TypeFamilies, ViewPatterns #-}
 
 module Configuration (
-  -- These should be here, but are defined in GConfiguration. Re-exporting
     GConfiguration(..)
   , confTerm
   , confState
@@ -29,9 +28,29 @@ import GHC.Generics ( Generic )
 
 import Data.Hashable ( Hashable(..) )
 
-import GConfiguration
+import Matching.Class
 import Term
 import Var
+
+
+-- | The configuration is the object of the transition system defined by
+-- a language's semantics. It contains a term together with the extra information
+-- (i.e.: environment) computed and transformed when running a program.
+data GConfiguration s l where
+  Conf :: (Typeable l, Unifiable (Term l), Hashable s, Unifiable s) => Term l -> s -> GConfiguration s l
+
+deriving instance Typeable (GConfiguration s l)
+deriving instance Eq (GConfiguration s l)
+deriving instance (Ord (Term l), Ord s) => Ord (GConfiguration s l)
+
+instance Hashable (GConfiguration s l) where
+  hashWithSalt s (Conf t st) = s `hashWithSalt` t `hashWithSalt` s
+
+confTerm :: GConfiguration s l -> Term l
+confTerm (Conf t _) = t
+
+confState :: GConfiguration s l -> s
+confState (Conf _ s) = s
 
 
 -- | Combining terms with the auxiliary state for the language
@@ -51,9 +70,7 @@ instance Hashable EmptyState
 -- the configuration as foo(a,b), not as (foo(a,b) ; empty state).
 --
 -- Look ma! No overlapping instances.
--- Unfortunately, this is not quite enough to avoid the need to use StandaloneDeriving all over.
--- Need more dedicated OO techniques for that.
-instance (Show s) => Show (GConfiguration s l) where
+instance Show (GConfiguration s l) where
   showsPrec d (Conf t s) = case eqT @s @EmptyState of
                              Just _  -> showsPrec d t
                              Nothing -> showString "(" . showsPrec d t . showString "; " . showsPrec d s . showString ")"

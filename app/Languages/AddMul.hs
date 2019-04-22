@@ -23,7 +23,7 @@ import Var
 
 data AddMulLang
 
-instance LangBase AddMulLang where
+instance Lang AddMulLang where
   type RedState AddMulLang = EmptyState
 
   data CompFunc AddMulLang = RunAdd | AbsRunAdd | RunMul | AbsRunMul | RunMin | AbsRunMin
@@ -35,6 +35,10 @@ instance LangBase AddMulLang where
 
   runCompFunc func (c:cs)  = runExternalComputation func (confState c) (map confTerm (c:cs))
 
+  signature = addMulLangSig
+  initConf t = Conf t EmptyState
+
+
 instance Irrelevance (CompFunc AddMulLang) where
   irrelevance _ RunAdd    = AbsRunAdd
   irrelevance _ AbsRunAdd = AbsRunAdd
@@ -44,10 +48,6 @@ instance Irrelevance (CompFunc AddMulLang) where
   irrelevance _ AbsRunMin = AbsRunMin
 
 instance Hashable (CompFunc AddMulLang)
-
-instance Lang AddMulLang where
-  signature = addMulLangSig
-  initConf t = Conf t EmptyState
 
 instance HasSOS AddMulLang where
   rules = addMulLangRules

@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts, FlexibleInstances, UndecidableInstances #-}
+{-# LANGUAGE EmptyDataDecls, FlexibleContexts, FlexibleInstances, ScopedTypeVariables, TypeApplications, UndecidableInstances #-}
 
 module Unification (
     MonadUnify(..)
@@ -15,8 +15,8 @@ import qualified Data.Set as Set
 import Data.Typeable ( Typeable )
 
 import Configuration
-import LangBase
 import Matching
+import Matching.Class
 import Term
 import Var
 
@@ -24,9 +24,6 @@ import Var
 
 occursCheck :: (Matchable m) => MetaVar -> m -> Bool
 occursCheck v m = v `Set.member` getVars m
-
-class (MonadMatchable m) => MonadUnify m where
-  elimVar :: (Matchable a, Meetable a) => MetaVar -> a -> m ()
 
 instance (MonadMatchable m) => MonadUnify m where
   elimVar v x = do guard (not $ occursCheck v x)
@@ -37,11 +34,8 @@ instance (MonadMatchable m) => MonadUnify m where
                                                          fillMatch x)
                    putVar v x
 
-class (Matchable f) => Unifiable f where
-  unify :: (MonadUnify m) => f -> f -> m ()
 
-
-unifyTerm' :: (Unifiable (Term l), MonadUnify m) => Term l -> Term l -> m ()
+unifyTerm' :: forall l m. (Unifiable (Term l), MonadUnify m) => Term l -> Term l -> m ()
 unifyTerm' (Node f1 ts1) (Node f2 ts2) = do guard (f1 == f2)
                                             forM_ (zip ts1 ts2) $ \(t1, t2) -> unify t1 t2
 unifyTerm' (Val  f1 ts1) (Val  f2 ts2) = do guard (f1 == f2)
@@ -70,11 +64,14 @@ unifyTerm' t@(GMetaVar v1 _)   (MetaVar  v2)   = elimVar v2 t
 unifyTerm' (ValVar    v) t@(ValVar    _) = elimVar v t
 unifyTerm' (NonvalVar v) t@(NonvalVar _) = elimVar v t
 
-unifyTerm' (GMetaVar v1 mt1) t@(GMetaVar v2 mt2) = do guard (matchTypeCompat mt1 mt2)
-                                                      if (v1 == v2) then
-                                                        return ()
-                                                       else
-                                                        elimVar v1 t
+unifyTerm' (GMetaVar v1 mt1) t@(GMetaVar v2 mt2) =
+  case mt1 `matchTypeMeet` mt2 of
+    Just mtMeet -> if v1 == v2 then
+                     return () -- FIXME: Can I get rid of this case
+                   else
+                     elimVar v1 (GMetaVar @l v2 mtMeet)
+
+    Nothing -> mzero
 
 -- No unification on star nodes
 
@@ -91,11 +88,12 @@ instance (Unifiable a, Unifiable b, Matchable (a,b)) => Unifiable (a, b) where
           unify (fst a) (fst b)
           unify (snd a) (snd b)
 
-instance {-# OVERLAPPABLE #-} (Unifiable (Term l), Unifiable s, Typeable l) => Unifiable (GConfiguration s l) where
+instance {-# OVERLAPPABLE #-} (Typeable (GConfiguration s l)) => Unifiable (GConfiguration s l) where
   unify (Conf t1 s1) (Conf t2 s2) = unify t1 t2 >> unify s1 s2
 
 -- Hack to prevent over-eagerly expanding (Matchable (Configuration l)) constraints
-instance {-# OVERLAPPING #-} (LangBase UnusedLanguage, Unifiable s) => Unifiable (GConfiguration s UnusedLanguage) where
+data UnusedLanguage
+instance {-# OVERLAPPING #-} (Unifiable s) => Unifiable (GConfiguration s UnusedLanguage) where
   unify = error "Unifying UnusedLanguage"
 
 instance Unifiable EmptyState where

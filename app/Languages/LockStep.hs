@@ -21,7 +21,7 @@ import Var
 
 data LockstepLang
 
-instance LangBase LockstepLang where
+instance Lang LockstepLang where
   type RedState LockstepLang = EmptyState
 
   data CompFunc LockstepLang = RunAdd
@@ -31,11 +31,10 @@ instance LangBase LockstepLang where
 
   runCompFunc func (c:cs)  = runExternalComputation func (confState c) (map confTerm (c:cs))
 
-instance Hashable (CompFunc LockstepLang)
-
-instance Lang LockstepLang where
   signature = lockstepSig
   initConf t = Conf t EmptyState
+
+instance Hashable (CompFunc LockstepLang)
 
 instance HasSOS LockstepLang where
   rules = lockstepRules

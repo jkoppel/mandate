@@ -38,6 +38,7 @@ import Unification
 -- this "payload" approach is the wrong one, and could be simplified
 data GenAMRhs payload l = GenAMLetComputation (Configuration l) (ExtComp l) (GenAMRhs payload l)
                         | GenAMRhs (payload l)
+  deriving ( Eq )
 
 instance (Lang l, Typeable payload, Matchable (payload l)) => Matchable (GenAMRhs payload l) where
   getVars (GenAMLetComputation c f r) = getVars c `Set.union` getVars f `Set.union` getVars r
