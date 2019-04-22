@@ -317,6 +317,8 @@ instance (Typeable l) => Matchable (Term l) where
   match (Pattern (GMetaVar v mt1))  (Matchee (GStar       mt2)) = case mt1 `matchTypeMeet` mt2 of
                                                                     Just mtMeet -> putVar v (GStar @l mtMeet)
                                                                     Nothing     -> mzero
+
+  -- FIXME: In this next case, if mt1 < mt2, all other uses of v2 should be narrowed
   match (Pattern (GMetaVar v1 mt1)) (Matchee (GMetaVar v2 mt2)) = case mt1 `matchTypeMeet` mt2 of
                                                                     Just mtMeet -> putVar v1 (GMetaVar @l v2 mtMeet)
                                                                     Nothing     -> mzero
