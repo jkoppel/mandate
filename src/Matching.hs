@@ -178,9 +178,8 @@ instance Meetable (Term l) where
   meet x y
     | x == y = Just x
   meet (GStar mt1) (GStar mt2) = GStar <$> matchTypeMeet mt1 mt2
-  meet t s@(GStar _) = meet s t
-  meet (GStar mt) v@(Val  _ _) = if ValueOnly  `matchTypePrec` mt then Just v else Nothing
-  meet (GStar mt) t@(Node _ _) = if NonvalOnly `matchTypePrec` mt then Just t else Nothing
+  meet t s@(GStar _)           = meet s t
+  meet (GStar mt) x            =  if matchTypeForNode x `matchTypePrec` mt then Just x else Nothing
   meet Star       x            = Just x
   meet _          _            = Nothing
 
@@ -315,24 +314,19 @@ instance (Typeable l) => Matchable (Term l) where
   match (Pattern (StrNode s1 x1)) (Matchee (StrNode s2 x2))
     | (s1 == s2) && (x1 == x2)                = return ()
 
-  -- TODO: There has to be a cleaner way than this
-  match (Pattern (ValVar v))       (Matchee t@(Val      _ _)) = putVar v t
-  match (Pattern (ValVar v))       (Matchee t@(ValVar   _  )) = putVar v t
-  match (Pattern (NonvalVar v))    (Matchee t@(Node     _ _)) = putVar v t
-  match (Pattern (NonvalVar v))    (Matchee t@(NonvalVar  _)) = putVar v t
-  match (Pattern (MetaVar v))      (Matchee t@(Val      _ _)) = putVar v t
-  match (Pattern (MetaVar v))      (Matchee t@(Node     _ _)) = putVar v t
-  match (Pattern (MetaVar v))      (Matchee t@(GMetaVar _ _)) = putVar v t
-  match (Pattern (MetaVar v))      (Matchee t@(IntNode  _ _)) = putVar v t
-  match (Pattern (MetaVar v))      (Matchee t@(StrNode  _ _)) = putVar v t
-  match (Pattern (GMetaVar v mt1)) (Matchee t@(GStar    mt2)) = case mt1 `matchTypeMeet` mt2 of
-                                                                  Just mtMeet -> putVar v (GStar @l mtMeet)
-                                                                  Nothing     -> mzero
+  match (Pattern (GMetaVar v mt1))  (Matchee (GStar       mt2)) = case mt1 `matchTypeMeet` mt2 of
+                                                                    Just mtMeet -> putVar v (GStar @l mtMeet)
+                                                                    Nothing     -> mzero
+  match (Pattern (GMetaVar v1 mt1)) (Matchee (GMetaVar v2 mt2)) = case mt1 `matchTypeMeet` mt2 of
+                                                                    Just mtMeet -> putVar v1 (GMetaVar @l v2 mtMeet)
+                                                                    Nothing     -> mzero
+  match (Pattern (GMetaVar v mt)) (Matchee t) = do guard (matchTypeForNode t `matchTypePrec` mt)
+                                                   putVar v t
 
   match (Pattern (Node _ _))      (Matchee ValStar   ) = mzero
-  match (Pattern (Node _ ts))     (Matchee (GStar mt)) = forM_ ts $ \ t -> match (Pattern t) (Matchee (GStar mt))
+  match (Pattern (Node _ ts))     (Matchee (GStar mt)) = forM_ ts $ \ t -> match (Pattern t) (Matchee Star)
   match (Pattern (Val _ _))       (Matchee NonvalStar) = mzero
-  match (Pattern (Val _ ts))      (Matchee (GStar mt)) = forM_ ts $ \ t -> match (Pattern t) (Matchee (GStar mt))
+  match (Pattern (Val _ ts))      (Matchee (GStar mt)) = forM_ ts $ \ t -> match (Pattern t) (Matchee Star)
   match (Pattern (IntNode _ _))   (Matchee (GStar _))  = return ()
   match (Pattern (StrNode _ _))   (Matchee (GStar _))  = return ()
 

@@ -13,6 +13,7 @@ module Term (
 , MatchType(..)
 , matchTypePrec
 , matchTypeMeet
+, matchTypeForNode
 
 , Term
 , pattern Node
@@ -139,6 +140,14 @@ matchTypeMeet :: MatchType -> MatchType -> Maybe MatchType
 matchTypeMeet a b = if a `matchTypePrec` b then Just a
                     else if b `matchTypePrec` a then Just b
                     else Nothing
+
+matchTypeForNode :: Term l -> MatchType
+matchTypeForNode (Node _ _)      = NonvalOnly
+matchTypeForNode (Val _ _)       = ValueOnly
+matchTypeForNode (IntNode _ _)   = TermOrValue
+matchTypeForNode (StrNode _ _)   = TermOrValue
+matchTypeForNode (GMetaVar _ mt) = mt
+matchTypeForNode (GStar      mt) = mt
 
 ----------------------------- Terms -------------------------------------
 
