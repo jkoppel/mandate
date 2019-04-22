@@ -17,6 +17,7 @@ import Data.Typeable ( Typeable )
 import Configuration
 import LangBase
 import Matching
+import Matching.Class
 import Term
 import Var
 
@@ -24,9 +25,6 @@ import Var
 
 occursCheck :: (Matchable m) => MetaVar -> m -> Bool
 occursCheck v m = v `Set.member` getVars m
-
-class (MonadMatchable m) => MonadUnify m where
-  elimVar :: (Matchable a, Meetable a) => MetaVar -> a -> m ()
 
 instance (MonadMatchable m) => MonadUnify m where
   elimVar v x = do guard (not $ occursCheck v x)
@@ -36,9 +34,6 @@ instance (MonadMatchable m) => MonadUnify m where
                    modifyVars (\v x -> withFreshCtx $ do putVar v x
                                                          fillMatch x)
                    putVar v x
-
-class (Matchable f) => Unifiable f where
-  unify :: (MonadUnify m) => f -> f -> m ()
 
 
 unifyTerm' :: (Unifiable (Term l), MonadUnify m) => Term l -> Term l -> m ()
@@ -91,7 +86,7 @@ instance (Unifiable a, Unifiable b, Matchable (a,b)) => Unifiable (a, b) where
           unify (fst a) (fst b)
           unify (snd a) (snd b)
 
-instance {-# OVERLAPPABLE #-} (Unifiable (Term l), Unifiable s, Typeable l) => Unifiable (GConfiguration s l) where
+instance {-# OVERLAPPABLE #-} (Typeable (GConfiguration s l)) => Unifiable (GConfiguration s l) where
   unify (Conf t1 s1) (Conf t2 s2) = unify t1 t2 >> unify s1 s2
 
 -- Hack to prevent over-eagerly expanding (Matchable (Configuration l)) constraints

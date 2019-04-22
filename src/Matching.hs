@@ -356,7 +356,7 @@ instance (Typeable l) => Matchable (Term l) where
       guardValMatches _           _                 = mzero
 
 
-instance {-# OVERLAPPABLE #-} (Typeable l, Matchable (Term l), Matchable s) => Matchable (GConfiguration s l) where
+instance {-# OVERLAPPABLE #-} (Typeable (GConfiguration s l)) => Matchable (GConfiguration s l) where
   getVars (Conf t s) = getVars t `Set.union` getVars s
 
   match (Pattern (Conf t1 s1)) (Matchee (Conf t2 s2)) = do

@@ -22,6 +22,7 @@ import Configuration
 import Lang
 import Matching
 import Term
+import Unification
 
 
 ------------------------------- External / meta-level computations ---------------------------------------
@@ -37,7 +38,7 @@ runExtComp :: (Lang l) => ExtComp l -> Match (Configuration l)
 runExtComp (ExtComp f ts) = do ts' <- fillMatchList ts
                                runMatchEffect $ runCompFunc f ts'
 
-extComp :: (Lang l) => CompFunc l -> RedState l -> [Term l] -> ExtComp l
+extComp :: (Lang l, Hashable (RedState l), Unifiable (RedState l)) => CompFunc l -> RedState l -> [Term l] -> ExtComp l
 extComp func state terms = ExtComp func $ map (\term -> Conf term state) terms
 
 instance (Lang l) => Show (ExtComp l) where

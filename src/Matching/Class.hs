@@ -6,6 +6,9 @@ module Matching.Class (
   , Matchee(..)
   , Pattern(..)
   , Matchable(..)
+
+  , MonadUnify(..)
+  , Unifiable(..)
   ) where
 
 
@@ -57,7 +60,7 @@ newtype Matchee f = Matchee f
 newtype Pattern f = Pattern f
 
 -- NOTE: I think I need to write SYB/Uniplate infrastructure for vars-containing terms
-class (Show f, Typeable f) => Matchable f where
+class (Show f, Eq f, Typeable f) => Matchable f where
   -- | Returns all meta-syntactic variables contained in an `f`
   getVars :: f -> Set MetaVar
 
@@ -108,3 +111,11 @@ class (Show f, Typeable f) => Matchable f where
   -- If all metavariables in the argument have been bound, then the return value
   -- will be closed
   fillMatch :: (MonadMatchable m) => f -> m f
+
+
+class (MonadMatchable m) => MonadUnify m where
+  elimVar :: (Matchable a, Meetable a) => MetaVar -> a -> m ()
+
+
+class (Matchable f) => Unifiable f where
+  unify :: (MonadUnify m) => f -> f -> m ()
