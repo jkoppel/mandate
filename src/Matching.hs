@@ -45,6 +45,8 @@ import MatchEffect
 import Term
 import Var
 
+import Matching.Class
+
 ------------------------------------------------------------------
 ------
 ------              Thoughts on Abstract Matching/Rewriting
@@ -169,12 +171,6 @@ import Var
 ------
 ------------------------------------------------------------------
 
--- TODO: Find a proper algebraic structure to use here and incorporate it into the code properly
--- TODO: Put this somewhere proper in the code
--- This is deadline design
-class (Eq m) => Meetable m where
-  meet :: m -> m -> Maybe m
-
 instance {-# OVERLAPPABLE #-} (Eq m) => Meetable m where
   meet a b = if a == b then Just a else Nothing
 
@@ -227,28 +223,6 @@ instance MonadVarAllocator Match where
                  let (mv, va') = allocVar (ms_varAlloc ms)
                  put $ ms { ms_varAlloc = va' }
                  return mv
-
-class (MonadPlus m, MonadVarAllocator m, MonadIO m) => MonadMatchable m where
-  hasVar :: MetaVar -> m Bool
-  putVar :: (Matchable a, Meetable a) => MetaVar -> a -> m ()
-  clearVar :: MetaVar -> m ()
-  overrideVar :: (Matchable a, Meetable a) => MetaVar -> a -> m ()
-  getVarMaybe :: Matchable a => MetaVar -> (a -> m b) -> m b -> m b
-  getVarDefault :: Matchable a => MetaVar -> m a -> m a
-  getVar :: Matchable a => MetaVar -> m a
-
-  modifyVars :: (forall a. (Matchable a, Meetable a) => MetaVar -> a -> m a) -> m ()
-
-  withSubCtx   :: m x -> m x
-  withFreshCtx :: m x -> m x
-
-  withVarAllocator :: VarAllocator -> m x -> m x
-
-  debugVars :: m ()
-
-  overrideVar m x = clearVar m >> putVar m x
-  getVarDefault v = getVarMaybe v return
-  getVar var = getVarDefault var mzero
 
 matchChoose :: (MonadMatchable m) => [a] -> m a
 matchChoose as = msum (map return as)
@@ -306,66 +280,6 @@ refreshVar :: (MonadMatchable m, Matchable a, Meetable a) => (MetaVar -> a) -> M
 refreshVar f v = do v' <- allocVarM
                     putVar v (f v')
                     return v'
-
--- These exist to make arguments more clear now that we're not putting Open/Closed in the types
--- We do have the option of giving these a smart constructor which checks closed-ness for a more sophisticated definition
--- of closedness which includes binders
--- TODO: "Matchee?" There is a standard name for this, right?
-newtype Matchee f = Matchee f
-newtype Pattern f = Pattern f
-
--- NOTE: I think I need to write SYB/Uniplate infrastructure for vars-containing terms
-class (Show f, Typeable f) => Matchable f where
-  -- | Returns all meta-syntactic variables contained in an `f`
-  getVars :: f -> Set MetaVar
-
-  -- | `match p m` matches the pattern p against m in the current match context.
-  -- It uses the failure effect on failure. On success, it binds all metavars in `p` to the corresponding subterms
-  -- of `m`.
-  --
-  --
-  -- Extra precondition:
-  -- Variables in an open term may be in "template" or "pattern" position. This distinction is not made syntactially.
-  -- Currently, the only example of a template variable is the LHSs of bindings in SimpEnvMap.
-  --
-  -- Prior to calling match, all template variables should be filled in, either because there were none, or
-  -- by calling fillMatch. This includes recursive calls to match in match instances.
-  --
-
-  -- While you can call (match t1 t2) where t2 is open, if you do, all variables in t2 will be considered closed,
-  -- i.e.: distinctly numbered variables will be assumed to stand for distinct terms. In other words,
-  -- the term f(x,y) will not match the pattern f(z,z).
-  match :: (MonadMatchable m) => Pattern f -> Matchee f -> m ()
-
-  -- | Renames all meta-syntactic variables in the argument with newly allocated variables, binding the old
-  -- variables to the new ones
-  --
-  -- This is used when wrapping a term inside a binder, to prevent the bound variable from shadowing
-  -- existing variables. It is particularly used when converting an SOS rule to PAM rules. Consider the following SOS rule:
-  --
-  --    plus-cong-1:
-  --    step(+(0t, 1)) = let 2 = step(0t) in +(2, 1)
-  --
-  -- Naively, it would be converted into the following two PAM rules:
-  --
-  --   plus-cong-1-1:
-  --   <+(0t, 1) | 9> down  ---->  <0t | [\2 -> +(2, 1)].3> down
-  --
-  --   plus-cong-1-2:
-  --    <2 | [\2 -> +(2, 1)].3> up  ---->  <+(2, 1) | 3> up
-  --
-  -- This is problematic, because the bound variable "2" in the context on the LHS shadows the variable "2"
-  -- used to match the term. Instead, a new name is generated for the bound variable, yielding the following PAM rule:
-  --
-  --   plus-cong-1-2:
-  --    <2 | [\4 -> +(4, 1)].3> up  ---->  <+(2, 1) | 3> up
-  refreshVars :: (MonadMatchable m) => f -> m f
-
-  -- | Replaces all metavariables in the argument with their matched values in the current match context
-  --
-  -- If all metavariables in the argument have been bound, then the return value
-  -- will be closed
-  fillMatch :: (MonadMatchable m) => f -> m f
 
 matchList :: (Matchable f, MonadMatchable m) => Pattern [f] -> Matchee [f] -> m ()
 matchList (Pattern xs1) (Matchee xs2) = sequence_ $ zipWith match (map Pattern xs1) (map Matchee xs2)
