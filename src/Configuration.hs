@@ -1,7 +1,6 @@
 {-# LANGUAGE DeriveGeneric, FlexibleContexts, FlexibleInstances, GADTs, PatternSynonyms, ScopedTypeVariables, StandaloneDeriving, TupleSections, TypeApplications, TypeFamilies, ViewPatterns #-}
 
 module Configuration (
-  -- These should be here, but are defined in GConfiguration. Re-exporting
     GConfiguration(..)
   , confTerm
   , confState
@@ -29,9 +28,27 @@ import GHC.Generics ( Generic )
 
 import Data.Hashable ( Hashable(..) )
 
-import GConfiguration
 import Term
 import Var
+
+
+-- | The configuration is the object of the transition system defined by
+-- a language's semantics. It contains a term together with the extra information
+-- (i.e.: environment) computed and transformed when running a program.
+data GConfiguration s l where
+  Conf :: Typeable s => Term l -> s -> GConfiguration s l
+
+deriving instance (Eq (Term l), Eq s) => Eq (GConfiguration s l)
+deriving instance (Ord (Term l), Ord s) => Ord (GConfiguration s l)
+
+instance (Hashable s) => Hashable (GConfiguration s l) where
+  hashWithSalt s (Conf t st) = s `hashWithSalt` t `hashWithSalt` s
+
+confTerm :: GConfiguration s l -> Term l
+confTerm (Conf t _) = t
+
+confState :: GConfiguration s l -> s
+confState (Conf _ s) = s
 
 
 -- | Combining terms with the auxiliary state for the language

@@ -14,7 +14,7 @@ import Data.Hashable ( Hashable(..) )
 
 import MatchEffect
 import Term
-import GConfiguration
+import Configuration
 
 --------------------------------------------------------------------------------------------------------
 
