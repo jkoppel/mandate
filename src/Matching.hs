@@ -342,15 +342,7 @@ instance (Typeable l) => Matchable (Term l) where
   fillMatch = fillMatchTermGen (\v mt -> getVarMaybe v (guardValMatches mt) (return $ GMetaVar v mt))
     where
       guardValMatches :: (MonadMatchable m, Typeable l) => MatchType -> Term l -> m (Term l)
-      guardValMatches TermOrValue t                 = return t
-      guardValMatches ValueOnly   t@(Val       _ _) = return t
-      guardValMatches ValueOnly   t@(ValVar      _) = return t
-      guardValMatches ValueOnly   t@(GStar mt)      = guard (ValueOnly `matchTypePrec` mt) >> return t
-
-      guardValMatches NonvalOnly  t@(Node      _ _) = return t
-      guardValMatches NonvalOnly  t@(NonvalVar   _) = return t
-      guardValMatches NonvalOnly  t@(GStar mt)      = guard (ValueOnly `matchTypePrec` mt) >> return t
-      guardValMatches _           _                 = mzero
+      guardValMatches mt t = guard (matchTypeForNode t `matchTypePrec` mt) >> return t
 
 
 instance {-# OVERLAPPABLE #-} (Typeable (GConfiguration s l)) => Matchable (GConfiguration s l) where
