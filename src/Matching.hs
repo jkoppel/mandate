@@ -179,7 +179,7 @@ instance Meetable (Term l) where
     | x == y = Just x
   meet (GStar mt1) (GStar mt2) = GStar <$> matchTypeMeet mt1 mt2
   meet t s@(GStar _)           = meet s t
-  meet (GStar mt) x            =  if matchTypeForNode x `matchTypePrec` mt then Just x else Nothing
+  meet (GStar mt) x            =  if matchTypeForTerm x `matchTypePrec` mt then Just x else Nothing
   meet Star       x            = Just x
   meet _          _            = Nothing
 
@@ -322,7 +322,7 @@ instance (Typeable l) => Matchable (Term l) where
   match (Pattern (GMetaVar v1 mt1)) (Matchee (GMetaVar v2 mt2)) = case mt1 `matchTypeMeet` mt2 of
                                                                     Just mtMeet -> putVar v1 (GMetaVar @l v2 mtMeet)
                                                                     Nothing     -> mzero
-  match (Pattern (GMetaVar v mt)) (Matchee t) = do guard (matchTypeForNode t `matchTypePrec` mt)
+  match (Pattern (GMetaVar v mt)) (Matchee t) = do guard (matchTypeForTerm t `matchTypePrec` mt)
                                                    putVar v t
 
   match (Pattern (Node _ _))      (Matchee ValStar   ) = mzero
@@ -342,7 +342,7 @@ instance (Typeable l) => Matchable (Term l) where
   fillMatch = fillMatchTermGen (\v mt -> getVarMaybe v (guardValMatches mt) (return $ GMetaVar v mt))
     where
       guardValMatches :: (MonadMatchable m, Typeable l) => MatchType -> Term l -> m (Term l)
-      guardValMatches mt t = guard (matchTypeForNode t `matchTypePrec` mt) >> return t
+      guardValMatches mt t = guard (matchTypeForTerm t `matchTypePrec` mt) >> return t
 
 
 instance {-# OVERLAPPABLE #-} (Typeable (GConfiguration s l)) => Matchable (GConfiguration s l) where
