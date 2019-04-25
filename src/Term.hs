@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleInstances, TypeSynonymInstances #-}
+{-# LANGUAGE FlexibleInstances, TypeSynonymInstances, UndecidableInstances #-}
 {-# LANGUAGE DeriveGeneric, EmptyDataDecls, PatternSynonyms, TypeFamilies #-}
 
 module Term (
@@ -14,6 +14,8 @@ module Term (
 , matchTypePrec
 , matchTypeMeet
 , matchTypeForTerm
+, Meetable(..)
+, meetDefault
 
 , Term
 , pattern Node
@@ -148,6 +150,31 @@ matchTypeForTerm (IntNode _ _)   = TermOrValue
 matchTypeForTerm (StrNode _ _)   = TermOrValue
 matchTypeForTerm (GMetaVar _ mt) = mt
 matchTypeForTerm (GStar      mt) = mt
+
+class (Eq m) => Meetable m where
+  meet :: m -> m -> Maybe m
+
+
+-- WARNING:
+-- Most of the time, this will not actually yield a definition
+-- of meet which is correct wrt the relevant ordering. (It is correct,
+-- however, wrt the identity ordering.)
+--
+-- Meet is only used in nonlinear abstract pattern matching,
+-- so this may not actually matter
+meetDefault :: (Eq m) => m -> m -> Maybe m
+meetDefault a b = if a == b then Just a else Nothing
+
+
+instance Meetable (Term l) where
+  -- TODO: What to do if there's a var?
+  meet x y
+    | x == y = Just x
+  meet (GStar mt1) (GStar mt2) = GStar <$> matchTypeMeet mt1 mt2
+  meet t s@(GStar _)           = meet s t
+  meet (GStar mt) x            =  if matchTypeForTerm x `matchTypePrec` mt then Just x else Nothing
+  meet Star       x            = Just x
+  meet _          _            = Nothing
 
 ----------------------------- Terms -------------------------------------
 

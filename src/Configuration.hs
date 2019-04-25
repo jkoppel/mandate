@@ -1,4 +1,5 @@
-{-# LANGUAGE DeriveGeneric, FlexibleContexts, FlexibleInstances, GADTs, PatternSynonyms, ScopedTypeVariables, StandaloneDeriving, TupleSections, TypeApplications, TypeFamilies, ViewPatterns #-}
+{-# LANGUAGE DeriveGeneric, FlexibleContexts, FlexibleInstances, GADTs, PatternSynonyms, ScopedTypeVariables,
+             StandaloneDeriving, TupleSections, TypeApplications, TypeFamilies, UndecidableInstances, ViewPatterns #-}
 
 module Configuration (
     GConfiguration(..)
@@ -114,6 +115,10 @@ deriving instance (Eq a, Eq b) => Eq (SimpEnvMap a b)
 getSimpEnvMap :: SimpEnvMap a b -> Map a b
 getSimpEnvMap (SimpEnvMap m) = m
 
+
+-- TODO: Implement real one
+instance (Eq (SimpEnv a b)) => Meetable (SimpEnv a b) where
+  meet = meetDefault
 
 --------------------- SimpEnv: Smart constructors ----------------------
 

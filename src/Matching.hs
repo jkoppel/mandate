@@ -1,9 +1,7 @@
 {-# LANGUAGE EmptyDataDecls, FlexibleContexts, FlexibleInstances, GADTs, Rank2Types, ScopedTypeVariables, TypeApplications, UndecidableInstances #-}
 
 module Matching (
-    Meetable(..)
-
-  , MonadMatchable(..)
+    MonadMatchable(..)
   , refreshVar
   , Match
   , matchChoose
@@ -45,19 +43,6 @@ import Term
 import Var
 
 import Matching.Class
-
-instance {-# OVERLAPPABLE #-} (Eq m) => Meetable m where
-  meet a b = if a == b then Just a else Nothing
-
-instance Meetable (Term l) where
-  -- TODO: What to do if there's a var?
-  meet x y
-    | x == y = Just x
-  meet (GStar mt1) (GStar mt2) = GStar <$> matchTypeMeet mt1 mt2
-  meet t s@(GStar _)           = meet s t
-  meet (GStar mt) x            =  if matchTypeForTerm x `matchTypePrec` mt then Just x else Nothing
-  meet Star       x            = Just x
-  meet _          _            = Nothing
 
 data AnyMatchable where
   AnyMatchable :: (Matchable m, Meetable m) => m -> AnyMatchable

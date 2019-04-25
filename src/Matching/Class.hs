@@ -1,8 +1,7 @@
 {-# LANGUAGE FlexibleContexts, Rank2Types #-}
 
 module Matching.Class (
-    Meetable(..)
-  , MonadMatchable(..)
+    MonadMatchable(..)
   , Matchee(..)
   , Pattern(..)
   , Matchable(..)
@@ -19,16 +18,12 @@ import Data.Foldable ( fold )
 import Data.Set ( Set )
 import Data.Typeable ( Typeable )
 
+import Term
 import Var
 
 
 -------------------------------------------------------------------------------------------------------------------
 
--- TODO: Find a proper algebraic structure to use here and incorporate it into the code properly
--- TODO: Put this somewhere proper in the code
--- This is deadline design
-class (Eq m) => Meetable m where
-  meet :: m -> m -> Maybe m
 
 class (MonadPlus m, MonadVarAllocator m, MonadIO m) => MonadMatchable m where
   hasVar :: MetaVar -> m Bool

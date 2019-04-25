@@ -146,6 +146,10 @@ instance FreeTermVars PosFrame where
 
 -------------------------------------- Matching ------------------------------------------
 
+-- TODO: Implement real meet (probably doesn't actually matter for uses)
+instance (Eq (Context l)) => Meetable (Context l) where
+  meet = meetDefault
+
 instance (Lang l, Matchable (Configuration l)) => Matchable (PosFrame l) where
   getVars (KBuild       c  ) = getVars c
   getVars (KStepTo      c f) = getVars c `Set.union` getVars f
