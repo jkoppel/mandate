@@ -37,7 +37,7 @@ data TransitionType = Step | Explore
 --
 -- Naming this was really hard. Best I came up with.
 explorationGraph :: (Eq a, Hashable a, Monad m) => (a -> m [(a, TransitionType)]) -> a -> m (Graph a)
-explorationGraph step start = fst <$> execStateT (go [start]) (Graph.empty, S.empty)
+explorationGraph step start = fst <$> execStateT (go [start]) (Graph.insertNode start Graph.empty, S.empty)
   where
     go []     = return ()
     go states = do nextStates <- concat <$> mapM expand states
