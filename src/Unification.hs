@@ -15,6 +15,7 @@ import qualified Data.Set as Set
 import Data.Typeable ( Typeable )
 
 import Configuration
+import Lattice
 import Matching
 import Matching.Class
 import Term
@@ -65,7 +66,7 @@ unifyTerm' (ValVar    v) t@(ValVar    _) = elimVar v t
 unifyTerm' (NonvalVar v) t@(NonvalVar _) = elimVar v t
 
 unifyTerm' (GMetaVar v1 mt1) t@(GMetaVar v2 mt2) =
-  case mt1 `matchTypeMeet` mt2 of
+  case mt1 `meet` mt2 of
     Just mtMeet -> if v1 == v2 then
                      return () -- FIXME: Can I get rid of this case
                    else
@@ -88,7 +89,7 @@ instance (Unifiable a, Unifiable b, Matchable (a,b)) => Unifiable (a, b) where
           unify (fst a) (fst b)
           unify (snd a) (snd b)
 
-instance {-# OVERLAPPABLE #-} (Typeable (GConfiguration s l)) => Unifiable (GConfiguration s l) where
+instance {-# OVERLAPPABLE #-} (Matchable (GConfiguration s l)) => Unifiable (GConfiguration s l) where
   unify (Conf t1 s1) (Conf t2 s2) = unify t1 t2 >> unify s1 s2
 
 -- Hack to prevent over-eagerly expanding (Matchable (Configuration l)) constraints

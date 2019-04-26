@@ -14,6 +14,7 @@ import qualified Data.Map as Map
 import Configuration
 import Graph
 import Lang
+import Lattice
 import Semantics.Abstraction
 import Semantics.AbstractMachine
 import Semantics.Context
@@ -21,6 +22,9 @@ import Term
 import TransitionSystem
 import Var
 
+-- This can be different from (UpperBound (RedState l)).
+-- Main difference: top for environments is [AllStar -> AllStar], but
+-- you may use environments which only store values, and hence top would be [ValStar -> ValStar]
 class (Lang l) => HasTopState l where
   topRedState :: RedState l
 

@@ -18,7 +18,7 @@ import Data.Foldable ( fold )
 import Data.Set ( Set )
 import Data.Typeable ( Typeable )
 
-import Term
+import Lattice
 import Var
 
 
@@ -27,14 +27,14 @@ import Var
 
 class (MonadPlus m, MonadVarAllocator m, MonadIO m) => MonadMatchable m where
   hasVar :: MetaVar -> m Bool
-  putVar :: (Matchable a, Meetable a) => MetaVar -> a -> m ()
+  putVar :: (Matchable a) => MetaVar -> a -> m ()
   clearVar :: MetaVar -> m ()
-  overrideVar :: (Matchable a, Meetable a) => MetaVar -> a -> m ()
+  overrideVar :: (Matchable a) => MetaVar -> a -> m ()
   getVarMaybe :: Matchable a => MetaVar -> (a -> m b) -> m b -> m b
   getVarDefault :: Matchable a => MetaVar -> m a -> m a
   getVar :: Matchable a => MetaVar -> m a
 
-  modifyVars :: (forall a. (Matchable a, Meetable a) => MetaVar -> a -> m a) -> m ()
+  modifyVars :: (forall a. (Matchable a) => MetaVar -> a -> m a) -> m ()
 
   withSubCtx   :: m x -> m x
   withFreshCtx :: m x -> m x
@@ -67,7 +67,7 @@ newtype Matchee f = Matchee f
 newtype Pattern f = Pattern f
 
 -- NOTE: I think I need to write SYB/Uniplate infrastructure for vars-containing terms
-class (Show f, Eq f, Typeable f) => Matchable f where
+class (Show f, Typeable f, Meetable f) => Matchable f where
   -- | Returns all meta-syntactic variables contained in an `f`
   getVars :: f -> Set MetaVar
 
@@ -121,7 +121,7 @@ class (Show f, Eq f, Typeable f) => Matchable f where
 
 
 class (MonadMatchable m) => MonadUnify m where
-  elimVar :: (Matchable a, Meetable a) => MetaVar -> a -> m ()
+  elimVar :: (Matchable a) => MetaVar -> a -> m ()
 
 
 class (Matchable f) => Unifiable f where

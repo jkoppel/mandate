@@ -38,6 +38,7 @@ import Control.Monad.Logic ( LogicT(..), runLogicT, observeAllT )
 
 import Configuration
 import Debug
+import Lattice
 import MatchEffect
 import Term
 import Var
@@ -45,7 +46,7 @@ import Var
 import Matching.Class
 
 data AnyMatchable where
-  AnyMatchable :: (Matchable m, Meetable m) => m -> AnyMatchable
+  AnyMatchable :: (Matchable m) => m -> AnyMatchable
 
 instance Show AnyMatchable where
   showsPrec d (AnyMatchable x) = showsPrec d x
@@ -135,7 +136,7 @@ instance {-# OVERLAPPING #-} (MonadPlus UnusedMonad, MonadVarAllocator UnusedMon
   withVarAllocator = error "Using UnusedMonad"
   debugVars = error "Using UnusedMonads"
 
-refreshVar :: (MonadMatchable m, Matchable a, Meetable a) => (MetaVar -> a) -> MetaVar -> m MetaVar
+refreshVar :: (MonadMatchable m, Matchable a) => (MetaVar -> a) -> MetaVar -> m MetaVar
 refreshVar f v = do v' <- allocVarM
                     putVar v (f v')
                     return v'
@@ -175,15 +176,15 @@ instance (Typeable l) => Matchable (Term l) where
   match (Pattern (StrNode s1 x1)) (Matchee (StrNode s2 x2))
     | (s1 == s2) && (x1 == x2)                = return ()
 
-  match (Pattern (GMetaVar v mt1))  (Matchee (GStar       mt2)) = case mt1 `matchTypeMeet` mt2 of
+  match (Pattern (GMetaVar v mt1))  (Matchee (GStar       mt2)) = case mt1 `meet` mt2 of
                                                                     Just mtMeet -> putVar v (GStar @l mtMeet)
                                                                     Nothing     -> mzero
 
   -- FIXME: In this next case, if mt1 < mt2, all other uses of v2 should be narrowed
-  match (Pattern (GMetaVar v1 mt1)) (Matchee (GMetaVar v2 mt2)) = case mt1 `matchTypeMeet` mt2 of
+  match (Pattern (GMetaVar v1 mt1)) (Matchee (GMetaVar v2 mt2)) = case mt1 `meet` mt2 of
                                                                     Just mtMeet -> putVar v1 (GMetaVar @l v2 mtMeet)
                                                                     Nothing     -> mzero
-  match (Pattern (GMetaVar v mt)) (Matchee t) = do guard (matchTypeForTerm t `matchTypePrec` mt)
+  match (Pattern (GMetaVar v mt)) (Matchee t) = do guard (matchTypeForTerm t `prec` mt)
                                                    putVar v t
 
   match (Pattern (Node _ _))      (Matchee ValStar   ) = mzero
@@ -203,10 +204,10 @@ instance (Typeable l) => Matchable (Term l) where
   fillMatch = fillMatchTermGen (\v mt -> getVarMaybe v (guardValMatches mt) (return $ GMetaVar v mt))
     where
       guardValMatches :: (MonadMatchable m, Typeable l) => MatchType -> Term l -> m (Term l)
-      guardValMatches mt t = guard (matchTypeForTerm t `matchTypePrec` mt) >> return t
+      guardValMatches mt t = guard (matchTypeForTerm t `prec` mt) >> return t
 
 
-instance {-# OVERLAPPABLE #-} (Typeable (GConfiguration s l)) => Matchable (GConfiguration s l) where
+instance {-# OVERLAPPABLE #-} (Typeable (GConfiguration s l), Meetable (GConfiguration s l)) => Matchable (GConfiguration s l) where
   getVars (Conf t s) = getVars t `Set.union` getVars s
 
   match (Pattern (Conf t1 s1)) (Matchee (Conf t2 s2)) = do
@@ -218,7 +219,7 @@ instance {-# OVERLAPPABLE #-} (Typeable (GConfiguration s l)) => Matchable (GCon
 
 -- Hack to prevent over-eagerly expanding (Matchable (Configuration l)) constraints
 data UnusedLanguage
-instance {-# OVERLAPPING #-} (Matchable s) => Matchable (GConfiguration s UnusedLanguage) where
+instance {-# OVERLAPPING #-} (Matchable s, Meetable (GConfiguration s UnusedLanguage)) => Matchable (GConfiguration s UnusedLanguage) where
   getVars = error "Matching UnusedLanguage"
   match = error "Matching UnusedLanguage"
   refreshVars = error "Matching UnusedLanguage"

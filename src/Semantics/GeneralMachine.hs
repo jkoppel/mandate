@@ -27,6 +27,7 @@ import Data.Typeable ( Typeable )
 import Configuration
 import Debug
 import Lang
+import Lattice
 import Matching
 import Semantics.Abstraction
 import Semantics.Context
@@ -39,6 +40,12 @@ import Unification
 data GenAMRhs payload l = GenAMLetComputation (Configuration l) (ExtComp l) (GenAMRhs payload l)
                         | GenAMRhs (payload l)
   deriving ( Eq )
+
+instance (Lang l, Meetable (payload l)) => Meetable (GenAMRhs payload l) where
+  meet (GenAMLetComputation c1 f1 r1) (GenAMLetComputation c2 f2 r2) =
+    GenAMLetComputation <$> c1 `meet` c2 <*> f1 `meet` f2 <*> r1 `meet` r2
+  meet (GenAMRhs p1) (GenAMRhs p2) = GenAMRhs <$> p1 `meet` p2
+  meet _ _ = Nothing
 
 instance (Lang l, Typeable payload, Matchable (payload l)) => Matchable (GenAMRhs payload l) where
   getVars (GenAMLetComputation c f r) = getVars c `Set.union` getVars f `Set.union` getVars r
@@ -71,6 +78,10 @@ data GenAMState t l = GenAMState { genAmConf :: Configuration l
 
 
 instance (Lang l, Hashable t) => Hashable (GenAMState t l)
+
+instance (Lang l, Meetable t) => Meetable (GenAMState t l) where
+  meet (GenAMState c1 k1 e1) (GenAMState c2 k2 e2) =
+    GenAMState <$> c1 `meet` c2 <*> k1 `meet` k2 <*> e1 `meet` e2
 
 instance (Lang l, Matchable t, Show (GenAMState t l)) => Matchable (GenAMState t l) where
   getVars (GenAMState c k e) = getVars c `Set.union` getVars k `Set.union` getVars e
