@@ -142,6 +142,11 @@ instance Meetable MatchType where
              else if b `prec` a then Just b
              else Nothing
 
+  prec _          TermOrValue = True
+  prec ValueOnly  ValueOnly   = True
+  prec NonvalOnly  NonvalOnly = True
+  prec _          _           = False
+
 instance UpperBound MatchType where
   top = TermOrValue
 
