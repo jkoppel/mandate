@@ -264,28 +264,35 @@ instance Matchable () where
 --
 -- If you fail to close all keys before matching, then you'll get weird behavior
 
-instance (Matchable a, Matchable b) => Matchable (SimpEnvMap a b) where
+forMap :: Map k a -> (k -> a -> b) -> Map k b
+forMap = flip Map.mapWithKey
+
+instance (Matchable a, Matchable b, UpperBound b) => Matchable (SimpEnvMap a b) where
   getVars (SimpEnvMap m) = fold (map getVars keys) `Set.union` fold (map getVars vals)
     where
       (keys, vals) = unzip (Map.toList m)
 
   match (Pattern (SimpEnvMap m1)) (Matchee (SimpEnvMap m2)) = do
     m1' <- mapKeysM fillMatch m1
-    if Map.keys m1' /= Map.keys m2 then
+    if any (\k -> all (not . (`prec` k)) (Map.keys m2)) (Map.keys m1') then
       mzero
     else
-      -- Use (!) because guaranteed has key
-      sequence_ $ Map.mapWithKey (\k v -> match (Pattern v) (Matchee (m2 ! k))) m1'
+      sequence_ $ forMap m1' $ \k1 v1 -> sequence_ $
+                    forMap m2 $ \k2 v2 ->
+                      if k2 `prec` k1 then
+                        match (Pattern v1) (Matchee v2)
+                      else
+                        return ()
 
-  refreshVars (SimpEnvMap m) = SimpEnvMap <$> (mapKeysM refreshVars =<< mapM refreshVars m)
-  fillMatch   (SimpEnvMap m) = SimpEnvMap <$> (mapKeysM fillMatch   =<< mapM fillMatch   m)
+  refreshVars (SimpEnvMap m) =                     SimpEnvMap <$> (mapKeysM refreshVars =<< mapM refreshVars m)
+  fillMatch   (SimpEnvMap m) = normalizeEnvMap <$> SimpEnvMap <$> (mapKeysM fillMatch   =<< mapM fillMatch   m)
 
 
 -- | Used as a hint to type inference
 declareTypesEq :: (Monad m) => a -> a -> m ()
 declareTypesEq _ _ = return ()
 
-instance (Matchable a, Matchable b, Typeable a) => Matchable (SimpEnv a b) where
+instance (Matchable a, Matchable b, Typeable a, Matchable (SimpEnvMap a b)) => Matchable (SimpEnv a b) where
   getVars (SimpEnvRest v m) = Set.insert v (getVars m)
   getVars (JustSimpMap m) = getVars m
 
