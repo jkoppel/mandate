@@ -147,6 +147,10 @@ instance Meetable MatchType where
   prec NonvalOnly  NonvalOnly = True
   prec _          _           = False
 
+  isMinimal ValueOnly   = True
+  isMinimal NonvalOnly  = True
+  isMinimal TermOrValue = False
+
 instance UpperBound MatchType where
   top = TermOrValue
 
@@ -162,6 +166,11 @@ instance Meetable (Term l) where
   meet (GStar mt) x            =  if matchTypeForTerm x `prec` mt then Just x else Nothing
   meet Star       x            = Just x
   meet _          _            = Nothing
+
+  isMinimal (GStar _) = False
+  isMinimal (Val  _ ts) = all isMinimal ts
+  isMinimal (Node _ ts) = all isMinimal ts
+  isMinimal _           = True
 
 instance UpperBound (Term l) where
   top = Star

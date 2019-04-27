@@ -47,6 +47,8 @@ instance (Lang l, Meetable (payload l)) => Meetable (GenAMRhs payload l) where
   meet (GenAMRhs p1) (GenAMRhs p2) = GenAMRhs <$> p1 `meet` p2
   meet _ _ = Nothing
 
+  isMinimal (GenAMLetComputation c f r) = isMinimal c && isMinimal f && isMinimal r
+
 instance (Lang l, Typeable payload, Matchable (payload l)) => Matchable (GenAMRhs payload l) where
   getVars (GenAMLetComputation c f r) = getVars c `Set.union` getVars f `Set.union` getVars r
   getVars (GenAMRhs p) = getVars p
@@ -82,6 +84,8 @@ instance (Lang l, Hashable t) => Hashable (GenAMState t l)
 instance (Lang l, Meetable t) => Meetable (GenAMState t l) where
   meet (GenAMState c1 k1 e1) (GenAMState c2 k2 e2) =
     GenAMState <$> c1 `meet` c2 <*> k1 `meet` k2 <*> e1 `meet` e2
+
+  isMinimal (GenAMState c k e) = isMinimal c && isMinimal k && isMinimal e
 
 instance (Lang l, Matchable t, Show (GenAMState t l)) => Matchable (GenAMState t l) where
   getVars (GenAMState c k e) = getVars c `Set.union` getVars k `Set.union` getVars e

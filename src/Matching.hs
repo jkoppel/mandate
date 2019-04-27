@@ -272,17 +272,17 @@ instance (Matchable a, Matchable b, UpperBound b) => Matchable (SimpEnvMap a b) 
     where
       (keys, vals) = unzip (Map.toList m)
 
+  -- Two possible implementations of abstract matching, both correct:
+  -- 1) What we do now: For key k1 in pattern and k2 in matchee, if k2 <= k1 or k1 <= k2,
+  --    then join all values mapping to the k2's, match against value of k1
+  -- 2) For each k1/k2 that may match, branch
   match (Pattern (SimpEnvMap m1)) (Matchee (SimpEnvMap m2)) = do
     m1' <- mapKeysM fillMatch m1
-    if any (\k -> all (not . (`prec` k)) (Map.keys m2)) (Map.keys m1') then
-      mzero
-    else
-      sequence_ $ forMap m1' $ \k1 v1 -> sequence_ $
-                    forMap m2 $ \k2 v2 ->
-                      if k2 `prec` k1 then
-                        match (Pattern v1) (Matchee v2)
-                      else
-                        return ()
+    sequence_ $ forMap m1' $ \k1 v1 ->
+      let matching = Map.filterWithKey (\k2 _ -> (k1 `meet` k2) /= Nothing) m2 in
+      case Map.elems matching of
+        []     -> mzero
+        (x:xs) -> match (Pattern v1) (Matchee $ foldl upperBound x xs)
 
   refreshVars (SimpEnvMap m) =                     SimpEnvMap <$> (mapKeysM refreshVars =<< mapM refreshVars m)
   fillMatch   (SimpEnvMap m) = normalizeEnvMap <$> SimpEnvMap <$> (mapKeysM fillMatch   =<< mapM fillMatch   m)
@@ -292,7 +292,17 @@ instance (Matchable a, Matchable b, UpperBound b) => Matchable (SimpEnvMap a b) 
 declareTypesEq :: (Monad m) => a -> a -> m ()
 declareTypesEq _ _ = return ()
 
-instance (Matchable a, Matchable b, Typeable a, Matchable (SimpEnvMap a b)) => Matchable (SimpEnv a b) where
+-- | partitionAbstractMap m1 m2 partitions m2 into the things which may match a key in m1,
+--   and the things which may not match a key in m1. The intersection of the two maps will be
+--   abstract keys
+partitionAbstractMap :: (Meetable a, Ord a) => Map a b -> Map a b -> (Map a b, Map a b)
+partitionAbstractMap m1 m2 = ( Map.differenceWithKey (\k a _ -> if isMinimal k then Nothing else Just a) m2 m1
+                             , Map.filterWithKey (\k _ -> not (isMinimal k) || anyIntersecting k ) m2
+                             )
+  where
+    anyIntersecting k2 = any (\k1 -> (k1 `meet` k2) /= Nothing) (Map.keys m1)
+
+instance (Matchable a, Matchable b, Typeable a, UpperBound b) => Matchable (SimpEnv a b) where
   getVars (SimpEnvRest v m) = Set.insert v (getVars m)
   getVars (JustSimpMap m) = getVars m
 
@@ -305,11 +315,11 @@ instance (Matchable a, Matchable b, Typeable a, Matchable (SimpEnvMap a b)) => M
       _ -> do
         m1' <- fillMatch m1
         let (mp1, mp2) = (getSimpEnvMap m1', getSimpEnvMap m2)
-        let diff = Map.difference mp2 mp1
+        let (restMap, innerMap) = partitionAbstractMap mp1 mp2
         debugM $ "Matching maps " ++ show mp1 ++ " and " ++ show mp2
-        debugM $ "Binding var " ++ show v ++ " to " ++ show diff
-        putVar v (JustSimpMap $ SimpEnvMap diff)
-        match (Pattern m1) (Matchee (SimpEnvMap $ Map.intersection mp2 mp1))
+        debugM $ "Binding var " ++ show v ++ " to " ++ show restMap
+        putVar v (JustSimpMap $ SimpEnvMap restMap)
+        match (Pattern m1) (Matchee (SimpEnvMap innerMap))
 
   match (Pattern (JustSimpMap m1)) (Matchee (JustSimpMap m2)) = match (Pattern m1) (Matchee m2)
 
@@ -330,7 +340,12 @@ instance (Matchable a, Matchable b, Typeable a, Matchable (SimpEnvMap a b)) => M
     -- When there is conflict, will prefer the explicitly given keys
     case filledVar of
       (Just (SimpEnvRest v' m2)) -> return $ SimpEnvRest v' $ SimpEnvMap (Map.union (getSimpEnvMap m1') (getSimpEnvMap m2))
-      (Just (JustSimpMap m2))    -> return $ JustSimpMap $ SimpEnvMap (Map.union (getSimpEnvMap m1') (getSimpEnvMap m2))
+      (Just (JustSimpMap m2))    -> return $ JustSimpMap $ normalizeEnvMap $
+                                                   SimpEnvMap (Map.unionWithKey
+                                                                   -- Weak updates for * nodes; strong updates for concrete
+                                                                   (\k x y -> if isMinimal k then y else upperBound x y)
+                                                                   (getSimpEnvMap m1')
+                                                                   (getSimpEnvMap m2))
       Nothing -> return $ SimpEnvRest v m1'
 
   fillMatch (JustSimpMap m) = JustSimpMap <$> fillMatch m

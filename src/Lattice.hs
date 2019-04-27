@@ -15,6 +15,10 @@ class (Eq m) => Meetable m where
   prec :: m -> m -> Bool
   prec a b = (a `meet` b) == Just a
 
+  -- | isMinimal x = true iff  there is no y such that y /= x && (y `prec` x)
+  -- In our usage, this corresponds to non-abstract terms
+  isMinimal :: m -> Bool
+
 class (Meetable m) => UpperBound m where
   top :: m
 
@@ -26,10 +30,12 @@ class (Meetable m) => UpperBound m where
 
 instance Meetable () where
   meet () () = Just ()
+  isMinimal _ = True
 
 instance (Meetable a, Meetable b) => Meetable (a, b) where
   meet (a1, b1) (a2, b2) = (,) <$> (a1 `meet` a2) <*> (b1 `meet` b2)
   prec (a1, b1) (a2, b2) = (a1 `prec` a2) && (b1 `prec` b2)
+  isMinimal (a, b) = isMinimal a && isMinimal b
 
 
 instance (UpperBound a, UpperBound b) => UpperBound (a, b) where

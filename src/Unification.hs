@@ -96,7 +96,8 @@ instance {-# OVERLAPPABLE #-} (Matchable (GConfiguration s l)) => Unifiable (GCo
 data UnusedLanguage deriving ( Eq )
 
 instance Meetable UnusedLanguage where
-  meet = error "Using Meetable instance for UnusedLanguage"
+  meet      = error "Using Meetable instance for UnusedLanguage"
+  isMinimal = error "Using Meetable instance for UnusedLanguage"
 
 instance UpperBound UnusedLanguage where
   top = error "Using UpperBound instance for UnusedLanguage"
@@ -130,7 +131,7 @@ instance {-# OVERLAPPING #-} (Matchable UnusedLanguage) => Unifiable (SimpEnvMap
   unify = error "Unifying SimpEnvMap of UnusedLanguage"
 
 
-unifySimpEnv :: (MonadUnify m, Matchable a, Unifiable b, Unifiable (SimpEnvMap a b)) => SimpEnv a b -> SimpEnv a b -> m ()
+unifySimpEnv :: (MonadUnify m, Matchable a, Unifiable b, Matchable (SimpEnv a b), Unifiable (SimpEnvMap a b)) => SimpEnv a b -> SimpEnv a b -> m ()
 unifySimpEnv (WholeSimpEnv v1) m2                = elimVar v1 m2
 unifySimpEnv m1                (WholeSimpEnv v2) = elimVar v2 m1
 unifySimpEnv (JustSimpMap m1)  (JustSimpMap m2)  = unify m1 m2
@@ -143,7 +144,7 @@ unifySimpEnv (SimpEnvRest v m1) (JustSimpMap m2) = do
 
 unifySimpEnv (SimpEnvRest _ _) (SimpEnvRest _ _) = error "Not implemented: Unifying two maps with map vars"
 
-instance (Matchable a, Unifiable b, Unifiable (SimpEnvMap a b)) => Unifiable (SimpEnv a b) where
+instance (Matchable a, Unifiable b, Matchable (SimpEnv a b), Unifiable (SimpEnvMap a b)) => Unifiable (SimpEnv a b) where
   unify a b = do a' <- fillMatch a
                  b' <- fillMatch b
                  unifySimpEnv a b

@@ -64,6 +64,7 @@ instance Show Phase where
 
 instance Meetable Phase where
   meet = meetDefault
+  isMinimal = const True
 
 instance Matchable Phase where
   getVars _ = Set.empty

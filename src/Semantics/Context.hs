@@ -147,13 +147,16 @@ instance FreeTermVars PosFrame where
 -------------------------------------- Matching ------------------------------------------
 
 instance (Eq (PosFrame l)) => Meetable (PosFrame l) where
-  meet = error "Nonlinear pattern match done with context variable; meet not implemented"
+  meet      = error "Nonlinear pattern match done with context variable; meet not implemented"
+  isMinimal = error "Storing PosFrame as key in env"
 
 instance (Eq (Frame l)) => Meetable (Frame l) where
-  meet = error "Nonlinear pattern match done with context variable; meet not implemented"
+  meet      = error "Nonlinear pattern match done with context variable; meet not implemented"
+  isMinimal = error "Storing Frame as key in env"
 
 instance (Eq (Context l)) => Meetable (Context l) where
-  meet = error "Nonlinear pattern match done with context variable; meet not implemented"
+  meet      = error "Nonlinear pattern match done with context variable; meet not implemented"
+  isMinimal = error "Storing Context as key in env"
 
 instance (Lang l, Matchable (Configuration l)) => Matchable (PosFrame l) where
   getVars (KBuild       c  ) = getVars c

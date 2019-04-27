@@ -42,6 +42,7 @@ abstractGraphPattern absFunc abs rules t = do
     explorationGraph step initState
   where
     step :: AMState l -> IO [(AMState l, TransitionType)]
+    step as@(AMState (Conf  NonvalStar   _) k) = return [(AMState (Conf ValStar (topRedState @l)) k, Explore)]
     step as@(AMState (Conf (NonvalVar _) _) k) = return [(AMState (Conf ValStar (topRedState @l)) k, Explore)]
     step as = map (,Step) <$> map abs <$> stepAm (map (abstractCompFuncs absFunc) rules) as
 
@@ -60,7 +61,8 @@ makeGraphPatterns absFunc abs rules sig = flip foldMap nodeSigs $ \n ->
       where sigNodes = case sig of (Signature s) -> s
 
     canonicalElt :: SigNode -> IO (Term l)
-    canonicalElt (NodeSig sym children _) = Node sym <$> mapM (const (NonvalVar <$> nextVar)) children
+    --canonicalElt (NodeSig sym children _) = Node sym <$> mapM (const (NonvalVar <$> nextVar)) children
+    canonicalElt (NodeSig sym children _) = return $ Node sym (map (const NonvalStar) children)
 
     makePattern = abstractGraphPattern absFunc abs rules
 
