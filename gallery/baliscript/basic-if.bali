@@ -1,0 +1,9 @@
+if (a >= 4) {
+   print("hello world");
+}
+if (x == 5) {
+   a = 4;
+} else {
+   a = 5;
+   print("x is not equal to 5");
+}

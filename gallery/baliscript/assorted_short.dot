@@ -1,0 +1,421 @@
+digraph {
+    0 [label="NilStmt()"
+      ,shape=box];
+    1 [label="ConsStmt(Assign(Var(Name(\"g\")), *v), ConsStmt(Assign(Var(Name(\"y\")), *v), ConsStmt(Assign(Var(Name(\"befive\")), *v), NilStmt())))"
+      ,shape=box];
+    2 [label="Assign(Var(Name(\"s\")), *v)"
+      ,shape=box];
+    3 [label="NilStmt()",shape=box];
+    4 [label="Assign(FieldAccess(ReferenceVal(HeapAddr(0)), Name(\"test\")), *v)"
+      ,shape=box];
+    5 [label="Assign(FieldAccess(ReferenceVal(HeapAddr(0)), Name(\"s\")), *v)"
+      ,shape=box];
+    6 [label="Assign(Var(Name(\"test\")), *v)"
+      ,shape=box];
+    7 [label="ConsStmt(Assign(Var(Name(\"test\")), *v), ConsStmt(Assign(Var(Name(\"g\")), *v), ConsStmt(Assign(Var(Name(\"y\")), *v), ConsStmt(Assign(Var(Name(\"befive\")), *v), NilStmt()))))"
+      ,shape=box];
+    8 [label="NilStmt()",shape=box];
+    9 [label="ConsStmt(While(*v, Block(ConsStmt(Assign(Var(Name(\"a\")), *v), NilStmt()))), ConsStmt(If(*v, Block(ConsStmt(Assign(Var(Name(\"z\")), *v), NilStmt())), Block(ConsStmt(Assign(Var(Name(\"t\")), *v), NilStmt()))), ConsStmt(Assign(Var(Name(\"m\")), Record(ConsRecordPair(RecordPair(Name(\"x\"), Record(ConsRecordPair(RecordPair(Name(\"x\"), *v), ConsRecordPair(RecordPair(Name(\"y\"), *v), NilRecordPair())))), ConsRecordPair(RecordPair(Name(\"y\"), *v), NilRecordPair())))), ConsStmt(Assign(Var(Name(\"xx\")), FieldAccess(FieldAccess(Var(Name(\"m\")), Name(\"x\")), Name(\"x\"))), ConsStmt(Assign(Var(Name(\"yy\")), Index(Index(Var(Name(\"m\")), *v), *v)), ConsStmt(Assign(Var(Name(\"x\")), *v), ConsStmt(Assign(Var(Name(\"test\")), *v), ConsStmt(Assign(Var(Name(\"g\")), *v), ConsStmt(Assign(Var(Name(\"y\")), *v), ConsStmt(Assign(Var(Name(\"befive\")), *v), NilStmt()))))))))))"
+      ,shape=box];
+    10 [label="Assign(Var(Name(\"x\")), *v)"
+       ,shape=box];
+    11 [label="HeapAlloc(*v)"
+       ,shape=box];
+    12 [label="Assign(FieldAccess(ReferenceVal(HeapAddr(0)), Name(\"x\")), *v)"
+       ,shape=box];
+    13 [label="NilStmt()"
+       ,shape=box];
+    14 [label="Assign(FieldAccess(ReferenceVal(HeapAddr(0)), Name(\"r\")), ReferenceVal(*v))"
+       ,shape=box];
+    15 [label="Assign(Var(Name(\"r\")), Record(ConsRecordPair(RecordPair(Name(\"hello\"), *v), ConsRecordPair(RecordPair(Name(\"rec\"), Record(ConsRecordPair(RecordPair(Name(\"goodbye\"), *v), NilRecordPair()))), NilRecordPair()))))"
+       ,shape=box];
+    16 [label="NilStmt()"
+       ,shape=box];
+    17 [label="ConsStmt(Assign(Var(Name(\"r\")), Record(ConsRecordPair(RecordPair(Name(\"hello\"), *v), ConsRecordPair(RecordPair(Name(\"rec\"), Record(ConsRecordPair(RecordPair(Name(\"goodbye\"), *v), NilRecordPair()))), NilRecordPair())))), ConsStmt(Assign(Var(Name(\"s\")), *v), ConsStmt(Assign(Var(Name(\"a\")), *v), ConsStmt(While(*v, Block(ConsStmt(Assign(Var(Name(\"a\")), *v), NilStmt()))), ConsStmt(If(*v, Block(ConsStmt(Assign(Var(Name(\"z\")), *v), NilStmt())), Block(ConsStmt(Assign(Var(Name(\"t\")), *v), NilStmt()))), ConsStmt(Assign(Var(Name(\"m\")), Record(ConsRecordPair(RecordPair(Name(\"x\"), Record(ConsRecordPair(RecordPair(Name(\"x\"), *v), ConsRecordPair(RecordPair(Name(\"y\"), *v), NilRecordPair())))), ConsRecordPair(RecordPair(Name(\"y\"), *v), NilRecordPair())))), ConsStmt(Assign(Var(Name(\"xx\")), FieldAccess(FieldAccess(Var(Name(\"m\")), Name(\"x\")), Name(\"x\"))), ConsStmt(Assign(Var(Name(\"yy\")), Index(Index(Var(Name(\"m\")), *v), *v)), ConsStmt(Assign(Var(Name(\"x\")), *v), ConsStmt(Assign(Var(Name(\"test\")), *v), ConsStmt(Assign(Var(Name(\"g\")), *v), ConsStmt(Assign(Var(Name(\"y\")), *v), ConsStmt(Assign(Var(Name(\"befive\")), *v), NilStmt())))))))))))))"
+       ,shape=box];
+    18 [label="ReferenceVal(*v)"
+       ,shape=box];
+    19 [label="RecordPair(Name(\"hello\"), *v)"
+       ,shape=box];
+    20 [label="ReducedRecordCons(ReducedRecordPair(Name(\"hello\"), *v), ReducedRecordCons(ReducedRecordPair(Name(\"rec\"), ReferenceVal(*v)), ReducedRecordNil()))"
+       ,shape=box];
+    21 [label="ReducedRecordPair(Name(\"hello\"), *v)"
+       ,shape=box];
+    22 [label="ConsRecordPair(RecordPair(Name(\"hello\"), *v), ConsRecordPair(RecordPair(Name(\"rec\"), Record(ConsRecordPair(RecordPair(Name(\"goodbye\"), *v), NilRecordPair()))), NilRecordPair()))"
+       ,shape=box];
+    23 [label="ReducedRecordPair(Name(\"rec\"), ReferenceVal(*v))"
+       ,shape=box];
+    24 [label="ConsRecordPair(RecordPair(Name(\"rec\"), Record(ConsRecordPair(RecordPair(Name(\"goodbye\"), *v), NilRecordPair()))), NilRecordPair())"
+       ,shape=box];
+    25 [label="ReferenceVal(*v)"
+       ,shape=box];
+    26 [label="ReducedRecordNil()"
+       ,shape=box];
+    27 [label="RecordPair(Name(\"rec\"), Record(ConsRecordPair(RecordPair(Name(\"goodbye\"), *v), NilRecordPair())))"
+       ,shape=box];
+    28 [label="NilRecordPair()"
+       ,shape=box];
+    29 [label="ReducedRecordPair(Name(\"goodbye\"), *v)"
+       ,shape=box];
+    30 [label="RecordPair(Name(\"goodbye\"), *v)"
+       ,shape=box];
+    31 [label="ConsRecordPair(RecordPair(Name(\"goodbye\"), *v), NilRecordPair())"
+       ,shape=box];
+    32 [label="Record(ConsRecordPair(RecordPair(Name(\"goodbye\"), *v), NilRecordPair()))"
+       ,shape=box];
+    33 [label="ReducedRecordNil()"
+       ,shape=box];
+    34 [label="NilRecordPair()"
+       ,shape=box];
+    35 [label="HeapAlloc(*v)"
+       ,shape=box];
+    36 [label="ReducedRecordCons(ReducedRecordPair(Name(\"goodbye\"), *v), ReducedRecordNil())"
+       ,shape=box];
+    37 [label="ReducedRecordCons(ReducedRecordPair(Name(\"rec\"), ReferenceVal(*v)), ReducedRecordNil())"
+       ,shape=box];
+    38 [label="Record(ConsRecordPair(RecordPair(Name(\"hello\"), *v), ConsRecordPair(RecordPair(Name(\"rec\"), Record(ConsRecordPair(RecordPair(Name(\"goodbye\"), *v), NilRecordPair()))), NilRecordPair())))"
+       ,shape=box];
+    39 [label="Assign(FieldAccess(ReferenceVal(HeapAddr(0)), Name(\"befive\")), *v)"
+       ,shape=box];
+    40 [label="NilStmt()"
+       ,shape=box];
+    41 [label="Assign(Var(Name(\"befive\")), *v)"
+       ,shape=box];
+    42 [label="NilStmt()"
+       ,shape=box];
+    43 [label="ConsStmt(Assign(Var(Name(\"x\")), *v), ConsStmt(Assign(Var(Name(\"y\")), *v), ConsStmt(Assign(Var(Name(\"r\")), Record(ConsRecordPair(RecordPair(Name(\"hello\"), *v), ConsRecordPair(RecordPair(Name(\"rec\"), Record(ConsRecordPair(RecordPair(Name(\"goodbye\"), *v), NilRecordPair()))), NilRecordPair())))), ConsStmt(Assign(Var(Name(\"s\")), *v), ConsStmt(Assign(Var(Name(\"a\")), *v), ConsStmt(While(*v, Block(ConsStmt(Assign(Var(Name(\"a\")), *v), NilStmt()))), ConsStmt(If(*v, Block(ConsStmt(Assign(Var(Name(\"z\")), *v), NilStmt())), Block(ConsStmt(Assign(Var(Name(\"t\")), *v), NilStmt()))), ConsStmt(Assign(Var(Name(\"m\")), Record(ConsRecordPair(RecordPair(Name(\"x\"), Record(ConsRecordPair(RecordPair(Name(\"x\"), *v), ConsRecordPair(RecordPair(Name(\"y\"), *v), NilRecordPair())))), ConsRecordPair(RecordPair(Name(\"y\"), *v), NilRecordPair())))), ConsStmt(Assign(Var(Name(\"xx\")), FieldAccess(FieldAccess(Var(Name(\"m\")), Name(\"x\")), Name(\"x\"))), ConsStmt(Assign(Var(Name(\"yy\")), Index(Index(Var(Name(\"m\")), *v), *v)), ConsStmt(Assign(Var(Name(\"x\")), *v), ConsStmt(Assign(Var(Name(\"test\")), *v), ConsStmt(Assign(Var(Name(\"g\")), *v), ConsStmt(Assign(Var(Name(\"y\")), *v), ConsStmt(Assign(Var(Name(\"befive\")), *v), NilStmt())))))))))))))))"
+       ,shape=box];
+    44 [label="ConsStmt(Assign(Var(Name(\"yy\")), Index(Index(Var(Name(\"m\")), *v), *v)), ConsStmt(Assign(Var(Name(\"x\")), *v), ConsStmt(Assign(Var(Name(\"test\")), *v), ConsStmt(Assign(Var(Name(\"g\")), *v), ConsStmt(Assign(Var(Name(\"y\")), *v), ConsStmt(Assign(Var(Name(\"befive\")), *v), NilStmt()))))))"
+       ,shape=box];
+    45 [label="Block(ConsStmt(Assign(Var(Name(\"x\")), *v), ConsStmt(Assign(Var(Name(\"y\")), *v), ConsStmt(Assign(Var(Name(\"r\")), Record(ConsRecordPair(RecordPair(Name(\"hello\"), *v), ConsRecordPair(RecordPair(Name(\"rec\"), Record(ConsRecordPair(RecordPair(Name(\"goodbye\"), *v), NilRecordPair()))), NilRecordPair())))), ConsStmt(Assign(Var(Name(\"s\")), *v), ConsStmt(Assign(Var(Name(\"a\")), *v), ConsStmt(While(*v, Block(ConsStmt(Assign(Var(Name(\"a\")), *v), NilStmt()))), ConsStmt(If(*v, Block(ConsStmt(Assign(Var(Name(\"z\")), *v), NilStmt())), Block(ConsStmt(Assign(Var(Name(\"t\")), *v), NilStmt()))), ConsStmt(Assign(Var(Name(\"m\")), Record(ConsRecordPair(RecordPair(Name(\"x\"), Record(ConsRecordPair(RecordPair(Name(\"x\"), *v), ConsRecordPair(RecordPair(Name(\"y\"), *v), NilRecordPair())))), ConsRecordPair(RecordPair(Name(\"y\"), *v), NilRecordPair())))), ConsStmt(Assign(Var(Name(\"xx\")), FieldAccess(FieldAccess(Var(Name(\"m\")), Name(\"x\")), Name(\"x\"))), ConsStmt(Assign(Var(Name(\"yy\")), Index(Index(Var(Name(\"m\")), *v), *v)), ConsStmt(Assign(Var(Name(\"x\")), *v), ConsStmt(Assign(Var(Name(\"test\")), *v), ConsStmt(Assign(Var(Name(\"g\")), *v), ConsStmt(Assign(Var(Name(\"y\")), *v), ConsStmt(Assign(Var(Name(\"befive\")), *v), NilStmt()))))))))))))))))"
+       ,shape=box];
+    46 [label="*v",shape=box];
+    47 [label="Var(Name(\"m\"))"
+       ,shape=box];
+    48 [label="FieldAccess(ReferenceVal(HeapAddr(0)), Name(\"m\"))"
+       ,shape=box];
+    49 [label="*v",shape=box];
+    50 [label="Index(Var(Name(\"m\")), *v)"
+       ,shape=box];
+    51 [label="Assign(Var(Name(\"yy\")), Index(Index(Var(Name(\"m\")), *v), *v))"
+       ,shape=box];
+    52 [label="NilStmt()"
+       ,shape=box];
+    53 [label="Block(ConsStmt(Assign(Var(Name(\"a\")), *v), NilStmt()))"
+       ,shape=box];
+    54 [label="NilStmt()"
+       ,shape=box];
+    55 [label="Assign(FieldAccess(ReferenceVal(HeapAddr(0)), Name(\"m\")), ReferenceVal(*v))"
+       ,shape=box];
+    56 [label="If(*v, ConsStmt(Block(ConsStmt(Assign(Var(Name(\"a\")), *v), NilStmt())), While(*v, Block(ConsStmt(Assign(Var(Name(\"a\")), *v), NilStmt())))), NilStmt())"
+       ,shape=box];
+    57 [label="NilStmt()"
+       ,shape=box];
+    58 [label="NilStmt()"
+       ,shape=box];
+    59 [label="Assign(FieldAccess(ReferenceVal(HeapAddr(0)), Name(\"a\")), *v)"
+       ,shape=box];
+    60 [label="Assign(Var(Name(\"a\")), *v)"
+       ,shape=box];
+    61 [label="ConsStmt(Assign(Var(Name(\"a\")), *v), NilStmt())"
+       ,shape=box];
+    62 [label="NilStmt()"
+       ,shape=box];
+    63 [label="*v",shape=box];
+    64 [label="Assign(FieldAccess(ReferenceVal(HeapAddr(0)), Name(\"y\")), *v)"
+       ,shape=box];
+    65 [label="NilStmt()"
+       ,shape=box];
+    66 [label="Assign(Var(Name(\"g\")), *v)"
+       ,shape=box];
+    67 [label="Index(Index(Var(Name(\"m\")), *v), *v)"
+       ,shape=box];
+    68 [label="Assign(FieldAccess(ReferenceVal(HeapAddr(0)), Name(\"a\")), *v)"
+       ,shape=box];
+    69 [label="NilStmt()"
+       ,shape=box];
+    70 [label="ConsStmt(Assign(Var(Name(\"a\")), *v), ConsStmt(While(*v, Block(ConsStmt(Assign(Var(Name(\"a\")), *v), NilStmt()))), ConsStmt(If(*v, Block(ConsStmt(Assign(Var(Name(\"z\")), *v), NilStmt())), Block(ConsStmt(Assign(Var(Name(\"t\")), *v), NilStmt()))), ConsStmt(Assign(Var(Name(\"m\")), Record(ConsRecordPair(RecordPair(Name(\"x\"), Record(ConsRecordPair(RecordPair(Name(\"x\"), *v), ConsRecordPair(RecordPair(Name(\"y\"), *v), NilRecordPair())))), ConsRecordPair(RecordPair(Name(\"y\"), *v), NilRecordPair())))), ConsStmt(Assign(Var(Name(\"xx\")), FieldAccess(FieldAccess(Var(Name(\"m\")), Name(\"x\")), Name(\"x\"))), ConsStmt(Assign(Var(Name(\"yy\")), Index(Index(Var(Name(\"m\")), *v), *v)), ConsStmt(Assign(Var(Name(\"x\")), *v), ConsStmt(Assign(Var(Name(\"test\")), *v), ConsStmt(Assign(Var(Name(\"g\")), *v), ConsStmt(Assign(Var(Name(\"y\")), *v), ConsStmt(Assign(Var(Name(\"befive\")), *v), NilStmt())))))))))))"
+       ,shape=box];
+    71 [label="NilStmt()"
+       ,shape=box];
+    72 [label="*v",shape=box];
+    73 [label="*v",shape=box];
+    74 [label="Var(Name(\"m\"))"
+       ,shape=box];
+    75 [label="FieldAccess(Var(Name(\"m\")), Name(\"x\"))"
+       ,shape=box];
+    76 [label="FieldAccess(ReferenceVal(HeapAddr(0)), Name(\"m\"))"
+       ,shape=box];
+    77 [label="FieldAccess(FieldAccess(Var(Name(\"m\")), Name(\"x\")), Name(\"x\"))"
+       ,shape=box];
+    78 [label="*v",shape=box];
+    79 [label="Assign(Var(Name(\"xx\")), FieldAccess(FieldAccess(Var(Name(\"m\")), Name(\"x\")), Name(\"x\")))"
+       ,shape=box];
+    80 [label="While(*v, Block(ConsStmt(Assign(Var(Name(\"a\")), *v), NilStmt())))"
+       ,shape=box];
+    81 [label="ConsStmt(Assign(Var(Name(\"z\")), *v), NilStmt())"
+       ,shape=box];
+    82 [label="Block(ConsStmt(Assign(Var(Name(\"z\")), *v), NilStmt()))"
+       ,shape=box];
+    83 [label="Block(ConsStmt(Assign(Var(Name(\"t\")), *v), NilStmt()))"
+       ,shape=box];
+    84 [label="ConsStmt(Assign(Var(Name(\"befive\")), *v), NilStmt())"
+       ,shape=box];
+    85 [label="ConsStmt(Assign(Var(Name(\"xx\")), FieldAccess(FieldAccess(Var(Name(\"m\")), Name(\"x\")), Name(\"x\"))), ConsStmt(Assign(Var(Name(\"yy\")), Index(Index(Var(Name(\"m\")), *v), *v)), ConsStmt(Assign(Var(Name(\"x\")), *v), ConsStmt(Assign(Var(Name(\"test\")), *v), ConsStmt(Assign(Var(Name(\"g\")), *v), ConsStmt(Assign(Var(Name(\"y\")), *v), ConsStmt(Assign(Var(Name(\"befive\")), *v), NilStmt())))))))"
+       ,shape=box];
+    86 [label="Assign(Var(Name(\"m\")), Record(ConsRecordPair(RecordPair(Name(\"x\"), Record(ConsRecordPair(RecordPair(Name(\"x\"), *v), ConsRecordPair(RecordPair(Name(\"y\"), *v), NilRecordPair())))), ConsRecordPair(RecordPair(Name(\"y\"), *v), NilRecordPair()))))"
+       ,shape=box];
+    87 [label="HeapAlloc(*v)"
+       ,shape=box];
+    88 [label="ConsStmt(Block(ConsStmt(Assign(Var(Name(\"a\")), *v), NilStmt())), While(*v, Block(ConsStmt(Assign(Var(Name(\"a\")), *v), NilStmt()))))"
+       ,shape=box];
+    89 [label="NilStmt()"
+       ,shape=box];
+    90 [label="If(*v, Block(ConsStmt(Assign(Var(Name(\"z\")), *v), NilStmt())), Block(ConsStmt(Assign(Var(Name(\"t\")), *v), NilStmt())))"
+       ,shape=box];
+    91 [label="ConsStmt(Assign(Var(Name(\"y\")), *v), ConsStmt(Assign(Var(Name(\"befive\")), *v), NilStmt()))"
+       ,shape=box];
+    92 [label="ConsStmt(If(*v, Block(ConsStmt(Assign(Var(Name(\"z\")), *v), NilStmt())), Block(ConsStmt(Assign(Var(Name(\"t\")), *v), NilStmt()))), ConsStmt(Assign(Var(Name(\"m\")), Record(ConsRecordPair(RecordPair(Name(\"x\"), Record(ConsRecordPair(RecordPair(Name(\"x\"), *v), ConsRecordPair(RecordPair(Name(\"y\"), *v), NilRecordPair())))), ConsRecordPair(RecordPair(Name(\"y\"), *v), NilRecordPair())))), ConsStmt(Assign(Var(Name(\"xx\")), FieldAccess(FieldAccess(Var(Name(\"m\")), Name(\"x\")), Name(\"x\"))), ConsStmt(Assign(Var(Name(\"yy\")), Index(Index(Var(Name(\"m\")), *v), *v)), ConsStmt(Assign(Var(Name(\"x\")), *v), ConsStmt(Assign(Var(Name(\"test\")), *v), ConsStmt(Assign(Var(Name(\"g\")), *v), ConsStmt(Assign(Var(Name(\"y\")), *v), ConsStmt(Assign(Var(Name(\"befive\")), *v), NilStmt())))))))))"
+       ,shape=box];
+    93 [label="NilStmt()"
+       ,shape=box];
+    94 [label="Assign(FieldAccess(ReferenceVal(HeapAddr(0)), Name(\"z\")), *v)"
+       ,shape=box];
+    95 [label="NilStmt()"
+       ,shape=box];
+    96 [label="Assign(FieldAccess(ReferenceVal(HeapAddr(0)), Name(\"t\")), *v)"
+       ,shape=box];
+    97 [label="Assign(Var(Name(\"z\")), *v)"
+       ,shape=box];
+    98 [label="ConsStmt(Assign(Var(Name(\"t\")), *v), NilStmt())"
+       ,shape=box];
+    99 [label="Assign(Var(Name(\"t\")), *v)"
+       ,shape=box];
+    100 [label="Assign(FieldAccess(ReferenceVal(HeapAddr(0)), Name(\"g\")), *v)"
+        ,shape=box];
+    101 [label="ReferenceVal(*v)"
+        ,shape=box];
+    102 [label="NilStmt()"
+        ,shape=box];
+    103 [label="ConsStmt(Assign(Var(Name(\"m\")), Record(ConsRecordPair(RecordPair(Name(\"x\"), Record(ConsRecordPair(RecordPair(Name(\"x\"), *v), ConsRecordPair(RecordPair(Name(\"y\"), *v), NilRecordPair())))), ConsRecordPair(RecordPair(Name(\"y\"), *v), NilRecordPair())))), ConsStmt(Assign(Var(Name(\"xx\")), FieldAccess(FieldAccess(Var(Name(\"m\")), Name(\"x\")), Name(\"x\"))), ConsStmt(Assign(Var(Name(\"yy\")), Index(Index(Var(Name(\"m\")), *v), *v)), ConsStmt(Assign(Var(Name(\"x\")), *v), ConsStmt(Assign(Var(Name(\"test\")), *v), ConsStmt(Assign(Var(Name(\"g\")), *v), ConsStmt(Assign(Var(Name(\"y\")), *v), ConsStmt(Assign(Var(Name(\"befive\")), *v), NilStmt()))))))))"
+        ,shape=box];
+    104 [label="RecordPair(Name(\"y\"), *v)"
+        ,shape=box];
+    105 [label="ReducedRecordPair(Name(\"y\"), *v)"
+        ,shape=box];
+    106 [label="ConsRecordPair(RecordPair(Name(\"y\"), *v), NilRecordPair())"
+        ,shape=box];
+    107 [label="ConsRecordPair(RecordPair(Name(\"x\"), Record(ConsRecordPair(RecordPair(Name(\"x\"), *v), ConsRecordPair(RecordPair(Name(\"y\"), *v), NilRecordPair())))), ConsRecordPair(RecordPair(Name(\"y\"), *v), NilRecordPair()))"
+        ,shape=box];
+    108 [label="Assign(FieldAccess(ReferenceVal(HeapAddr(0)), Name(\"yy\")), *v)"
+        ,shape=box];
+    109 [label="Record(ConsRecordPair(RecordPair(Name(\"x\"), Record(ConsRecordPair(RecordPair(Name(\"x\"), *v), ConsRecordPair(RecordPair(Name(\"y\"), *v), NilRecordPair())))), ConsRecordPair(RecordPair(Name(\"y\"), *v), NilRecordPair())))"
+        ,shape=box];
+    110 [label="NilRecordPair()"
+        ,shape=box];
+    111 [label="ReducedRecordCons(ReducedRecordPair(Name(\"y\"), *v), ReducedRecordNil())"
+        ,shape=box];
+    112 [label="ReducedRecordNil()"
+        ,shape=box];
+    113 [label="RecordPair(Name(\"x\"), Record(ConsRecordPair(RecordPair(Name(\"x\"), *v), ConsRecordPair(RecordPair(Name(\"y\"), *v), NilRecordPair()))))"
+        ,shape=box];
+    114 [label="HeapAlloc(*v)"
+        ,shape=box];
+    115 [label="ReducedRecordCons(ReducedRecordPair(Name(\"x\"), ReferenceVal(*v)), ReducedRecordCons(ReducedRecordPair(Name(\"y\"), *v), ReducedRecordNil()))"
+        ,shape=box];
+    116 [label="ReducedRecordPair(Name(\"x\"), ReferenceVal(*v))"
+        ,shape=box];
+    117 [label="NilRecordPair()"
+        ,shape=box];
+    118 [label="ReducedRecordNil()"
+        ,shape=box];
+    119 [label="ReducedRecordCons(ReducedRecordPair(Name(\"y\"), *v), ReducedRecordNil())"
+        ,shape=box];
+    120 [label="RecordPair(Name(\"y\"), *v)"
+        ,shape=box];
+    121 [label="ConsRecordPair(RecordPair(Name(\"y\"), *v), NilRecordPair())"
+        ,shape=box];
+    122 [label="ConsRecordPair(RecordPair(Name(\"x\"), *v), ConsRecordPair(RecordPair(Name(\"y\"), *v), NilRecordPair()))"
+        ,shape=box];
+    123 [label="ReducedRecordPair(Name(\"y\"), *v)"
+        ,shape=box];
+    124 [label="ReducedRecordCons(ReducedRecordPair(Name(\"x\"), *v), ReducedRecordCons(ReducedRecordPair(Name(\"y\"), *v), ReducedRecordNil()))"
+        ,shape=box];
+    125 [label="ReferenceVal(*v)"
+        ,shape=box];
+    126 [label="Record(ConsRecordPair(RecordPair(Name(\"x\"), *v), ConsRecordPair(RecordPair(Name(\"y\"), *v), NilRecordPair())))"
+        ,shape=box];
+    127 [label="RecordPair(Name(\"x\"), *v)"
+        ,shape=box];
+    128 [label="ReducedRecordPair(Name(\"x\"), *v)"
+        ,shape=box];
+    129 [label="NilStmt()"
+        ,shape=box];
+    130 [label="Assign(Var(Name(\"y\")), *v)"
+        ,shape=box];
+    131 [label="ConsStmt(Assign(Var(Name(\"s\")), *v), ConsStmt(Assign(Var(Name(\"a\")), *v), ConsStmt(While(*v, Block(ConsStmt(Assign(Var(Name(\"a\")), *v), NilStmt()))), ConsStmt(If(*v, Block(ConsStmt(Assign(Var(Name(\"z\")), *v), NilStmt())), Block(ConsStmt(Assign(Var(Name(\"t\")), *v), NilStmt()))), ConsStmt(Assign(Var(Name(\"m\")), Record(ConsRecordPair(RecordPair(Name(\"x\"), Record(ConsRecordPair(RecordPair(Name(\"x\"), *v), ConsRecordPair(RecordPair(Name(\"y\"), *v), NilRecordPair())))), ConsRecordPair(RecordPair(Name(\"y\"), *v), NilRecordPair())))), ConsStmt(Assign(Var(Name(\"xx\")), FieldAccess(FieldAccess(Var(Name(\"m\")), Name(\"x\")), Name(\"x\"))), ConsStmt(Assign(Var(Name(\"yy\")), Index(Index(Var(Name(\"m\")), *v), *v)), ConsStmt(Assign(Var(Name(\"x\")), *v), ConsStmt(Assign(Var(Name(\"test\")), *v), ConsStmt(Assign(Var(Name(\"g\")), *v), ConsStmt(Assign(Var(Name(\"y\")), *v), ConsStmt(Assign(Var(Name(\"befive\")), *v), NilStmt()))))))))))))"
+        ,shape=box];
+    132 [label="Assign(FieldAccess(ReferenceVal(HeapAddr(0)), Name(\"x\")), *v)"
+        ,shape=box];
+    133 [label="Assign(FieldAccess(ReferenceVal(HeapAddr(0)), Name(\"y\")), *v)"
+        ,shape=box];
+    134 [label="NilStmt()"
+        ,shape=box];
+    135 [label="Assign(Var(Name(\"a\")), *v)"
+        ,shape=box];
+    136 [label="Assign(Var(Name(\"x\")), *v)"
+        ,shape=box];
+    137 [label="ConsStmt(Assign(Var(Name(\"y\")), *v), ConsStmt(Assign(Var(Name(\"r\")), Record(ConsRecordPair(RecordPair(Name(\"hello\"), *v), ConsRecordPair(RecordPair(Name(\"rec\"), Record(ConsRecordPair(RecordPair(Name(\"goodbye\"), *v), NilRecordPair()))), NilRecordPair())))), ConsStmt(Assign(Var(Name(\"s\")), *v), ConsStmt(Assign(Var(Name(\"a\")), *v), ConsStmt(While(*v, Block(ConsStmt(Assign(Var(Name(\"a\")), *v), NilStmt()))), ConsStmt(If(*v, Block(ConsStmt(Assign(Var(Name(\"z\")), *v), NilStmt())), Block(ConsStmt(Assign(Var(Name(\"t\")), *v), NilStmt()))), ConsStmt(Assign(Var(Name(\"m\")), Record(ConsRecordPair(RecordPair(Name(\"x\"), Record(ConsRecordPair(RecordPair(Name(\"x\"), *v), ConsRecordPair(RecordPair(Name(\"y\"), *v), NilRecordPair())))), ConsRecordPair(RecordPair(Name(\"y\"), *v), NilRecordPair())))), ConsStmt(Assign(Var(Name(\"xx\")), FieldAccess(FieldAccess(Var(Name(\"m\")), Name(\"x\")), Name(\"x\"))), ConsStmt(Assign(Var(Name(\"yy\")), Index(Index(Var(Name(\"m\")), *v), *v)), ConsStmt(Assign(Var(Name(\"x\")), *v), ConsStmt(Assign(Var(Name(\"test\")), *v), ConsStmt(Assign(Var(Name(\"g\")), *v), ConsStmt(Assign(Var(Name(\"y\")), *v), ConsStmt(Assign(Var(Name(\"befive\")), *v), NilStmt()))))))))))))))"
+        ,shape=box];
+    138 [label="NilStmt()"
+        ,shape=box];
+    139 [label="Assign(FieldAccess(ReferenceVal(HeapAddr(0)), Name(\"xx\")), *v)"
+        ,shape=box];
+    140 [label="Assign(Var(Name(\"y\")), *v)"
+        ,shape=box];
+    141 [label="ConsStmt(Assign(Var(Name(\"x\")), *v), ConsStmt(Assign(Var(Name(\"test\")), *v), ConsStmt(Assign(Var(Name(\"g\")), *v), ConsStmt(Assign(Var(Name(\"y\")), *v), ConsStmt(Assign(Var(Name(\"befive\")), *v), NilStmt())))))"
+        ,shape=box];
+    1 -> 66 [label="",shape=box];
+    2 -> 5 [label="",shape=box];
+    3 -> 70 [label="",shape=box];
+    4 -> 8 [label="",shape=box];
+    5 -> 3 [label="",shape=box];
+    6 -> 4 [label="",shape=box];
+    7 -> 6 [label="",shape=box];
+    8 -> 1 [label="",shape=box];
+    9 -> 80 [label="",shape=box];
+    10 -> 12 [label="",shape=box];
+    11 -> 18 [label="",shape=box];
+    12 -> 13 [label="",shape=box];
+    13 -> 137 [label="",shape=box];
+    14 -> 16 [label="",shape=box];
+    15 -> 38 [label="",shape=box];
+    16 -> 131 [label="",shape=box];
+    17 -> 15 [label="",shape=box];
+    18 -> 14 [label="",shape=box];
+    19 -> 21 [label="",shape=box];
+    20 -> 11 [label="",shape=box];
+    21 -> 24 [label="",shape=box];
+    22 -> 19 [label="",shape=box];
+    23 -> 28 [label="",shape=box];
+    24 -> 27 [label="",shape=box];
+    25 -> 23 [label="",shape=box];
+    26 -> 37 [label="",shape=box];
+    27 -> 32 [label="",shape=box];
+    28 -> 26 [label="",shape=box];
+    29 -> 34 [label="",shape=box];
+    30 -> 29 [label="",shape=box];
+    31 -> 30 [label="",shape=box];
+    32 -> 31 [label="",shape=box];
+    33 -> 36 [label="",shape=box];
+    34 -> 33 [label="",shape=box];
+    35 -> 25 [label="",shape=box];
+    36 -> 35 [label="",shape=box];
+    37 -> 20 [label="",shape=box];
+    38 -> 22 [label="",shape=box];
+    39 -> 42 [label="",shape=box];
+    40 -> 0 [label="",shape=box];
+    41 -> 39 [label="",shape=box];
+    42 -> 40 [label="",shape=box];
+    43 -> 10 [label="",shape=box];
+    44 -> 51 [label="",shape=box];
+    45 -> 43 [label="",shape=box];
+    46 -> 49 [label="",shape=box];
+    47 -> 48 [label="",shape=box];
+    48 -> 46 [label="",shape=box];
+    49 -> 63 [label="",shape=box];
+    50 -> 47 [label="",shape=box];
+    51 -> 67 [label="",shape=box];
+    52 -> 80 [label="",shape=box];
+    53 -> 61 [label="",shape=box];
+    54 -> 92 [label="",shape=box];
+    55 -> 57 [label="",shape=box];
+    56 -> 54 [label="",shape=box];
+    56 -> 88 [label="",shape=box];
+    57 -> 85 [label="",shape=box];
+    58 -> 62 [label="",shape=box];
+    59 -> 58 [label="",shape=box];
+    60 -> 59 [label="",shape=box];
+    61 -> 60 [label="",shape=box];
+    62 -> 52 [label="",shape=box];
+    63 -> 108 [label="",shape=box];
+    64 -> 65 [label="",shape=box];
+    65 -> 84 [label="",shape=box];
+    66 -> 100 [label="",shape=box];
+    67 -> 50 [label="",shape=box];
+    68 -> 69 [label="",shape=box];
+    69 -> 9 [label="",shape=box];
+    70 -> 135 [label="",shape=box];
+    71 -> 7 [label="",shape=box];
+    72 -> 78 [label="",shape=box];
+    73 -> 72 [label="",shape=box];
+    74 -> 76 [label="",shape=box];
+    75 -> 74 [label="",shape=box];
+    76 -> 73 [label="",shape=box];
+    77 -> 75 [label="",shape=box];
+    78 -> 139 [label="",shape=box];
+    79 -> 77 [label="",shape=box];
+    80 -> 56 [label="",shape=box];
+    81 -> 97 [label="",shape=box];
+    82 -> 81 [label="",shape=box];
+    83 -> 98 [label="",shape=box];
+    84 -> 41 [label="",shape=box];
+    85 -> 79 [label="",shape=box];
+    86 -> 109 [label="",shape=box];
+    87 -> 101 [label="",shape=box];
+    88 -> 53 [label="",shape=box];
+    89 -> 93 [label="",shape=box];
+    90 -> 82 [label="",shape=box];
+    90 -> 83 [label="",shape=box];
+    91 -> 140 [label="",shape=box];
+    92 -> 90 [label="",shape=box];
+    93 -> 103 [label="",shape=box];
+    94 -> 95 [label="",shape=box];
+    95 -> 89 [label="",shape=box];
+    96 -> 95 [label="",shape=box];
+    97 -> 94 [label="",shape=box];
+    98 -> 99 [label="",shape=box];
+    99 -> 96 [label="",shape=box];
+    100 -> 102 [label="",shape=box];
+    101 -> 55 [label="",shape=box];
+    102 -> 91 [label="",shape=box];
+    103 -> 86 [label="",shape=box];
+    104 -> 105 [label="",shape=box];
+    105 -> 110 [label="",shape=box];
+    106 -> 104 [label="",shape=box];
+    107 -> 113 [label="",shape=box];
+    108 -> 129 [label="",shape=box];
+    109 -> 107 [label="",shape=box];
+    110 -> 112 [label="",shape=box];
+    111 -> 115 [label="",shape=box];
+    112 -> 111 [label="",shape=box];
+    113 -> 126 [label="",shape=box];
+    114 -> 125 [label="",shape=box];
+    115 -> 87 [label="",shape=box];
+    116 -> 106 [label="",shape=box];
+    117 -> 118 [label="",shape=box];
+    118 -> 119 [label="",shape=box];
+    119 -> 124 [label="",shape=box];
+    120 -> 123 [label="",shape=box];
+    121 -> 120 [label="",shape=box];
+    122 -> 127 [label="",shape=box];
+    123 -> 117 [label="",shape=box];
+    124 -> 114 [label="",shape=box];
+    125 -> 116 [label="",shape=box];
+    126 -> 122 [label="",shape=box];
+    127 -> 128 [label="",shape=box];
+    128 -> 121 [label="",shape=box];
+    129 -> 141 [label="",shape=box];
+    130 -> 133 [label="",shape=box];
+    131 -> 2 [label="",shape=box];
+    132 -> 71 [label="",shape=box];
+    133 -> 134 [label="",shape=box];
+    134 -> 17 [label="",shape=box];
+    135 -> 68 [label="",shape=box];
+    136 -> 132 [label="",shape=box];
+    137 -> 130 [label="",shape=box];
+    138 -> 44 [label="",shape=box];
+    139 -> 138 [label="",shape=box];
+    140 -> 64 [label="",shape=box];
+    141 -> 136 [label="",shape=box];
+}

@@ -34,7 +34,7 @@ import Languages.Tiger.Parse
 import Languages.Tiger.Signature
 import Languages.Tiger.Translate
 
-instance LangBase Tiger where
+instance Lang Tiger where
 
         type RedState Tiger = (Term Tiger, SimpEnv (Term Tiger) (Term Tiger))
 
@@ -74,6 +74,12 @@ instance LangBase Tiger where
         compFuncName OpIsntShortCircuit = "opIsntShortCircuit"
 
         runCompFunc func (c:cs)  = runExternalComputation func (confState c) (map confTerm (c:cs))
+
+        signature = tigerSig
+
+        initConf t = Conf t (ConsFrame (HeapAddr 0) NilFrame,
+                             realStartingEnv)
+
 
 instance Hashable (CompFunc Tiger)
 
@@ -120,14 +126,6 @@ reducedStartingEnv :: SimpEnv (Term Tiger) (Term Tiger)
 reducedStartingEnv = JustSimpMap $ SingletonSimpMap
                                      (HeapAddr 0)
                                      (ReducedRecord $ Parent $ HeapAddr (-1))
-
-instance Lang Tiger where
-    signature = tigerSig
-
-    initConf t = Conf t (ConsFrame (HeapAddr 0) NilFrame,
-                         realStartingEnv)
-
-
 
 instance HasSOS Tiger where
     rules = tigerRules
@@ -993,5 +991,14 @@ runExternalComputation RunBuiltin (stack, heap) [Concat, DoubExp (StringExp (Con
 runExternalComputation RunBuiltin (stack, heap) [Not, SingExp (IntExp (ConstInt n))] = if n == 0 then returnInt 1 else returnInt 0
 runExternalComputation RunBuiltin (stack, heap) [Exit, SingExp (IntExp (ConstInt n))] = return $ emptyConf $ DoExit (ConstInt n)
 
+runExternalComputation func state [GStar _] = return $ emptyConf ValStar
+runExternalComputation func state [_]       = return $ emptyConf ValStar
+
+runExternalComputation func state [GStar _, _] = return $ emptyConf ValStar
+runExternalComputation func state [_, GStar _] = return $ emptyConf ValStar
+
+runExternalComputation func state [GStar _, _, _] = return $ emptyConf ValStar
+runExternalComputation func state [_, GStar _, _] = return $ emptyConf ValStar
+runExternalComputation func state [_, _, GStar _] = return $ emptyConf ValStar
 
 runExternalComputation fn _ args = error ("Unhandled case in runExternalComputation: " ++ show fn ++ " " ++ show args)
