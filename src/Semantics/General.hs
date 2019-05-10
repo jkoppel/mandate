@@ -20,6 +20,7 @@ import Data.Hashable ( Hashable )
 
 import Configuration
 import Lang
+import Lattice
 import Matching
 import Term
 import Unification
@@ -43,6 +44,10 @@ extComp func state terms = ExtComp func $ map (\term -> Conf term state) terms
 
 instance (Lang l) => Show (ExtComp l) where
   showsPrec d (ExtComp f ts) = showString (BS.unpack $ compFuncName f) . showsPrec (d+1) ts
+
+instance (Lang l) => Meetable (ExtComp l) where
+  meet (ExtComp f1 ts1) (ExtComp f2 ts2) =
+    ExtComp <$> (guard (f1 == f2) >> return f1) <*> mapM (uncurry meet) (zip ts1 ts2)
 
 instance (Lang l) => Matchable (ExtComp l) where
   getVars (ExtComp f ts) = fold (map getVars ts)

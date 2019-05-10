@@ -19,6 +19,7 @@ import Semantics.Abstraction
 import Semantics.Conversion
 import Semantics.PAM
 import Semantics.GeneralMachine as GM
+import Semantics.GraphPattern
 import Term
 
 import Lang

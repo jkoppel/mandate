@@ -1,4 +1,5 @@
-{-# LANGUAGE DeriveGeneric, FlexibleContexts, FlexibleInstances, GADTs, PatternSynonyms, ScopedTypeVariables, StandaloneDeriving, TupleSections, TypeApplications, TypeFamilies, ViewPatterns #-}
+{-# LANGUAGE DeriveGeneric, FlexibleContexts, FlexibleInstances, GADTs, PatternSynonyms, ScopedTypeVariables,
+             StandaloneDeriving, TupleSections, TypeApplications, TypeFamilies, UndecidableInstances, ViewPatterns #-}
 
 module Configuration (
     GConfiguration(..)
@@ -11,6 +12,8 @@ module Configuration (
   , SimpEnv(..)
   , SimpEnvMap(..)
   , getSimpEnvMap
+
+  , normalizeEnvMap
 
   , pattern EmptySimpMap
   , pattern SingletonSimpMap
@@ -28,6 +31,7 @@ import GHC.Generics ( Generic )
 
 import Data.Hashable ( Hashable(..) )
 
+import Lattice
 import Matching.Class
 import Term
 import Var
@@ -53,6 +57,11 @@ confState :: GConfiguration s l -> s
 confState (Conf _ s) = s
 
 
+instance (Meetable s, Eq (GConfiguration s l)) => Meetable (GConfiguration s l) where
+  meet (Conf a1 b1) (Conf a2 b2) = Conf <$> meet a1 a2 <*> meet b1 b2
+  isMinimal (Conf a b) = isMinimal a && isMinimal b
+
+
 -- | Combining terms with the auxiliary state for the language
 --
 -- The core datatypes of this file are GConfiguration and Configuration. However, for reasons of avoiding
@@ -65,6 +74,10 @@ data EmptyState = EmptyState
   deriving ( Eq, Ord, Show, Generic )
 
 instance Hashable EmptyState
+
+instance Meetable EmptyState where
+  meet EmptyState EmptyState = Just EmptyState
+  isMinimal EmptyState = True
 
 -- For languages with no additional state in their configuration, we want to display
 -- the configuration as foo(a,b), not as (foo(a,b) ; empty state).
@@ -114,6 +127,23 @@ deriving instance (Eq a, Eq b) => Eq (SimpEnvMap a b)
 getSimpEnvMap :: SimpEnvMap a b -> Map a b
 getSimpEnvMap (SimpEnvMap m) = m
 
+
+-- TODO: Implement real meet
+instance (Meetable a, Meetable b) => Meetable (SimpEnvMap a b) where
+  meet = meetDefault
+  isMinimal (SimpEnvMap mp) = all (\(k,v) -> isMinimal k && isMinimal v) $ Map.toList mp
+
+-- TODO: Implement real one
+instance (Meetable (SimpEnvMap a b), Eq (SimpEnv a b)) => Meetable (SimpEnv a b) where
+  meet = meetDefault
+
+  isMinimal (SimpEnvRest _ _) = error "Calling isMinimal on map pattern"
+  isMinimal (JustSimpMap m)   = isMinimal m
+
+normalizeEnvMap :: (Ord a, Meetable a, Meetable b) => SimpEnvMap a b -> SimpEnvMap a b
+normalizeEnvMap (SimpEnvMap mp) = SimpEnvMap $ Map.fromList $ maximalElts $ Map.toList mp
+  where
+    mpList = Map.toList mp
 
 --------------------- SimpEnv: Smart constructors ----------------------
 

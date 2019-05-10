@@ -1,43 +1,41 @@
-{-# LANGUAGE FlexibleInstances, TypeSynonymInstances #-}
+{-# LANGUAGE FlexibleInstances, TypeSynonymInstances, UndecidableInstances #-}
 {-# LANGUAGE DeriveGeneric, EmptyDataDecls, PatternSynonyms, TypeFamilies #-}
 
 module Term (
-  Sort(..)
-, Symbol(..)
-, SigNode(..)
-, sigNodeSymbol
-, sigNodeSort
-, sigNodeArity
-, Signature(..)
+    Sort(..)
+  , Symbol(..)
+  , SigNode(..)
+  , sigNodeSymbol
+  , sigNodeSort
+  , sigNodeArity
+  , Signature(..)
 
-, MatchType(..)
-, matchTypePrec
-, matchTypeMeet
-, matchTypeForTerm
+  , MatchType(..)
+  , matchTypeForTerm
 
-, Term
-, pattern Node
-, pattern Val
-, pattern IntNode
-, pattern StrNode
+  , Term
+  , pattern Node
+  , pattern Val
+  , pattern IntNode
+  , pattern StrNode
 
-, pattern ValVar
-, pattern NonvalVar
-, pattern MetaVar
-, pattern GMetaVar
+  , pattern ValVar
+  , pattern NonvalVar
+  , pattern MetaVar
+  , pattern GMetaVar
 
-, pattern ValStar
-, pattern NonvalStar
-, pattern Star
-, pattern GStar
+  , pattern ValStar
+  , pattern NonvalStar
+  , pattern Star
+  , pattern GStar
 
-, mapTerm
-, traverseTerm
+  , mapTerm
+  , traverseTerm
 
-, checkSig
-, checkTerm
-, sortOfTerm
-) where
+  , checkSig
+  , checkTerm
+  , sortOfTerm
+  ) where
 
 import Control.DeepSeq ( deepseq )
 import Control.Monad ( (=<<) )
@@ -56,6 +54,7 @@ import Data.Hashable ( Hashable(..) )
 import Data.Interned ( Interned(..), intern, unintern, Id, Cache, mkCache )
 import Data.Interned.ByteString ( InternedByteString(..) )
 
+import Lattice
 import Var
 
 -----------------------------------------------------------------------------------------------------------
@@ -130,17 +129,6 @@ data MatchType = ValueOnly | NonvalOnly | TermOrValue
 
 instance Hashable MatchType
 
-matchTypePrec :: MatchType -> MatchType -> Bool
-matchTypePrec _          TermOrValue = True
-matchTypePrec ValueOnly  ValueOnly   = True
-matchTypePrec NonvalOnly  NonvalOnly = True
-matchTypePrec _          _           = False
-
-matchTypeMeet :: MatchType -> MatchType -> Maybe MatchType
-matchTypeMeet a b = if a `matchTypePrec` b then Just a
-                    else if b `matchTypePrec` a then Just b
-                    else Nothing
-
 matchTypeForTerm :: Term l -> MatchType
 matchTypeForTerm (Node _ _)      = NonvalOnly
 matchTypeForTerm (Val _ _)       = ValueOnly
@@ -148,6 +136,61 @@ matchTypeForTerm (IntNode _ _)   = TermOrValue
 matchTypeForTerm (StrNode _ _)   = TermOrValue
 matchTypeForTerm (GMetaVar _ mt) = mt
 matchTypeForTerm (GStar      mt) = mt
+
+instance Meetable MatchType where
+  meet a b = if a `prec` b then Just a
+             else if b `prec` a then Just b
+             else Nothing
+
+  prec _          TermOrValue = True
+  prec ValueOnly  ValueOnly   = True
+  prec NonvalOnly  NonvalOnly = True
+  prec _          _           = False
+
+  isMinimal ValueOnly   = True
+  isMinimal NonvalOnly  = True
+  isMinimal TermOrValue = False
+
+instance UpperBound MatchType where
+  top = TermOrValue
+
+  upperBound x y | x == y = x
+  upperBound _ _ = TermOrValue
+
+instance Meetable (Term l) where
+  -- TODO: What to do if there's a var?
+  meet x y
+    | x == y = Just x
+  meet (GStar mt1) (GStar mt2) = GStar <$> meet mt1 mt2
+  meet t s@(GStar _)           = meet s t
+  meet (GStar mt) x            =  if matchTypeForTerm x `prec` mt then Just x else Nothing
+  meet Star       x            = Just x
+  meet _          _            = Nothing
+
+  isMinimal (GStar _) = False
+  isMinimal (Val  _ ts) = all isMinimal ts
+  isMinimal (Node _ ts) = all isMinimal ts
+  isMinimal _           = True
+
+instance UpperBound (Term l) where
+  top = Star
+
+  -- TODO: What to do if there's a var?
+  upperBound x y
+           | x == y = x
+  upperBound (Val s1 ts1)  (Val s2 ts2)  = if s1 == s2 then
+                                             Val s1 (map (uncurry upperBound) (zip ts1 ts2))
+                                           else
+                                             ValStar
+  upperBound (Node s1 ts1) (Node s2 ts2) = if s1 == s2 then
+                                             Val s1 (map (uncurry upperBound) (zip ts1 ts2))
+                                           else
+                                             ValStar
+  -- IntNode, StrNode handled by equality case
+  upperBound (GStar mt)    t             = if matchTypeForTerm t `prec` mt then GStar mt else Star
+  upperBound t             (GStar mt)    = if matchTypeForTerm t `prec` mt then GStar mt else Star
+  upperBound _ _ = Star
+
 
 ----------------------------- Terms -------------------------------------
 

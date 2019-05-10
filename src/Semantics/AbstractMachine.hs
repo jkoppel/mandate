@@ -11,6 +11,9 @@ module Semantics.AbstractMachine (
   , pattern NamedAMRule
   , NamedAMRules
 
+  , stepAm1
+  , stepAm
+
   , amEvaluationSequence
   , amEvaluationTreeDepth
   , amEvaluationTree

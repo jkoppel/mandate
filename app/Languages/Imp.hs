@@ -26,10 +26,11 @@ import Configuration
 import Lang
 import Matching
 import Semantics.Abstraction
+import Semantics.AbstractMachine
 import Semantics.Conversion
 import Semantics.Context
 import Semantics.General
-import Semantics.AbstractMachine
+import Semantics.GraphPattern
 import Semantics.PAM
 import Semantics.SOS
 import Term
@@ -60,6 +61,9 @@ instance Lang ImpLang where
 
   signature = impLangSig
   initConf t = Conf t EmptySimpEnv
+
+instance HasTopState ImpLang where
+  topRedState = JustSimpMap $ SingletonSimpMap ValStar ValStar
 
 instance Hashable (CompFunc ImpLang)
 

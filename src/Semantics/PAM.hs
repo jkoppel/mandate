@@ -39,6 +39,7 @@ import Configuration
 import Debug
 import Graph
 import Lang
+import Lattice
 import Matching
 import Rose
 import Semantics.Abstraction
@@ -60,6 +61,10 @@ instance Hashable Phase
 instance Show Phase where
   showsPrec _ Up   = showString "up"
   showsPrec _ Down = showString "down"
+
+instance Meetable Phase where
+  meet = meetDefault
+  isMinimal = const True
 
 instance Matchable Phase where
   getVars _ = Set.empty

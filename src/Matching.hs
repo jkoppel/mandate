@@ -1,9 +1,7 @@
 {-# LANGUAGE EmptyDataDecls, FlexibleContexts, FlexibleInstances, GADTs, Rank2Types, ScopedTypeVariables, TypeApplications, UndecidableInstances #-}
 
 module Matching (
-    Meetable(..)
-
-  , MonadMatchable(..)
+    MonadMatchable(..)
   , refreshVar
   , Match
   , matchChoose
@@ -40,27 +38,15 @@ import Control.Monad.Logic ( LogicT(..), runLogicT, observeAllT )
 
 import Configuration
 import Debug
+import Lattice
 import MatchEffect
 import Term
 import Var
 
 import Matching.Class
 
-instance {-# OVERLAPPABLE #-} (Eq m) => Meetable m where
-  meet a b = if a == b then Just a else Nothing
-
-instance Meetable (Term l) where
-  -- TODO: What to do if there's a var?
-  meet x y
-    | x == y = Just x
-  meet (GStar mt1) (GStar mt2) = GStar <$> matchTypeMeet mt1 mt2
-  meet t s@(GStar _)           = meet s t
-  meet (GStar mt) x            =  if matchTypeForTerm x `matchTypePrec` mt then Just x else Nothing
-  meet Star       x            = Just x
-  meet _          _            = Nothing
-
 data AnyMatchable where
-  AnyMatchable :: (Matchable m, Meetable m) => m -> AnyMatchable
+  AnyMatchable :: (Matchable m) => m -> AnyMatchable
 
 instance Show AnyMatchable where
   showsPrec d (AnyMatchable x) = showsPrec d x
@@ -150,7 +136,7 @@ instance {-# OVERLAPPING #-} (MonadPlus UnusedMonad, MonadVarAllocator UnusedMon
   withVarAllocator = error "Using UnusedMonad"
   debugVars = error "Using UnusedMonads"
 
-refreshVar :: (MonadMatchable m, Matchable a, Meetable a) => (MetaVar -> a) -> MetaVar -> m MetaVar
+refreshVar :: (MonadMatchable m, Matchable a) => (MetaVar -> a) -> MetaVar -> m MetaVar
 refreshVar f v = do v' <- allocVarM
                     putVar v (f v')
                     return v'
@@ -190,15 +176,15 @@ instance (Typeable l) => Matchable (Term l) where
   match (Pattern (StrNode s1 x1)) (Matchee (StrNode s2 x2))
     | (s1 == s2) && (x1 == x2)                = return ()
 
-  match (Pattern (GMetaVar v mt1))  (Matchee (GStar       mt2)) = case mt1 `matchTypeMeet` mt2 of
+  match (Pattern (GMetaVar v mt1))  (Matchee (GStar       mt2)) = case mt1 `meet` mt2 of
                                                                     Just mtMeet -> putVar v (GStar @l mtMeet)
                                                                     Nothing     -> mzero
 
   -- FIXME: In this next case, if mt1 < mt2, all other uses of v2 should be narrowed
-  match (Pattern (GMetaVar v1 mt1)) (Matchee (GMetaVar v2 mt2)) = case mt1 `matchTypeMeet` mt2 of
+  match (Pattern (GMetaVar v1 mt1)) (Matchee (GMetaVar v2 mt2)) = case mt1 `meet` mt2 of
                                                                     Just mtMeet -> putVar v1 (GMetaVar @l v2 mtMeet)
                                                                     Nothing     -> mzero
-  match (Pattern (GMetaVar v mt)) (Matchee t) = do guard (matchTypeForTerm t `matchTypePrec` mt)
+  match (Pattern (GMetaVar v mt)) (Matchee t) = do guard (matchTypeForTerm t `prec` mt)
                                                    putVar v t
 
   match (Pattern (Node _ _))      (Matchee ValStar   ) = mzero
@@ -218,10 +204,10 @@ instance (Typeable l) => Matchable (Term l) where
   fillMatch = fillMatchTermGen (\v mt -> getVarMaybe v (guardValMatches mt) (return $ GMetaVar v mt))
     where
       guardValMatches :: (MonadMatchable m, Typeable l) => MatchType -> Term l -> m (Term l)
-      guardValMatches mt t = guard (matchTypeForTerm t `matchTypePrec` mt) >> return t
+      guardValMatches mt t = guard (matchTypeForTerm t `prec` mt) >> return t
 
 
-instance {-# OVERLAPPABLE #-} (Typeable (GConfiguration s l)) => Matchable (GConfiguration s l) where
+instance {-# OVERLAPPABLE #-} (Typeable (GConfiguration s l), Meetable (GConfiguration s l)) => Matchable (GConfiguration s l) where
   getVars (Conf t s) = getVars t `Set.union` getVars s
 
   match (Pattern (Conf t1 s1)) (Matchee (Conf t2 s2)) = do
@@ -233,7 +219,7 @@ instance {-# OVERLAPPABLE #-} (Typeable (GConfiguration s l)) => Matchable (GCon
 
 -- Hack to prevent over-eagerly expanding (Matchable (Configuration l)) constraints
 data UnusedLanguage
-instance {-# OVERLAPPING #-} (Matchable s) => Matchable (GConfiguration s UnusedLanguage) where
+instance {-# OVERLAPPING #-} (Matchable s, Meetable (GConfiguration s UnusedLanguage)) => Matchable (GConfiguration s UnusedLanguage) where
   getVars = error "Matching UnusedLanguage"
   match = error "Matching UnusedLanguage"
   refreshVars = error "Matching UnusedLanguage"
@@ -278,28 +264,45 @@ instance Matchable () where
 --
 -- If you fail to close all keys before matching, then you'll get weird behavior
 
-instance (Matchable a, Matchable b) => Matchable (SimpEnvMap a b) where
+forMap :: Map k a -> (k -> a -> b) -> Map k b
+forMap = flip Map.mapWithKey
+
+instance (Matchable a, Matchable b, UpperBound b) => Matchable (SimpEnvMap a b) where
   getVars (SimpEnvMap m) = fold (map getVars keys) `Set.union` fold (map getVars vals)
     where
       (keys, vals) = unzip (Map.toList m)
 
+  -- Two possible implementations of abstract matching, both correct:
+  -- 1) What we do now: For key k1 in pattern and k2 in matchee, if k2 <= k1 or k1 <= k2,
+  --    then join all values mapping to the k2's, match against value of k1
+  -- 2) For each k1/k2 that may match, branch
   match (Pattern (SimpEnvMap m1)) (Matchee (SimpEnvMap m2)) = do
     m1' <- mapKeysM fillMatch m1
-    if Map.keys m1' /= Map.keys m2 then
-      mzero
-    else
-      -- Use (!) because guaranteed has key
-      sequence_ $ Map.mapWithKey (\k v -> match (Pattern v) (Matchee (m2 ! k))) m1'
+    sequence_ $ forMap m1' $ \k1 v1 ->
+      let matching = Map.filterWithKey (\k2 _ -> (k1 `meet` k2) /= Nothing) m2 in
+      case Map.elems matching of
+        []     -> mzero
+        (x:xs) -> match (Pattern v1) (Matchee $ foldl upperBound x xs)
 
-  refreshVars (SimpEnvMap m) = SimpEnvMap <$> (mapKeysM refreshVars =<< mapM refreshVars m)
-  fillMatch   (SimpEnvMap m) = SimpEnvMap <$> (mapKeysM fillMatch   =<< mapM fillMatch   m)
+  refreshVars (SimpEnvMap m) =                     SimpEnvMap <$> (mapKeysM refreshVars =<< mapM refreshVars m)
+  fillMatch   (SimpEnvMap m) = normalizeEnvMap <$> SimpEnvMap <$> (mapKeysM fillMatch   =<< mapM fillMatch   m)
 
 
 -- | Used as a hint to type inference
 declareTypesEq :: (Monad m) => a -> a -> m ()
 declareTypesEq _ _ = return ()
 
-instance (Matchable a, Matchable b, Typeable a) => Matchable (SimpEnv a b) where
+-- | partitionAbstractMap m1 m2 partitions m2 into the things which may match a key in m1,
+--   and the things which may not match a key in m1. The intersection of the two maps will be
+--   abstract keys
+partitionAbstractMap :: (Meetable a, Ord a) => Map a b -> Map a b -> (Map a b, Map a b)
+partitionAbstractMap m1 m2 = ( Map.differenceWithKey (\k a _ -> if isMinimal k then Nothing else Just a) m2 m1
+                             , Map.filterWithKey (\k _ -> not (isMinimal k) || anyIntersecting k ) m2
+                             )
+  where
+    anyIntersecting k2 = any (\k1 -> (k1 `meet` k2) /= Nothing) (Map.keys m1)
+
+instance (Matchable a, Matchable b, Typeable a, UpperBound b) => Matchable (SimpEnv a b) where
   getVars (SimpEnvRest v m) = Set.insert v (getVars m)
   getVars (JustSimpMap m) = getVars m
 
@@ -312,11 +315,11 @@ instance (Matchable a, Matchable b, Typeable a) => Matchable (SimpEnv a b) where
       _ -> do
         m1' <- fillMatch m1
         let (mp1, mp2) = (getSimpEnvMap m1', getSimpEnvMap m2)
-        let diff = Map.difference mp2 mp1
+        let (restMap, innerMap) = partitionAbstractMap mp1 mp2
         debugM $ "Matching maps " ++ show mp1 ++ " and " ++ show mp2
-        debugM $ "Binding var " ++ show v ++ " to " ++ show diff
-        putVar v (JustSimpMap $ SimpEnvMap diff)
-        match (Pattern m1) (Matchee (SimpEnvMap $ Map.intersection mp2 mp1))
+        debugM $ "Binding var " ++ show v ++ " to " ++ show restMap
+        putVar v (JustSimpMap $ SimpEnvMap restMap)
+        match (Pattern m1) (Matchee (SimpEnvMap innerMap))
 
   match (Pattern (JustSimpMap m1)) (Matchee (JustSimpMap m2)) = match (Pattern m1) (Matchee m2)
 
@@ -337,7 +340,12 @@ instance (Matchable a, Matchable b, Typeable a) => Matchable (SimpEnv a b) where
     -- When there is conflict, will prefer the explicitly given keys
     case filledVar of
       (Just (SimpEnvRest v' m2)) -> return $ SimpEnvRest v' $ SimpEnvMap (Map.union (getSimpEnvMap m1') (getSimpEnvMap m2))
-      (Just (JustSimpMap m2))    -> return $ JustSimpMap $ SimpEnvMap (Map.union (getSimpEnvMap m1') (getSimpEnvMap m2))
+      (Just (JustSimpMap m2))    -> return $ JustSimpMap $ normalizeEnvMap $
+                                                   SimpEnvMap (Map.unionWithKey
+                                                                   -- Weak updates for * nodes; strong updates for concrete
+                                                                   (\k x y -> if isMinimal k then y else upperBound x y)
+                                                                   (getSimpEnvMap m1')
+                                                                   (getSimpEnvMap m2))
       Nothing -> return $ SimpEnvRest v m1'
 
   fillMatch (JustSimpMap m) = JustSimpMap <$> fillMatch m

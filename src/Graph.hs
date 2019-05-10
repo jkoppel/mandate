@@ -4,6 +4,7 @@ module Graph (
     Graph
   , showDfsOrder
   , empty
+  , insertNode
   , insert
   , member
   , toRealGraph
@@ -94,6 +95,10 @@ realEdgesForNode g n es = S.toList $ S.map (\edge -> (nodeToIndex g n, nodeToInd
 
 realEdges :: (Eq a) => Graph a -> [RealGraph.LEdge String]
 realEdges g = concat $ M.mapWithKey (realEdgesForNode g) (getGraph g)
+
+-- | `insertNode a g` adds x as a new node to g. Does nothing if x is already in the graph.
+insertNode :: (Eq a, Hashable a) => a -> Graph a -> Graph a
+insertNode a (Graph m) = Graph $ M.insertWith (\_ x -> x) a newNode m
 
 -- | `insert x y g` adds an edge from `x` to `y` in graph `g`. `x` and `y` do
 -- not need to be pre-existing nodes in the graph.

@@ -14,6 +14,7 @@ import Matching
 import Semantics.Abstraction
 import Semantics.Conversion
 import Semantics.General
+import Semantics.GraphPattern
 import Semantics.PAM
 import Semantics.SOS
 import Term
@@ -38,6 +39,8 @@ instance Lang AddMulLang where
   signature = addMulLangSig
   initConf t = Conf t EmptyState
 
+instance HasTopState AddMulLang where
+  topRedState = EmptyState
 
 instance Irrelevance (CompFunc AddMulLang) where
   irrelevance _ RunAdd    = AbsRunAdd
