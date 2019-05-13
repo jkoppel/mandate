@@ -44,37 +44,32 @@ infNameStream nam = map (\i -> mconcat [nam, "-", BS.pack $ show i]) [1..]
 
 
 ----------------------------------- SOS to PAM conversion --------------------------------------------
+-- The business with prepend is a messy way to deal with IO, there's probably a better way to do it.
 
--- | The algorithm here pre-merges consecutive computations.
--- It is less elegant than the one in the paper simply because I had not figured
--- out that formulation when implementing this.
+prepend :: (Lang l) => NamedPAMRule l -> [NamedPAMRule l] -> IO [NamedPAMRule l]
+prepend head rest = return (head : rest)
 
--- | Strips off the first layer of nesting in a context. All computation up to the first
--- KStepTo is converted into a PAM RHS. The remainder, if any, is returned for further conversion into the next rule.
-splitFrame :: (Lang l) => PosFrame l -> Context l -> (PAMRhs l, Context l, Maybe (Configuration l, PosFrame l, Phase))
-splitFrame (KBuild c) k = (GenAMRhs $ PAMState c k Up, k, Nothing)
-splitFrame (KStepTo c f@(KInp i pf)) k = (GenAMRhs $ PAMState c (KPush f k) Down, (KPush f k), Just (i, pf, Up))
-splitFrame (KComputation comp f@(KInp c pf)) k = (GenAMLetComputation c comp (GenAMRhs $ PAMState c (KPush f k) Down),
-                                                (KPush f k), Just(c, pf, Down))
+normalize :: (Lang l) => ByteString -> PAMState l -> PAMRhs l -> IO (NamedPAMRule l) 
+normalize nm st rhs = fromJust <$> runMatchUnique (NamedPAMRule nm <$> (PAM <$> normalizeBoundVars st <*> normalizeBoundVars rhs))
 
 sosRuleToPam' :: (Lang l) => InfNameStream -> PAMState l -> Context l -> PosFrame l -> IO [NamedPAMRule l]
-sosRuleToPam' (nm:nms) st k fr = do
-    debugM $ show fr
-    let (rhs, k', frRest) = splitFrame fr k
-    restRules <- case frRest of
-                   Nothing           -> return []
-                   Just (conf', fr', Up) -> sosRuleToPam' nms (PAMState conf' k' Up) k fr'
-                   Just (conf', fr', Down) -> sosRuleToPam' nms (PAMState conf' k' Down) k fr'
-    rule <- fromJust <$> runMatchUnique (NamedPAMRule nm <$> (PAM <$> normalizeBoundVars st <*> normalizeBoundVars rhs))
-    return (rule : restRules)
+sosRuleToPam' (nm:nms) st k (KBuild c) = do
+    rule <- normalize nm st (GenAMRhs $ PAMState c k Up)
+    return [rule]
 
+sosRuleToPam' (nm:nms) st k (KStepTo c f@(KInp i pf)) = do
+    rule <- normalize nm st (GenAMRhs $ PAMState c (KPush f k) Down)
+    (sosRuleToPam' nms (PAMState i (KPush f k) Up) k pf) >>= prepend rule  
+
+sosRuleToPam' (nm:nms) st k (KComputation comp f@(KInp c pf)) = do
+    rule <- normalize nm st (GenAMLetComputation c comp (GenAMRhs $ PAMState c (KPush f k) Down))
+    (sosRuleToPam' nms (PAMState c (KPush f k) Down) k pf) >>= prepend rule
 
 sosRuleToPam :: (Lang l) => NamedRule l -> IO [NamedPAMRule l]
 sosRuleToPam (NamedRule nam (StepTo conf rhs)) = do
   kv <- nextVar
   let startState = PAMState conf (KVar kv) Down
   sosRuleToPam' (infNameStream nam) startState (KVar kv) (rhsToFrame rhs)
-
 
 sosToPam :: (Lang l) => NamedRules l -> IO (NamedPAMRules l)
 sosToPam rs = concat <$> mapM sosRuleToPam rs
@@ -157,13 +152,19 @@ upRulesInvertible rs = allM upRuleInvertible (upRules $ classifyPAMRules rs)
       debugM $ "Trying to invert rule " ++ BS.unpack nm
       t <- nextVar
       (PAM startState (GenAMRhs upState)) <- specializeUpRuleForStartTerm (NonvalVar t) r
+      invertRule rs (swapPhase upState) startState
 
-      nextSt <- stepPam1 rs (swapPhase upState)
-      case nextSt of
-        Nothing -> return False
-        Just st -> do res <- fmap fromJust $ runMatchUnique $ alphaEq (swapPhase st) startState
-                      debugM $ "Invert successful: " ++ show res
-                      return res
+-- Keep taking steps to invert rule until no available matches, or rule is inverted
+invertRule :: (Lang l) => NamedPAMRules l -> PAMState l -> PAMState l -> IO Bool
+invertRule rs st startState = do
+    nextSt <- stepPam1 rs st
+    case nextSt of
+      Nothing -> return False
+      Just nst -> do
+          res <- fmap fromJust $ runMatchUnique $ alphaEq (swapPhase nst) startState
+          case res of 
+              False -> invertRule rs nst startState
+              True  -> return res 
 
 
 -------------------------------------------------------------------------------------------------------
