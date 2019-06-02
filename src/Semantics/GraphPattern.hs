@@ -1,5 +1,6 @@
 {-# LANGUAGE AllowAmbiguousTypes, ScopedTypeVariables, TupleSections, TypeApplications #-}
 
+
 module Semantics.GraphPattern (
     HasTopState(..)
   , abstractGraphPattern
@@ -65,6 +66,11 @@ makeGraphPatterns absFunc abs rules sig = flip foldMap nodeSigs $ \n ->
     canonicalElt (NodeSig sym children _) = return $ Node sym (map (const NonvalStar) children)
 
     makePattern = abstractGraphPattern absFunc abs rules
+
+
+
+
+---------------------------------------------------------------------------------------------------
 
 
 {-

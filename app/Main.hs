@@ -12,6 +12,7 @@ import Data.GraphViz as GraphViz
 import Data.Graph.Inductive.Example
 import Data.Graph.Inductive.PatriciaTree
 import Data.GraphViz.Printing
+import CfgGenRuntime
 import Graph
 import Rose
 import Semantics.AbstractMachine

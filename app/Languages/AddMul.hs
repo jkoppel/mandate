@@ -8,6 +8,7 @@ import GHC.Generics ( Generic )
 
 import Data.Hashable ( Hashable )
 
+import CfgGenRuntime
 import Configuration
 import Lang
 import Matching
@@ -169,3 +170,31 @@ runExternalComputation func state [_, GStar _] = return $ initConf ValStar
 term1 :: Term AddMulLang
 term1 = Sub (Plus (EVal $ Const 1) (EVal $ Const 2)) (Times (EVal $ Const 3) (EVal $ Const 4))
 
+-----------
+
+
+genCfg :: Term AddMulLang -> GraphGen AddMulLang (GraphNode AddMulLang, GraphNode AddMulLang)
+genCfg t@(Node "+" [t1, t2]) = do (a, b) <- makeInOut t
+                                  (in1, out1) <- genCfg t1
+                                  (in2, out2) <- genCfg t2
+                                  wire a in1
+                                  wire out1 in2
+                                  wire out2 b
+                                  return (a, b)
+genCfg t@(Node "*" [t1, t2]) = do (a, b) <- makeInOut t
+                                  (in1, out1) <- genCfg t1
+                                  (in2, out2) <- genCfg t2
+                                  wire a in1
+                                  wire out1 in2
+                                  wire out2 b
+                                  return (a, b)
+genCfg t@(Node "-" [t1, t2]) = do (a, b) <- makeInOut t
+                                  (in1, out1) <- genCfg t1
+                                  (in2, out2) <- genCfg t2
+                                  wire a in1
+                                  wire out1 in2
+                                  wire out2 b
+                                  return (a, b)
+genCfg t@(Val _ _) = do (a, b) <- makeInOut t
+                        wire a b
+                        return (a, b)
