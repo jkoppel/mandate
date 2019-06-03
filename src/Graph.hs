@@ -3,6 +3,8 @@
 module Graph (
     Graph
   , showDfsOrder
+  , nodeList
+  , edgeList
   , empty
   , insertNode
   , insert
@@ -71,6 +73,11 @@ dfsOrder (Graph g) = execWriter $ evalStateT (mapM doDfs inspectOrder) S.empty
         tell [(x, node)]
         mapM_ doDfs (S.toList $ edges node)
 
+nodeList :: Graph a -> [a]
+nodeList (Graph g) = M.keys g
+
+edgeList :: Graph a -> [(a, a)]
+edgeList (Graph g) = M.foldrWithKey (\a n lst -> map (a,) (S.toList $ edges n) ++ lst) [] g
 
 empty :: Graph a
 empty = Graph M.empty

@@ -1,19 +1,30 @@
-{-# LANGUAGE AllowAmbiguousTypes, ScopedTypeVariables, TupleSections, TypeApplications #-}
+{-# LANGUAGE AllowAmbiguousTypes, FlexibleContexts, ScopedTypeVariables, TemplateHaskell, TupleSections, TypeApplications #-}
 
 
 module Semantics.GraphPattern (
     HasTopState(..)
   , abstractGraphPattern
   , makeGraphPatterns
+  , graphPatternsToCode
   ) where
 
+import Prelude hiding ( (<>) )
+
 import Control.Monad ( forM, (=<<) )
-import Data.Foldable
+import Data.Foldable ( foldMap )
+import Data.Functor ( (<&>) )
+import Data.HashMap.Strict ( HashMap, (!) )
+import qualified Data.HashMap.Strict as HM
 import Data.Map ( Map )
 import qualified Data.Map as Map
 
+import Text.Printf ( printf )
+import Text.PrettyPrint ( Doc, (<>), (<+>), ($$), punctuate, brackets, hcat, vcat, text)
+
+import CfgGenRuntime
 import Configuration
 import Graph
+import GraphPattern.Internals
 import Lang
 import Lattice
 import Semantics.Abstraction
@@ -73,16 +84,113 @@ makeGraphPatterns absFunc abs rules sig = flip foldMap nodeSigs $ \n ->
 ---------------------------------------------------------------------------------------------------
 
 
-{-
- - <+(t1, t2) | 50 > ->
- - (a, b) <- makeInOut
- - (in1, out1) <- genCfg t1
- - (in2, out2) <- genCfg t2
- - wire a in1
- - wire out1 in2
- - wire out2 b
--}
+graphPatternsToCode :: (Lang l) => Map Symbol (Graph (AMState l)) -> Doc
+graphPatternsToCode pats = (vcat $ map (\(k,v) -> graphPatternToCode k v) (Map.assocs pats)) $$ valCase
+
+-- Three things: metavars, variables in the program, am states
+-- maps: cfg node variable names <---> am states
+--     , metavars <---> variables in the program
 
 -- |
 -- Strategy to implement algo:
 --
+-- V1 (works for muladd):
+----- Hardcoded thing for Val
+-----
+----- makeInOut on the root term
+---------- Create a program variable for each metaVar. genCfg on each
+---------- Create map from AMState to program variable representing CFG node
+---------- One wire statement per edge
+-----
+-- Recognizes 3 kinds of states: init state, a metavar, a ValStar. If a a state found not in thisi set.
+
+
+{-
+ - Example output for + node
+ -
+ - genCfg t@(Node "+" [a, b]) = do
+ -   (tIn, tOut) <- makeInOut t
+ -   (aIn, aOut) <- genCfg t1
+ -   (bIn, bOut) <- genCfg t2
+ -   wire tIn aIn
+ -   wire aOut bIn
+ -   wire bOut tOut
+ -   return (tIn, tOut)
+
+-}
+
+graphPatternToCode :: forall l. (Lang l) => Symbol -> Graph (AMState l) -> Doc
+graphPatternToCode sym graphPat = dec <+> body
+  where
+    [startState] = filter isStartState (nodeList graphPat)
+      where
+        isStartState (AMState (Conf (Node s _) _) (KVar _))
+                                               | s == sym = True
+        isStartState _                                    = False
+
+    (mvars, stackVar) = case startState of
+                          AMState (Conf (Node _ vs) _)   k -> (vs, k)
+
+    progVars :: HashMap MetaVar String
+    progVars = go infNameList mvars HM.empty
+      where
+        go (nm:nms) ((NonvalVar v):vs) mp = go nms vs (HM.insert v nm mp)
+        go _        []                 mp = mp
+
+        infNameList = map (:[]) ['a'..'z'] ++ map (++ "'") infNameList
+
+    tName = "t"
+    dec = text "genCfg " <> text tName <> text "@(Node \"" <> text (show sym)
+                         <> text "\"" <+> brackets (hcat $ punctuate (text ", ") (map text (HM.elems progVars))) <> text ") = do"
+
+    body = makeNodes $$ recursiveCalls $$ doWire $$ doReturn
+
+    mkInNode  s = s ++ "In"
+    mkOutNode s = s ++ "Out"
+
+    inNode  = mkInNode  tName
+    outNode = mkOutNode tName
+
+    stateToVarNm :: AMState l -> String
+    stateToVarNm = (stateMap !)
+      where
+
+        contextToVar :: HashMap (Context l) String
+        contextToVar = go (nodeList graphPat) HM.empty
+          where
+            go :: [AMState l] -> HashMap (Context l) String -> HashMap (Context l) String
+            go ((AMState (Conf (NonvalVar v) _) k):sts) mp = go sts (HM.insert k (progVars ! v) mp)
+            go (_:sts)                                  mp = mp
+
+        stateMap :: HashMap (AMState l) String
+        stateMap = foldl (\mp st@(AMState (Conf n _) k) -> HM.insert st (nodeVarForState n k) mp)
+                         HM.empty
+                         (nodeList graphPat)
+
+        nodeVarForState :: Term l -> Context l -> String
+        nodeVarForState (Node s _)   (KVar _) | s == sym = inNode
+        nodeVarForState ValStar      (KVar _)            = outNode
+        nodeVarForState (NonvalVar v) _                  = mkInNode  (progVars ! v)
+        nodeVarForState ValStar      k                   = mkOutNode (contextToVar ! k)
+        nodeVarForState t k =
+          error (printf "Graph pattern has state not yet supported by codegen: <%s | %s>" (show t) (show k))
+
+
+    makeNodes = text (printf "(%s, %s) <- %s %s" inNode outNode ($(funName 'makeInOut) :: String) tName)
+
+    recursiveCalls = vcat $ map recCall (HM.elems progVars)
+      where
+        recCall v = text (printf "(%s, %s) <- %s %s" (mkInNode v) (mkOutNode v) ("genCfg" :: String) v)
+
+    doWire = vcat $ edgeList graphPat <&> \(a, b) ->
+                                             text $(funName 'wire) <+> text (stateToVarNm a) <+> text (stateToVarNm b)
+
+    doReturn = text (printf "return (%s, %s)" inNode outNode)
+
+
+
+
+valCase :: Doc
+valCase = text ("genCfg t@(Val _ _) = do (a, b) <- %s t" `printf` ($(funName 'makeInOut) :: String))
+       $$ text ("                        %s a b"         `printf` ($(funName 'wire) :: String))
+       $$ text ("                        return (a, b)")

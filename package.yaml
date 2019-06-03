@@ -41,7 +41,9 @@ library:
   - intern
   - logict
   - mtl
+  - pretty
   - process
+  - template-haskell
   - text
   - transformers
   - unordered-containers
