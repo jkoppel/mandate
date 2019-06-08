@@ -13,10 +13,13 @@ import Prelude hiding ( (<>) )
 import Control.Monad ( forM, (=<<) )
 import Data.Foldable ( foldMap )
 import Data.Functor ( (<&>) )
+import Data.Hashable ( Hashable )
 import Data.HashMap.Strict ( HashMap, (!) )
 import qualified Data.HashMap.Strict as HM
 import Data.Map ( Map )
 import qualified Data.Map as Map
+
+import Language.Haskell.TH ( nameBase )
 
 import Text.Printf ( printf )
 import Text.PrettyPrint ( Doc, (<>), (<+>), ($$), punctuate, brackets, hcat, vcat, text)
@@ -24,7 +27,6 @@ import Text.PrettyPrint ( Doc, (<>), (<+>), ($$), punctuate, brackets, hcat, vca
 import CfgGenRuntime
 import Configuration
 import Graph
-import GraphPattern.Internals
 import Lang
 import Lattice
 import Semantics.Abstraction
@@ -73,8 +75,8 @@ makeGraphPatterns absFunc abs rules sig = flip foldMap nodeSigs $ \n ->
       where sigNodes = case sig of (Signature s) -> s
 
     canonicalElt :: SigNode -> IO (Term l)
-    --canonicalElt (NodeSig sym children _) = Node sym <$> mapM (const (NonvalVar <$> nextVar)) children
-    canonicalElt (NodeSig sym children _) = return $ Node sym (map (const NonvalStar) children)
+    canonicalElt (NodeSig sym children _) = Node sym <$> mapM (const (NonvalVar <$> nextVar)) children
+    --canonicalElt (NodeSig sym children _) = return $ Node sym (map (const NonvalStar) children)
 
     makePattern = abstractGraphPattern absFunc abs rules
 
@@ -119,6 +121,11 @@ graphPatternsToCode pats = (vcat $ map (\(k,v) -> graphPatternToCode k v) (Map.a
 
 -}
 
+get :: (Hashable a, Eq a) => HashMap a b -> a -> String -> b
+get m a msg = case HM.lookup a m of
+  Just b  -> b
+  Nothing -> error msg
+
 graphPatternToCode :: forall l. (Lang l) => Symbol -> Graph (AMState l) -> Doc
 graphPatternToCode sym graphPat = dec <+> body
   where
@@ -159,8 +166,12 @@ graphPatternToCode sym graphPat = dec <+> body
         contextToVar = go (nodeList graphPat) HM.empty
           where
             go :: [AMState l] -> HashMap (Context l) String -> HashMap (Context l) String
-            go ((AMState (Conf (NonvalVar v) _) k):sts) mp = go sts (HM.insert k (progVars ! v) mp)
-            go (_:sts)                                  mp = mp
+            go ((AMState (Conf (NonvalVar v) _) k):sts) mp = go sts (HM.insert
+                                                                       k
+                                                                       (get progVars v ("ProgVar not found: " ++ show v))
+                                                                       mp)
+            go (_:sts)                                  mp = go sts mp
+            go []                                       mp = mp
 
         stateMap :: HashMap (AMState l) String
         stateMap = foldl (\mp st@(AMState (Conf n _) k) -> HM.insert st (nodeVarForState n k) mp)
@@ -170,20 +181,20 @@ graphPatternToCode sym graphPat = dec <+> body
         nodeVarForState :: Term l -> Context l -> String
         nodeVarForState (Node s _)   (KVar _) | s == sym = inNode
         nodeVarForState ValStar      (KVar _)            = outNode
-        nodeVarForState (NonvalVar v) _                  = mkInNode  (progVars ! v)
-        nodeVarForState ValStar      k                   = mkOutNode (contextToVar ! k)
+        nodeVarForState (NonvalVar v) _                  = mkInNode  (get progVars v ("Progvar not found: " ++ show v))
+        nodeVarForState ValStar      k                   = mkOutNode (get contextToVar k ("Context not found: " ++ show k))
         nodeVarForState t k =
           error (printf "Graph pattern has state not yet supported by codegen: <%s | %s>" (show t) (show k))
 
 
-    makeNodes = text (printf "(%s, %s) <- %s %s" inNode outNode ($(funName 'makeInOut) :: String) tName)
+    makeNodes = text (printf "(%s, %s) <- %s %s" inNode outNode (nameBase 'makeInOut) tName)
 
     recursiveCalls = vcat $ map recCall (HM.elems progVars)
       where
         recCall v = text (printf "(%s, %s) <- %s %s" (mkInNode v) (mkOutNode v) ("genCfg" :: String) v)
 
     doWire = vcat $ edgeList graphPat <&> \(a, b) ->
-                                             text $(funName 'wire) <+> text (stateToVarNm a) <+> text (stateToVarNm b)
+                                             text (nameBase 'wire) <+> text (stateToVarNm a) <+> text (stateToVarNm b)
 
     doReturn = text (printf "return (%s, %s)" inNode outNode)
 
@@ -191,6 +202,6 @@ graphPatternToCode sym graphPat = dec <+> body
 
 
 valCase :: Doc
-valCase = text ("genCfg t@(Val _ _) = do (a, b) <- %s t" `printf` ($(funName 'makeInOut) :: String))
-       $$ text ("                        %s a b"         `printf` ($(funName 'wire) :: String))
+valCase = text ("genCfg t@(Val _ _) = do (a, b) <- %s t" `printf` nameBase 'makeInOut)
+       $$ text ("                        %s a b"         `printf` nameBase 'wire)
        $$ text ("                        return (a, b)")
