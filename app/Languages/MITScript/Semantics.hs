@@ -26,6 +26,7 @@ import Matching
 import Semantics.Abstraction
 import Semantics.Conversion
 import Semantics.General
+import Semantics.GraphPattern
 import Semantics.PAM
 import Semantics.SOS
 import Term
@@ -104,6 +105,9 @@ instance Irrelevance (CompFunc MITScript) where
 
 instance HasSOS MITScript where
     rules = mitScriptRules
+
+instance HasTopState MITScript where
+  topRedState = (ValStar, JustSimpMap $ SingletonSimpMap ValStar ValStar)
 
 emptyConf :: Term MITScript -> Configuration MITScript
 emptyConf t = Conf t (ReducedRecordNil, EmptySimpEnv)

@@ -25,6 +25,7 @@ import Matching
 import Semantics.Abstraction
 import Semantics.Conversion
 import Semantics.General
+import Semantics.GraphPattern
 import Semantics.PAM
 import Semantics.SOS
 import Term hiding ( Symbol )
@@ -104,6 +105,9 @@ instance Irrelevance (CompFunc Tiger) where
     irrelevance _ AbsValIsTrue    = AbsValIsTrue
 
     irrelevance _ OpIsntShortCircuit = OpIsntShortCircuit
+
+instance HasTopState Tiger where
+  topRedState = (ValStar, JustSimpMap $ SingletonSimpMap ValStar ValStar)
 
 realStartingEnv :: SimpEnv (Term Tiger) (Term Tiger)
 realStartingEnv = JustSimpMap $ SimpEnvMap $ Map.fromList

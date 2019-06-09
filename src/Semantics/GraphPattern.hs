@@ -142,13 +142,17 @@ graphPatternToCode sym graphPat = dec <+> body
     progVars = go infNameList mvars HM.empty
       where
         go (nm:nms) ((NonvalVar v):vs) mp = go nms vs (HM.insert v nm mp)
+        go nms      (_:vs)             mp = go nms vs mp
         go _        []                 mp = mp
 
         infNameList = map (:[]) ['a'..'z'] ++ map (++ "'") infNameList
 
     tName = "t"
     dec = text "genCfg " <> text tName <> text "@(Node \"" <> text (show sym)
-                         <> text "\"" <+> brackets (hcat $ punctuate (text ", ") (map text (HM.elems progVars))) <> text ") = do"
+                         <> text "\"" <+> brackets (hcat $ punctuate (text ", ") (map (text.argToVar) mvars)) <> text ") = do"
+      where
+        argToVar (NonvalVar v) = progVars ! v
+        argToVar _             = "_"
 
     body = makeNodes $$ recursiveCalls $$ doWire $$ doReturn
 

@@ -84,7 +84,7 @@ instance HasSOS ImpLang where
   rules = impLangRules
 
 impLangSig :: Signature ImpLang
-impLangSig = Signature [ NodeSig ":=" ["Var", "Exp"] "Exp"
+impLangSig = Signature [ NodeSig ":=" ["Var", "Exp"] "Stmt"
                        , ValSig "Skip" [] "Exp"
                        , NodeSig "Seq" ["Stmt", "Stmt"] "Stmt"
                        , NodeSig "If" ["Exp", "Stmt", "Stmt"] "Stmt"
