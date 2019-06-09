@@ -1,10 +1,12 @@
-{-# LANGUAGE FlexibleContexts, TupleSections #-}
+{-# LANGUAGE DeriveGeneric, FlexibleContexts, TupleSections #-}
 
 module Graph (
     Graph
+  , EdgeType(..)
   , showDfsOrder
   , nodeList
   , edgeList
+  , normalEdgeList
   , empty
   , insertNode
   , insert
@@ -17,8 +19,11 @@ module Graph (
 import Control.Monad.Writer ( tell, execWriter )
 import Control.Monad.State ( gets, modify, evalStateT )
 
-import Data.List ( partition, elemIndex )
+import Data.Function ( on )
+import Data.List ( partition, elemIndex, sortBy, groupBy )
 import Data.Maybe (fromMaybe)
+
+import GHC.Generics (Generic)
 
 import qualified Data.Graph.Inductive.Graph as RealGraph
 import Data.HashMap.Strict ( HashMap, (!) )
@@ -34,9 +39,24 @@ import Data.Hashable ( Hashable(..) )
 
 ------------------------------------------------------------------------------------------------
 
+-- NOTE to self:
+-- Figuring out how to cleanly parameterize over the type of edges without
+-- complexifying the interface is a great and easy-to-understand example of
+-- a problem I've faced a ton in Haskell
+
+-- Until I figure that out, this is a design problem,
+-- as the definition of graph node is needlessly specialized to transition systems
+
+
+data EdgeType = NormalEdge | TransitiveEdge
+  deriving (Eq, Ord, Show, Generic)
+
+instance Hashable EdgeType
+
+
 data GraphNode a = GraphNode { inDeg  :: !Int
                              , outDeg :: !Int
-                             , edges  :: !(HashSet a)}
+                             , edges  :: !(HashSet (EdgeType, a))}
 
 newtype Graph a = Graph { getGraph :: HashMap a (GraphNode a) }
 
@@ -71,13 +91,17 @@ dfsOrder (Graph g) = execWriter $ evalStateT (mapM doDfs inspectOrder) S.empty
         let node = g ! x
         modify (S.insert x)
         tell [(x, node)]
-        mapM_ doDfs (S.toList $ edges node)
+        mapM_ (doDfs.snd) (S.toList $ edges node)
 
 nodeList :: Graph a -> [a]
 nodeList (Graph g) = M.keys g
 
-edgeList :: Graph a -> [(a, a)]
-edgeList (Graph g) = M.foldrWithKey (\a n lst -> map (a,) (S.toList $ edges n) ++ lst) [] g
+edgeList :: Graph a -> [(a, EdgeType, a)]
+edgeList (Graph g) = map flat3 $ M.foldrWithKey (\a n lst -> map (a,) (S.toList $ edges n) ++ lst) [] g
+  where flat3 (a, (b, c)) = (a, b, c)
+
+normalEdgeList :: Graph a -> [(a, a)]
+normalEdgeList g = [(a, b) | (a, NormalEdge, b) <- edgeList g]
 
 empty :: Graph a
 empty = Graph M.empty
@@ -98,7 +122,7 @@ realNodesConv :: (Eq a, Show b) => Graph a -> (a -> b) -> [RealGraph.LNode Strin
 realNodesConv g conv = map (\key -> (nodeToIndex g key, show $ conv key)) (M.keys $ getGraph g)
 
 realEdgesForNode :: (Eq a) => Graph a -> a -> GraphNode a -> [RealGraph.LEdge String]
-realEdgesForNode g n es = S.toList $ S.map (\edge -> (nodeToIndex g n, nodeToIndex g edge, "")) (edges es)
+realEdgesForNode g n es = S.toList $ S.map (\(edgeType, targ) -> (nodeToIndex g n, nodeToIndex g targ, show edgeType)) (edges es)
 
 realEdges :: (Eq a) => Graph a -> [RealGraph.LEdge String]
 realEdges g = concat $ M.mapWithKey (realEdgesForNode g) (getGraph g)
@@ -109,18 +133,18 @@ insertNode a (Graph m) = Graph $ M.insertWith (\_ x -> x) a newNode m
 
 -- | `insert x y g` adds an edge from `x` to `y` in graph `g`. `x` and `y` do
 -- not need to be pre-existing nodes in the graph.
-insert :: (Eq a, Hashable a) => a -> a -> Graph a -> Graph a
-insert x y (Graph m) = Graph $ addEdge x y
-                             $ incOutDeg x
-                             $ incInDeg y
-                             $ addIfNotExists x newNode
-                             $ addIfNotExists y newNode
-                             $ m
+insert :: (Eq a, Hashable a) => a -> EdgeType -> a -> Graph a -> Graph a
+insert x et y (Graph m) = Graph $ addEdge x et y
+                                $ incOutDeg x
+                                $ incInDeg y
+                                $ addIfNotExists x newNode
+                                $ addIfNotExists y newNode
+                                $ m
   where
     incInDeg  i mp = M.adjust (\n -> n { inDeg =  inDeg n + 1}) i mp
     incOutDeg i mp = M.adjust (\n -> n {outDeg = outDeg n + 1}) i mp
     addIfNotExists a b mp = M.insertWith (\_ x -> x) a b mp
-    addEdge a b mp = M.adjust (\n -> n { edges = S.insert b (edges n)}) a mp
+    addEdge a t b mp = M.adjust (\n -> n { edges = S.insert (t, b) (edges n)}) a mp
 
 
 -- | `member n graph` returns whether n is a node in `graph`
@@ -135,10 +159,21 @@ toRealConvGraph g conv = RealGraph.mkGraph (realNodesConv g conv) (realEdges g)
 
 type Projection a b = a -> b
 
-graphQuotient :: (Eq a, Hashable a, Eq b, Hashable b) => Projection a b -> Graph a -> Graph b
-graphQuotient p ga = foldr (\(ia, ib, l) -> insertWithoutSelfEdges ia ib) empty (realEdges ga)
+-- TODO: Only handles normal edges
+graphQuotient :: (Eq a, Hashable a, Ord b, Hashable b) => Projection a b -> Graph a -> Graph b
+graphQuotient p g = let projNoSelfEs = foldr (\(a, t, b) -> insertWithoutSelfEdges a t b) empty (edgeList g)
+                    in foldr (\a -> insert a NormalEdge a) projNoSelfEs selfEdges
     where
-      aIndexToB i = p $ indexToNode ga i
-      insertWithoutSelfEdges a b = if aIndexToB a /= aIndexToB b
-                                      then insert (aIndexToB a) (aIndexToB b)
-                                      else id
+      insertWithoutSelfEdges a t b = if p a /= p b
+                                     then insert (p a) t (p b)
+                                     else id
+
+      equivClasses :: (Ord b) => (a -> b) -> [a] -> [[a]]
+      equivClasses f = groupBy ((==) `on` f) . sortBy (compare `on` f)
+
+      selfEdges = map (p.head) $ filter (all hasSelfEdge) $ equivClasses p (nodeList g)
+        where
+          hasSelfEdge a = let es = S.toList $ edges (getGraph g ! a)
+                          in case partition (\(t, b) -> t == NormalEdge) es of
+                            (_, x:xs)      -> error "Non-normal edge found in graph to quotient; not yet implemented"
+                            (normalEs, []) -> any (\(t, b) -> p b == p a) normalEs

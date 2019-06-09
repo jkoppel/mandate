@@ -5,8 +5,9 @@ module CfgGenRuntime (
   , GraphGen
   , runGraphGen
   , GraphNode
+  , GraphNodes
   , makeInOut
-  , wire
+  , connect
   ) where
 
 import Control.Monad.State ( MonadState(..), State, gets, modify, execState)
@@ -57,7 +58,9 @@ nextId = do counter <- gets ggs_counter
             modify (\s -> s { ggs_counter = counter + 1})
             return counter
 
-makeInOut :: (MonadGraphGen l m) => Term l -> m (GraphNode l, GraphNode l)
+type GraphNodes l = [GraphNode l]
+
+makeInOut :: (MonadGraphGen l m) => Term l -> m (GraphNodes l, GraphNodes l)
 makeInOut t = do id1 <- nextId
                  id2 <- nextId
                  let node1 = GraphNode id1 EnterNode t
@@ -66,12 +69,15 @@ makeInOut t = do id1 <- nextId
                  let curGraph' = insertNode node1 $ insertNode node2 curGraph
                  modify (\s -> s {ggs_graph = curGraph'})
 
-                 return (node1, node2)
+                 return ([node1], [node2])
 
 
 -- This would be just "ggs_graph %= insert a b" with lens, but I'm
 -- not using lens b/c compile time (and friendliness to undergrads)
-wire :: (MonadGraphGen l m) => GraphNode l -> GraphNode l -> m ()
-wire a b = do curGraph <- gets ggs_graph
-              let curGraph' = insert a b curGraph
-              modify (\s -> s {ggs_graph = curGraph'})
+connect1 :: (MonadGraphGen l m) => GraphNode l -> GraphNode l -> m ()
+connect1 a b = do curGraph <- gets ggs_graph
+                  let curGraph' = insert a NormalEdge b curGraph
+                  modify (\s -> s {ggs_graph = curGraph'})
+
+connect :: (MonadGraphGen l m) => GraphNodes l -> GraphNodes l -> m ()
+connect as bs = sequence_ [connect1 a b | a <- as, b <- bs]

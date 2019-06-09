@@ -53,12 +53,12 @@ conf t s = swapState (initConf t) s
 abstractGraphPattern :: forall l. (HasTopState l) => Abstraction (CompFunc l) -> Abstraction (AMState l) -> NamedAMRules l -> Term l -> IO (Graph (AMState l))
 abstractGraphPattern absFunc abs rules t = do
     initState <- abs <$> AMState (conf t (topRedState @l)) <$> KVar <$> nextVar
-    explorationGraph step initState
+    genTransitionGraph step initState
   where
-    step :: AMState l -> IO [(AMState l, TransitionType)]
-    step as@(AMState (Conf  NonvalStar   _) k) = return [(AMState (Conf ValStar (topRedState @l)) k, Explore)]
-    step as@(AMState (Conf (NonvalVar _) _) k) = return [(AMState (Conf ValStar (topRedState @l)) k, Explore)]
-    step as = map (,Step) <$> map abs <$> stepAm (map (abstractCompFuncs absFunc) rules) as
+    step :: AMState l -> IO [(AMState l, EdgeType)]
+    step as@(AMState (Conf  NonvalStar   _) k) = return [(AMState (Conf ValStar (topRedState @l)) k, TransitiveEdge)]
+    step as@(AMState (Conf (NonvalVar _) _) k) = return [(AMState (Conf ValStar (topRedState @l)) k, TransitiveEdge)]
+    step as = map (,NormalEdge) <$> map abs <$> stepAm (map (abstractCompFuncs absFunc) rules) as
 
 
 makeGraphPatterns :: (HasTopState l) => Abstraction (CompFunc l) -> Abstraction (AMState l)
@@ -197,8 +197,8 @@ graphPatternToCode sym graphPat = dec <+> body
       where
         recCall v = text (printf "(%s, %s) <- %s %s" (mkInNode v) (mkOutNode v) ("genCfg" :: String) v)
 
-    doWire = vcat $ edgeList graphPat <&> \(a, b) ->
-                                             text (nameBase 'wire) <+> text (stateToVarNm a) <+> text (stateToVarNm b)
+    doWire = vcat $ normalEdgeList graphPat <&> \(a, b) ->
+                                             text (nameBase 'connect) <+> text (stateToVarNm a) <+> text (stateToVarNm b)
 
     doReturn = text (printf "return (%s, %s)" inNode outNode)
 
@@ -207,5 +207,5 @@ graphPatternToCode sym graphPat = dec <+> body
 
 valCase :: Doc
 valCase = text ("genCfg t@(Val _ _) = do (a, b) <- %s t" `printf` nameBase 'makeInOut)
-       $$ text ("                        %s a b"         `printf` nameBase 'wire)
+       $$ text ("                        %s a b"         `printf` nameBase 'connect)
        $$ text ("                        return (a, b)")

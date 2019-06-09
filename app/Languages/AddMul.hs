@@ -173,28 +173,28 @@ term1 = Sub (Plus (EVal $ Const 1) (EVal $ Const 2)) (Times (EVal $ Const 3) (EV
 -----------
 
 
-genCfg :: Term AddMulLang -> GraphGen AddMulLang (GraphNode AddMulLang, GraphNode AddMulLang)
+genCfg :: Term AddMulLang -> GraphGen AddMulLang (GraphNodes AddMulLang, GraphNodes AddMulLang)
 genCfg t@(Node "+" [t1, t2]) = do (a, b) <- makeInOut t
                                   (in1, out1) <- genCfg t1
                                   (in2, out2) <- genCfg t2
-                                  wire a in1
-                                  wire out1 in2
-                                  wire out2 b
+                                  connect a in1
+                                  connect out1 in2
+                                  connect out2 b
                                   return (a, b)
 genCfg t@(Node "*" [t1, t2]) = do (a, b) <- makeInOut t
                                   (in1, out1) <- genCfg t1
                                   (in2, out2) <- genCfg t2
-                                  wire a in1
-                                  wire out1 in2
-                                  wire out2 b
+                                  connect a in1
+                                  connect out1 in2
+                                  connect out2 b
                                   return (a, b)
 genCfg t@(Node "-" [t1, t2]) = do (a, b) <- makeInOut t
                                   (in1, out1) <- genCfg t1
                                   (in2, out2) <- genCfg t2
-                                  wire a in1
-                                  wire out1 in2
-                                  wire out2 b
+                                  connect a in1
+                                  connect out1 in2
+                                  connect out2 b
                                   return (a, b)
 genCfg t@(Val _ _) = do (a, b) <- makeInOut t
-                        wire a b
+                        connect a b
                         return (a, b)
