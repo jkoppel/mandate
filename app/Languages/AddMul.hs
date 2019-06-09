@@ -164,6 +164,8 @@ runExternalComputation RunMin state [EVal (Const n1), EVal (Const n2)] = return 
 
 runExternalComputation func state [GStar _, _] = return $ initConf ValStar
 runExternalComputation func state [_, GStar _] = return $ initConf ValStar
+runExternalComputation func state [ValVar _, _] = return $ initConf ValStar
+runExternalComputation func state [_, ValVar _] = return $ initConf ValStar
 
 -----------
 

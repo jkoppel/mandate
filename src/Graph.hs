@@ -5,14 +5,25 @@ module Graph (
   , EdgeType(..)
   , showDfsOrder
   , nodeList
+
   , edgeList
+  , edgeListForType
   , normalEdgeList
+  , transitiveEdgeList
+
   , empty
   , insertNode
   , insert
+
   , member
+  , succs
+  , sinks
+
+
   , toRealGraph
   , toRealConvGraph
+
+  , Projection
   , graphQuotient
   ) where
 
@@ -20,7 +31,7 @@ import Control.Monad.Writer ( tell, execWriter )
 import Control.Monad.State ( gets, modify, evalStateT )
 
 import Data.Function ( on )
-import Data.List ( partition, elemIndex, sortBy, groupBy )
+import Data.List ( partition, elemIndex, sortBy, groupBy, null )
 import Data.Maybe (fromMaybe)
 
 import GHC.Generics (Generic)
@@ -38,6 +49,8 @@ import Data.Hashable ( Hashable(..) )
 -- | A simple digraph, implemented as a map of nodes to edges.
 
 ------------------------------------------------------------------------------------------------
+
+--------------------------------------- Types ------------------------
 
 -- NOTE to self:
 -- Figuring out how to cleanly parameterize over the type of edges without
@@ -59,6 +72,9 @@ data GraphNode a = GraphNode { inDeg  :: !Int
                              , edges  :: !(HashSet (EdgeType, a))}
 
 newtype Graph a = Graph { getGraph :: HashMap a (GraphNode a) }
+
+
+---------------------------- Printing -----------------------------
 
 showsPrecNode' :: (Show a) => Int -> a -> GraphNode a -> ShowS -> ShowS
 showsPrecNode' d n es s = showString "Node: " . showsPrec d n . showString "\n" .
@@ -93,6 +109,8 @@ dfsOrder (Graph g) = execWriter $ evalStateT (mapM doDfs inspectOrder) S.empty
         tell [(x, node)]
         mapM_ (doDfs.snd) (S.toList $ edges node)
 
+---------------------------- As list -----------------------------
+
 nodeList :: Graph a -> [a]
 nodeList (Graph g) = M.keys g
 
@@ -100,14 +118,17 @@ edgeList :: Graph a -> [(a, EdgeType, a)]
 edgeList (Graph g) = map flat3 $ M.foldrWithKey (\a n lst -> map (a,) (S.toList $ edges n) ++ lst) [] g
   where flat3 (a, (b, c)) = (a, b, c)
 
+edgeListForType :: EdgeType -> Graph a -> [(a, a)]
+edgeListForType t g = [(a, b) | (a, t', b) <- edgeList g, t == t']
+
 normalEdgeList :: Graph a -> [(a, a)]
-normalEdgeList g = [(a, b) | (a, NormalEdge, b) <- edgeList g]
+normalEdgeList = edgeListForType NormalEdge
 
-empty :: Graph a
-empty = Graph M.empty
+transitiveEdgeList :: Graph a -> [(a, a)]
+transitiveEdgeList = edgeListForType TransitiveEdge
 
-newNode :: GraphNode a
-newNode = GraphNode 0 0 S.empty
+
+------------------------ Export -----------------------------------
 
 nodeToIndex :: (Eq a) => Graph a -> a -> Int
 nodeToIndex g n = fromMaybe (negate 1) (elemIndex n (M.keys $ getGraph g))
@@ -126,6 +147,20 @@ realEdgesForNode g n es = S.toList $ S.map (\(edgeType, targ) -> (nodeToIndex g 
 
 realEdges :: (Eq a) => Graph a -> [RealGraph.LEdge String]
 realEdges g = concat $ M.mapWithKey (realEdgesForNode g) (getGraph g)
+
+toRealGraph :: (RealGraph.Graph gr, Eq a, Show a) => Graph a -> gr String String
+toRealGraph g = RealGraph.mkGraph (realNodes g) (realEdges g)
+
+toRealConvGraph :: (RealGraph.Graph gr, Eq a, Show b) => Graph a -> (a -> b) -> gr String String
+toRealConvGraph g conv = RealGraph.mkGraph (realNodesConv g conv) (realEdges g)
+
+---------------------- Graph construction -------------------------
+
+empty :: Graph a
+empty = Graph M.empty
+
+newNode :: GraphNode a
+newNode = GraphNode 0 0 S.empty
 
 -- | `insertNode a g` adds x as a new node to g. Does nothing if x is already in the graph.
 insertNode :: (Eq a, Hashable a) => a -> Graph a -> Graph a
@@ -147,17 +182,24 @@ insert x et y (Graph m) = Graph $ addEdge x et y
     addEdge a t b mp = M.adjust (\n -> n { edges = S.insert (t, b) (edges n)}) a mp
 
 
+------------------------------- Graph querying ------------------------
+
 -- | `member n graph` returns whether n is a node in `graph`
 member :: (Eq a, Hashable a) => a -> Graph a -> Bool
 member a = M.member a . getGraph
 
-toRealGraph :: (RealGraph.Graph gr, Eq a, Show a) => Graph a -> gr String String
-toRealGraph g = RealGraph.mkGraph (realNodes g) (realEdges g)
+succs :: (Eq a, Hashable a) => Graph a -> a -> [a]
+succs g a = case M.lookup a (getGraph g) of
+              Nothing -> error ("succs: Node not in graph")
+              Just n  -> map snd $ S.toList (edges n)
 
-toRealConvGraph :: (RealGraph.Graph gr, Eq a, Show b) => Graph a -> (a -> b) -> gr String String
-toRealConvGraph g conv = RealGraph.mkGraph (realNodesConv g conv) (realEdges g)
+sinks :: (Eq a, Hashable a) => Graph a -> [a]
+sinks g = filter (\x -> null (succs g x)) $ nodeList g
+
+------------------------ Graph quotients ---------------------------
 
 type Projection a b = a -> b
+
 
 -- TODO: Only handles normal edges
 graphQuotient :: (Eq a, Hashable a, Ord b, Hashable b) => Projection a b -> Graph a -> Graph b

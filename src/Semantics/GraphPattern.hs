@@ -16,6 +16,7 @@ import Data.Functor ( (<&>) )
 import Data.Hashable ( Hashable )
 import Data.HashMap.Strict ( HashMap, (!) )
 import qualified Data.HashMap.Strict as HM
+import Data.List ( concat, intercalate )
 import Data.Map ( Map )
 import qualified Data.Map as Map
 
@@ -57,7 +58,7 @@ abstractGraphPattern absFunc abs rules t = do
   where
     step :: AMState l -> IO [(AMState l, EdgeType)]
     step as@(AMState (Conf  NonvalStar   _) k) = return [(AMState (Conf ValStar (topRedState @l)) k, TransitiveEdge)]
-    step as@(AMState (Conf (NonvalVar _) _) k) = return [(AMState (Conf ValStar (topRedState @l)) k, TransitiveEdge)]
+    step as@(AMState (Conf (NonvalVar _) _) k) = nextVar >>= \v -> return [(AMState (Conf (ValVar v) (topRedState @l)) k, TransitiveEdge)]
     step as = map (,NormalEdge) <$> map abs <$> stepAm (map (abstractCompFuncs absFunc) rules) as
 
 
@@ -147,6 +148,11 @@ graphPatternToCode sym graphPat = dec <+> body
 
         infNameList = map (:[]) ['a'..'z'] ++ map (++ "'") infNameList
 
+    outVars :: HashMap MetaVar String
+    outVars = foldr addV HM.empty $ transitiveEdgeList graphPat
+      where
+        addV (AMState (Conf (NonvalVar v) _) _, AMState (Conf (ValVar v') _) _) = HM.insert v' (progVars ! v)
+
     tName = "t"
     dec = text "genCfg " <> text tName <> text "@(Node \"" <> text (show sym)
                          <> text "\"" <+> brackets (hcat $ punctuate (text ", ") (map (text.argToVar) mvars)) <> text ") = do"
@@ -165,7 +171,7 @@ graphPatternToCode sym graphPat = dec <+> body
     stateToVarNm :: AMState l -> String
     stateToVarNm = (stateMap !)
       where
-
+        {-
         contextToVar :: HashMap (Context l) String
         contextToVar = go (nodeList graphPat) HM.empty
           where
@@ -176,19 +182,25 @@ graphPatternToCode sym graphPat = dec <+> body
                                                                        mp)
             go (_:sts)                                  mp = go sts mp
             go []                                       mp = mp
+        -}
+
+        nodeVarForState' :: Term l -> Context l -> String
+        nodeVarForState' (Node s _)   (KVar _) | s == sym = inNode
+        nodeVarForState' ValStar      (KVar _)            = outNode
+        nodeVarForState' (NonvalVar v) _                  = mkInNode  (get progVars v ("Progvar not found: " ++ show v))
+        nodeVarForState' (ValVar v)    _                  = mkOutNode (get outVars  v ("Outvar not found: "  ++ show v))
+        nodeVarForState' t k =
+          error (printf "Graph pattern has state not yet supported by codegen: <%s | %s>" (show t) (show k))
+
+        nodeVarForState :: AMState l -> String
+        nodeVarForState (AMState (Conf n _) k) = nodeVarForState' n k
 
         stateMap :: HashMap (AMState l) String
-        stateMap = foldl (\mp st@(AMState (Conf n _) k) -> HM.insert st (nodeVarForState n k) mp)
+        stateMap = foldl (\mp st -> HM.insert st (nodeVarForState st) mp)
                          HM.empty
                          (nodeList graphPat)
 
-        nodeVarForState :: Term l -> Context l -> String
-        nodeVarForState (Node s _)   (KVar _) | s == sym = inNode
-        nodeVarForState ValStar      (KVar _)            = outNode
-        nodeVarForState (NonvalVar v) _                  = mkInNode  (get progVars v ("Progvar not found: " ++ show v))
-        nodeVarForState ValStar      k                   = mkOutNode (get contextToVar k ("Context not found: " ++ show k))
-        nodeVarForState t k =
-          error (printf "Graph pattern has state not yet supported by codegen: <%s | %s>" (show t) (show k))
+    finalNodes = map stateToVarNm $ sinks graphPat
 
 
     makeNodes = text (printf "(%s, %s) <- %s %s" inNode outNode (nameBase 'makeInOut) tName)
@@ -200,7 +212,7 @@ graphPatternToCode sym graphPat = dec <+> body
     doWire = vcat $ normalEdgeList graphPat <&> \(a, b) ->
                                              text (nameBase 'connect) <+> text (stateToVarNm a) <+> text (stateToVarNm b)
 
-    doReturn = text (printf "return (%s, %s)" inNode outNode)
+    doReturn = text (printf "return (%s, %s [%s])" inNode (nameBase 'concat) (intercalate "," finalNodes))
 
 
 

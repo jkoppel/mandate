@@ -349,8 +349,12 @@ runExternalComputation DoWrite state [EVal (StrConst s)] = matchEffectOutput (un
 
 runExternalComputation AbsRunAdd state [GStar _, _] = return $ initConf ValStar
 runExternalComputation AbsRunAdd state [_, GStar _] = return $ initConf ValStar
+runExternalComputation AbsRunAdd state [ValVar _, _] = return $ initConf ValStar
+runExternalComputation AbsRunAdd state [_, ValVar _] = return $ initConf ValStar
 runExternalComputation AbsRunLT  state [GStar _, _] = (return $ initConf True) `mplus` (return $ initConf False)
 runExternalComputation AbsRunLT  state [_, GStar _] = (return $ initConf True) `mplus` (return $ initConf False)
+runExternalComputation AbsRunLT  state [ValVar _, _] = (return $ initConf True) `mplus` (return $ initConf False)
+runExternalComputation AbsRunLT  state [_, ValVar _] = (return $ initConf True) `mplus` (return $ initConf False)
 
 runExternalComputation AbsDoReadInt   state [_] = return $ initConf ValStar
 runExternalComputation AbsDoWriteInt  state [_] = return $ initConf Skip
