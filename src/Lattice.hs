@@ -23,7 +23,7 @@ class (Meetable m) => UpperBound m where
   top :: m
 
   -- | If z = x `upperBound` y, then x < z and y < z
-  -- Not necessarily a join; the relevannt poset may not have least upper-bounds
+  -- Not necessarily a join; the relevant poset may not have least upper-bounds
   -- (Namely, maps do not)
   upperBound  :: m -> m -> m
 
