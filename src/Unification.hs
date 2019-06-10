@@ -5,7 +5,7 @@ module Unification (
   , Unifiable(..)
   ) where
 
-import Control.Monad ( guard, forM_, MonadPlus(..) )
+import Control.Monad ( guard, when, forM_, MonadPlus(..) )
 
 import Data.List ( sort )
 import Data.Map ( Map, (!) )
@@ -133,23 +133,33 @@ instance Unifiable () where
 
 --------------------------- SimpEnvMap unification ----------------------------
 
--- | NOTE: This doesn't work for
--- abstract terms. However, it doesn't need to
-instance {-# OVERLAPPABLE #-} (Matchable a, Unifiable b, Matchable (SimpEnvMap a b)) => Unifiable (SimpEnvMap a b) where
+-- Duplicate of forMap in Matching.hs; missing a home
+forMap :: Map k a -> (k -> a -> b) -> Map k b
+forMap = flip Map.mapWithKey
+
+-- See comment about Match implementation in Matching.hs
+instance {-# OVERLAPPABLE #-} (Matchable a, Unifiable b, Matchable (SimpEnvMap a b), UpperBound b)
+                                => Unifiable (SimpEnvMap a b) where
   unify (SimpEnvMap m1) (SimpEnvMap m2) = do
     m1' <- mapKeysM fillMatch m1
     m2' <- mapKeysM fillMatch m2
+    debugM $ "Doing inner map unify of " ++ show m1' ++ " and " ++ show m2'
 
-    if Map.keys m1 /= Map.keys m2 then
-      mzero
-    else
-      sequence_ $ Map.mapWithKey (\k v -> unify v (m2 ! k)) m1'
+    sequence_ $ forMap m1' $ \k1 v1 ->
+      let matching = Map.filterWithKey (\k2 _ -> (k1 `meet` k2) /= Nothing) m2' in
+      debugM (show k1 ++ " matches " ++ (show $ Map.keys matching)) >>
+      case Map.elems matching of
+        []     -> mzero
+        (x:xs) -> unify v1 (foldl upperBound x xs)
 
 instance {-# OVERLAPPING #-} (Matchable UnusedLanguage) => Unifiable (SimpEnvMap UnusedLanguage UnusedLanguage) where
   unify = error "Unifying SimpEnvMap of UnusedLanguage"
 
 
-unifySimpEnv :: forall a b m. (MonadUnify m, Matchable a, Unifiable b, Matchable (SimpEnv a b), Unifiable (SimpEnvMap a b)) => SimpEnv a b -> SimpEnv a b -> m ()
+-- TODO: Some of these cases are probably redundant
+unifySimpEnv :: forall a b m. ( MonadUnify m, Matchable a, Unifiable b, Matchable (SimpEnv a b)
+                              , Unifiable (SimpEnvMap a b), UpperBound b)
+                                 => SimpEnv a b -> SimpEnv a b -> m ()
 unifySimpEnv (WholeSimpEnv v1) (WholeSimpEnv v2) = if v1 == v2 then
                                                      return ()
                                                    else
@@ -161,15 +171,28 @@ unifySimpEnv (JustSimpMap m1)  (JustSimpMap m2)  = unify m1 m2
 
 unifySimpEnv (SimpEnvRest v m1) (JustSimpMap m2) = do
     let (mp1, mp2) = (getSimpEnvMap m1, getSimpEnvMap m2)
-    let diff = Map.difference mp2 mp1
-    elimVar v (JustSimpMap $ SimpEnvMap diff)
-    unify m1 (SimpEnvMap $ Map.intersection mp2 mp1)
+    let (restMap, innerMap) = partitionAbstractMap mp1 mp2
+    elimVar v (JustSimpMap $ SimpEnvMap restMap)
+    unify m1 (SimpEnvMap innerMap)
 
 unifySimpEnv t1@(JustSimpMap _) t2@(SimpEnvRest _ _) = unifySimpEnv t2 t1
 
-unifySimpEnv (SimpEnvRest _ _) (SimpEnvRest _ _) = error "Not implemented: Unifying two maps with map vars"
+unifySimpEnv t1@(SimpEnvRest v1 m1) t2@(SimpEnvRest v2 m2) =
+    if v1 <= v2 then do
+      let (mp1, mp2) = (getSimpEnvMap m1, getSimpEnvMap m2)
+      let (restMap, innerMap) = partitionAbstractMap mp1 mp2
 
-instance (Matchable a, Unifiable b, Matchable (SimpEnv a b), Unifiable (SimpEnvMap a b)) => Unifiable (SimpEnv a b) where
+      -- Idea for implementation: The var would need to contain an upper bound of all the known key/val pairs
+      when (v1 == v2) $ error "Unifying two maps with the same variable not implemented"
+
+      elimVar v1 (SimpEnvRest v2 (SimpEnvMap restMap))
+      unify m1 (SimpEnvMap innerMap)
+    else
+      unifySimpEnv t2 t1
+
+
+instance (Matchable a, Unifiable b, Matchable (SimpEnv a b), Unifiable (SimpEnvMap a b), UpperBound b)
+            => Unifiable (SimpEnv a b) where
   unify a b = do a' <- fillMatch a
                  b' <- fillMatch b
                  debugM "Unifying simpenv"

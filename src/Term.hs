@@ -158,14 +158,19 @@ instance UpperBound MatchType where
   upperBound _ _ = TermOrValue
 
 instance Meetable (Term l) where
-  -- TODO: What to do if there's a var?
+  -- I'm not sure if the var cases are correct
   meet x y
     | x == y = Just x
+  meet (GMetaVar v1 mt1) (GMetaVar v2 mt2) = GMetaVar (min v1 v2) <$> meet mt1 mt2
+  meet (GMetaVar v mt1)  (GStar mt2)       = GMetaVar v <$> meet mt1 mt2
+  meet (GStar mt1)       (GMetaVar v mt2)  = GMetaVar v <$> meet mt1 mt2
   meet (GStar mt1) (GStar mt2) = GStar <$> meet mt1 mt2
   meet t s@(GStar _)           = meet s t
-  meet (GStar mt) x            =  if matchTypeForTerm x `prec` mt then Just x else Nothing
-  meet Star       x            = Just x
-  meet _          _            = Nothing
+  meet (GStar mt) x            = if matchTypeForTerm x `prec` mt then Just x else Nothing
+  meet Star       x            = Just x -- FIXME: Is this case redundant
+  meet x                 (GMetaVar v  mt) = GMetaVar v <$> meet (matchTypeForTerm x) mt
+  meet (GMetaVar v mt)   x                = GMetaVar v <$> meet (matchTypeForTerm x) mt
+
 
   isMinimal (GStar _) = False
   isMinimal (Val  _ ts) = all isMinimal ts

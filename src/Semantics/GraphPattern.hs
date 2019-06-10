@@ -65,6 +65,12 @@ abstractGraphPattern absFunc abs rules t = do
     step as = map (,NormalEdge) <$> map abs <$> stepAmNarrowing (map (abstractCompFuncs absFunc) rules) as
 
 
+--FIXME: The way this works (namely, instantiating children as nonval nodes) means that
+--things like "Var" (distinct form VarExp) which do not take place in computation must be marked as
+--Node/nonval, but will erroneously have code generated for them.
+--
+-- Doing proper two-level nondeterminism would enable us to use All vars in place of nonval vars,
+-- and would fix this problem
 makeGraphPatterns :: (HasTopState l) => Abstraction (CompFunc l) -> Abstraction (AMState l)
                                      -> NamedAMRules l -> Signature l
                                      -> IO (Map Symbol (Graph (AMState l)))
