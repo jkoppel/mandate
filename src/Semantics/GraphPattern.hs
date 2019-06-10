@@ -57,9 +57,12 @@ abstractGraphPattern absFunc abs rules t = do
     genTransitionGraph step initState
   where
     step :: AMState l -> IO [(AMState l, EdgeType)]
+    -- IDEA: If we used Top/Halt instead of a KVar for the graph pattern top, wouldn't need these next two cases
+    step (AMState (Conf ValStar _)    (KVar _)) = return []
+    step (AMState (Conf (ValVar _) _) (KVar _)) = return []
     step as@(AMState (Conf  NonvalStar   _) k) = return [(AMState (Conf ValStar (topRedState @l)) k, TransitiveEdge)]
     step as@(AMState (Conf (NonvalVar _) _) k) = nextVar >>= \v -> return [(AMState (Conf (ValVar v) (topRedState @l)) k, TransitiveEdge)]
-    step as = map (,NormalEdge) <$> map abs <$> stepAm (map (abstractCompFuncs absFunc) rules) as
+    step as = map (,NormalEdge) <$> map abs <$> stepAmNarrowing (map (abstractCompFuncs absFunc) rules) as
 
 
 makeGraphPatterns :: (HasTopState l) => Abstraction (CompFunc l) -> Abstraction (AMState l)
@@ -171,19 +174,6 @@ graphPatternToCode sym graphPat = dec <+> body
     stateToVarNm :: AMState l -> String
     stateToVarNm = (stateMap !)
       where
-        {-
-        contextToVar :: HashMap (Context l) String
-        contextToVar = go (nodeList graphPat) HM.empty
-          where
-            go :: [AMState l] -> HashMap (Context l) String -> HashMap (Context l) String
-            go ((AMState (Conf (NonvalVar v) _) k):sts) mp = go sts (HM.insert
-                                                                       k
-                                                                       (get progVars v ("ProgVar not found: " ++ show v))
-                                                                       mp)
-            go (_:sts)                                  mp = go sts mp
-            go []                                       mp = mp
-        -}
-
         nodeVarForState' :: Term l -> Context l -> String
         nodeVarForState' (Node s _)   (KVar _) | s == sym = inNode
         nodeVarForState' ValStar      (KVar _)            = outNode

@@ -94,7 +94,7 @@ impLangSig = Signature [ NodeSig ":=" ["Var", "Exp"] "Stmt"
                        , NodeSig "WriteInt" ["Exp"] "Stmt"
                        , NodeSig "Write" ["Exp"] "Stmt"
 
-                       , NodeSig "Var" ["VarName"] "Var"
+                       , ValSig "Var" ["VarName"] "Var"
                        , StrSig "VarName" "VarName"
                        , NodeSig "VarExp" ["Var"] "Exp"
 
@@ -133,7 +133,7 @@ pattern Write :: Term ImpLang -> Term ImpLang
 pattern Write x = Node "Write" [x]
 
 pattern Var :: Term ImpLang -> Term ImpLang
-pattern Var x = Node "Var" [x]
+pattern Var x = Val "Var" [x]
 
 pattern VarName :: InternedByteString -> Term ImpLang
 pattern VarName v = StrNode "VarName" v

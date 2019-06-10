@@ -20,7 +20,10 @@ import GHC.Generics ( Generic )
 
 import Data.Hashable ( Hashable )
 
+import Control.Monad.HT ( liftJoin2 )
+
 import Configuration
+import Debug
 import Lattice
 import Lang
 import Matching
@@ -217,13 +220,16 @@ instance (Lang l, Unifiable (Configuration l)) => Unifiable (PosFrame l) where
 
 instance (Lang l, Unifiable (Configuration l)) => Unifiable (Frame l) where
   unify (KInp c1 pf1) (KInp c2 pf2) = do
+    debugM "Unifying frame arg"
     unify c1 c2
-    unify pf1 pf2
+    debugM "Unifying posframe"
+    liftJoin2 unify (fillMatch pf1) (fillMatch pf2)
+    debugM "Unified posframe"
     forM_ (Set.toList $ getVars c1) $ \v -> clearVar v
 
 instance (Lang l, Unifiable (Configuration l)) => Unifiable (Context l) where
   unify KHalt         KHalt         = return ()
   unify (KVar v)      x             = elimVar v x
   unify x             (KVar v)      = elimVar v x
-  unify (KPush f1 c1) (KPush f2 c2) = unify f1 f2 >> unify c1 c2
+  unify (KPush f1 c1) (KPush f2 c2) = unify f1 f2 >> liftJoin2 unify (fillMatch c1) (fillMatch c2)
   unify _             _             = mzero

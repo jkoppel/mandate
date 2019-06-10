@@ -102,7 +102,7 @@ instance {-# OVERLAPPABLE #-} (MonadState MatchState m, MonadVarAllocator m, Mon
   hasVar var = Map.member var <$> ms_varMap <$> get
   putVar var val = do curVal <- getVarMaybe var (return.Just) (return Nothing)
                       case curVal of
-                        Nothing   -> do debugM $ "Setting var " ++ show var
+                        Nothing   -> do debugM $ "Setting var " ++ show var ++ " to " ++ show val
                                         modify (modVarMap $ Map.insert var (AnyMatchable val))
                         Just val' -> do newVal <- hoistMaybe $ meet val val'
                                         modify (modVarMap $ Map.insert var (AnyMatchable newVal))

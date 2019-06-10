@@ -47,6 +47,7 @@ library:
   - text
   - transformers
   - unordered-containers
+  - utility-ht
 
 executables:
   derive-cfg:
@@ -69,7 +70,6 @@ executables:
     - fgl
     - graphviz
     - text
-
 
 
 
