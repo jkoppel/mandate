@@ -74,14 +74,6 @@ unifyTerm' t@(Node    _ _) (MetaVar v) = elimVar v t
 unifyTerm' t@(IntNode _ _) (MetaVar v) = elimVar v t
 unifyTerm' t@(StrNode _ _) (MetaVar v) = elimVar v t
 
-{-
-unifyTerm' (MetaVar    v1)   t@(GMetaVar v2 _) = elimVar v1 t
-unifyTerm' t@(GMetaVar v1 _)   (MetaVar  v2)   = elimVar v2 t
-
-unifyTerm' (ValVar    v) t@(ValVar    _) = elimVar v t
-unifyTerm' (NonvalVar v) t@(NonvalVar _) = elimVar v t
--}
-
 unifyTerm' (GMetaVar v1 mt1) t@(GMetaVar v2 mt2) =
   case mt1 `meet` mt2 of
     Just mtMeet -> if v1 == v2 then
