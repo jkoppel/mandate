@@ -94,6 +94,16 @@ unifyTerm' t1@(GStar _)   t2@(GMetaVar _ _) = unifyTerm' t2 t1
 unifyTerm' (GStar mt1) (GStar mt2) = case mt1 `meet` mt2 of
                                        Just _  -> return ()
                                        Nothing -> mzero
+unifyTerm' (Node _ _) ValStar = mzero
+unifyTerm' (Node _ ts) (GStar mt) = forM_ ts $ \t -> unify t Star
+unifyTerm' (Val _ _)  NonvalStar = mzero
+unifyTerm' (Val _ ts) (GStar mt) = forM_ ts $ \t -> unify t Star
+unifyTerm' (IntNode _ _) (GStar _) = return ()
+unifyTerm' (StrNode _ _) (GStar _) = return ()
+
+
+unifyTerm' x@(GStar mt) y = unifyTerm' y x
+
 
 unifyTerm' _ _ = mzero
 

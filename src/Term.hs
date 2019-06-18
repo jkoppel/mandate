@@ -32,6 +32,7 @@ module Term (
   , mapTerm
   , traverseTerm
 
+  , getSigNode
   , checkSig
   , checkTerm
   , sortOfTerm
@@ -425,16 +426,15 @@ checkSig sorts (Signature sigs) = map checkNodeSig sigs `deepseq` ()
     checkNodeSig (StrSig  _    s) = checkSort s `deepseq` ()
 
 
--- private helper
 -- If want the language in error messages, can add Typeable constraints and show the TypeRep
-getInSig :: Signature l -> Symbol -> SigNode
-getInSig (Signature sig) s = case find (\n -> sigNodeSymbol n == s) sig of
-                           Just n -> n
-                           Nothing -> error ("Cannot find symbol " ++ show s ++ " in signature " ++ show sig)
+getSigNode :: Signature l -> Symbol -> SigNode
+getSigNode (Signature sig) s = case find (\n -> sigNodeSymbol n == s) sig of
+                                 Just n -> n
+                                 Nothing -> error ("Cannot find symbol " ++ show s ++ " in signature " ++ show sig)
 
 -- private helper
 sortForSym :: Signature l -> Symbol -> Sort
-sortForSym sig s = sigNodeSort $ getInSig sig s
+sortForSym sig s = sigNodeSort $ getSigNode sig s
 
 -- Metavars/stars are currently unsorted / can have any sort
 sortOfTerm :: Signature l -> Term l -> Maybe Sort
@@ -469,16 +469,16 @@ checkInternalNode sig t ss ts = if length ss /= length ts then
 -- This version is for debugging only, and will halt execution on failure
 -- Bad terms should never be created
 checkTerm :: Signature l -> Term l -> ()
-checkTerm sig t@(Node s ts)   = case getInSig sig s of
+checkTerm sig t@(Node s ts)   = case getSigNode sig s of
                                   NodeSig _ ss _ -> checkInternalNode sig t ss ts
                                   sym            -> error ("In Term " ++ show t ++ ", symbol " ++ show sym ++ " used as node: " ++ show s)
-checkTerm sig t@(Val  s ts)   = case getInSig sig s of
+checkTerm sig t@(Val  s ts)   = case getSigNode sig s of
                                   ValSig  _ ss _ -> checkInternalNode sig t ss ts
                                   sym            -> error ("In Term " ++ show t ++ ", symbol " ++ show sym ++ " used as ValNode: " ++ show s)
-checkTerm sig t@(IntNode s i) = case getInSig sig s of
+checkTerm sig t@(IntNode s i) = case getSigNode sig s of
                                   IntSig _ _    -> ()
                                   sym            -> error ("In Term " ++ show t ++ ", symbol " ++ show sym ++ " used as IntNode: " ++ show s)
-checkTerm sig t@(StrNode s i) = case getInSig sig s of
+checkTerm sig t@(StrNode s i) = case getSigNode sig s of
                                   StrSig _ _    -> ()
                                   sym            -> error ("In Term " ++ show t ++ ", symbol " ++ show sym ++ " used as StrNode: " ++ show s)
 checkTerm sig (GStar _)       = ()
