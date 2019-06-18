@@ -97,7 +97,15 @@ makeGraphPatterns absFunc abs rules sig = flip foldMap nodeSigs $ \n ->
 
 
 graphPatternsToCode :: (Lang l) => Map Symbol (Graph (AMState l)) -> Doc
-graphPatternsToCode pats = (vcat $ map (\(k,v) -> graphPatternToCode k v) (Map.assocs pats)) $$ valCase
+graphPatternsToCode pats = (vcat $ map (\(k,v) -> if isEmpty v then mempty else graphPatternToCode k v)
+                                       (Map.assocs pats))
+                         $$ valCase
+  where
+    isEmpty g = case nodeList g of
+                  [AMState (Conf ValStar _) _] -> True
+                  _                            -> False
+
+
 
 -- Three things: metavars, variables in the program, am states
 -- maps: cfg node variable names <---> am states
