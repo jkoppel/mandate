@@ -8,6 +8,9 @@ module CfgGenRuntime (
   , GraphNodes
   , makeInOut
   , connect
+
+  , inNodes
+  , outNodes
   ) where
 
 import Control.Monad.State ( MonadState(..), State, gets, modify, execState)
@@ -81,3 +84,9 @@ connect1 a b = do curGraph <- gets ggs_graph
 
 connect :: (MonadGraphGen l m) => GraphNodes l -> GraphNodes l -> m ()
 connect as bs = sequence_ [connect1 a b | a <- as, b <- bs]
+
+inNodes :: [GraphNodes l] -> GraphNodes l
+inNodes = concat
+
+outNodes :: [GraphNodes l] -> GraphNodes l
+outNodes = concat

@@ -208,7 +208,7 @@ graphPatternToCode sym graphPat = dec <+> body
     doWire = vcat $ normalEdgeList graphPat <&> \(a, b) ->
                                              text (nameBase 'connect) <+> text (stateToVarNm a) <+> text (stateToVarNm b)
 
-    doReturn = text (printf "return (%s, %s [%s])" inNode (nameBase 'concat) (intercalate "," finalNodes))
+    doReturn = text (printf "return (%s [%s], %s [%s])" (nameBase 'inNodes) inNode (nameBase 'outNodes) (intercalate "," finalNodes))
 
 
 
