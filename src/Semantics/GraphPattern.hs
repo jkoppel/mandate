@@ -125,19 +125,7 @@ graphPatternsToCode pats = (vcat $ map (\(k,v) -> if isEmpty v then mempty else 
 -- Recognizes 3 kinds of states: init state, a metavar, a ValStar. If a a state found not in thisi set.
 
 
-{-
- - Example output for + node
- -
- - genCfg t@(Node "+" [a, b]) = do
- -   (tIn, tOut) <- makeInOut t
- -   (aIn, aOut) <- genCfg t1
- -   (bIn, bOut) <- genCfg t2
- -   wire tIn aIn
- -   wire aOut bIn
- -   wire bOut tOut
- -   return (tIn, tOut)
-
--}
+-- TODO: When this is said and done, give an example output
 
 get :: (Hashable a, Eq a) => HashMap a b -> a -> String -> b
 get m a msg = case HM.lookup a m of
