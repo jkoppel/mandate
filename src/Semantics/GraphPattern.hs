@@ -19,6 +19,7 @@ import qualified Data.HashMap.Strict as HM
 import Data.List ( concat, intercalate )
 import Data.Map ( Map )
 import qualified Data.Map as Map
+import Data.Maybe ( isNothing )
 
 import Language.Haskell.TH ( nameBase )
 
@@ -174,23 +175,50 @@ graphPatternToCode sym graphPat = dec <+> body
     outNode = mkOutNode tName
 
     stateToVarNm :: AMState l -> String
-    stateToVarNm = (stateMap !)
+    stateToVarNm st =  case HM.lookup st stateMap of
+                         Just v  -> v
+                         Nothing -> error $ "Graph pattern has state not yet supported by codegen: " ++ show st
       where
-        nodeVarForState' :: Term l -> Context l -> String
-        nodeVarForState' (Node s _)   (KVar _) | s == sym = inNode
-        nodeVarForState' ValStar      (KVar _)            = outNode
-        nodeVarForState' (NonvalVar v) _                  = mkInNode  (get progVars v ("Progvar not found: " ++ show v))
-        nodeVarForState' (ValVar v)    _                  = mkOutNode (get outVars  v ("Outvar not found: "  ++ show v))
-        nodeVarForState' t k =
-          error (printf "Graph pattern has state not yet supported by codegen: <%s | %s>" (show t) (show k))
 
-        nodeVarForState :: AMState l -> String
+        --- This is a weird custom fixpoint operator, really only suited to the kind of
+        --- dumb strongly-connected-component stuff in the rest of this function
+        ---- It's also poorly behaved because it doesn't update each component simultaneously
+        ---- (which is fine in the usecases, which have strong monotonicity properties)
+        fixHash :: (Eq a, Hashable a, Eq b) => [a] -> (HashMap a (Maybe b) -> a -> Maybe b) -> HashMap a b
+        fixHash labs f = doFix (HM.fromList (zip labs $ repeat Nothing))
+          where
+            doFix m = let m' = go labs m in
+                      case mapM id m' of
+                        Just x  -> x
+                        Nothing -> doFix m'
+
+            go []     m = m
+            go (l:ls) m = go ls (HM.insert l (f m l) m)
+
+
+        tryGetState :: HashMap (AMState l) (Maybe String) -> AMState l -> Maybe String
+        tryGetState hm st = case nodeVarForState st of
+                              Just v  -> Just v
+                              Nothing -> case succs graphPat st of
+                                           []  -> error (printf "Unknown state %s is sink of graph pattern" $ show st)
+                                           [x] -> hm ! x
+                                           _   -> case preds graphPat st of
+                                                    []  -> error (printf "Unknown state %s is source of graph pattern" $ show st)
+                                                    [x] -> hm ! x
+                                                    _   -> error (printf "Unknown state %s cannot be fused with unique succ or pred" $ show st)
+
+        nodeVarForState' :: Term l -> Context l -> Maybe String
+        nodeVarForState' (Node s _)   (KVar _) | s == sym = Just inNode
+        nodeVarForState' ValStar      (KVar _)            = Just outNode
+        nodeVarForState' (NonvalVar v) _                  = Just $ mkInNode  (get progVars v ("Progvar not found: " ++ show v))
+        nodeVarForState' (ValVar v)    _                  = Just $ mkOutNode (get outVars  v ("Outvar not found: "  ++ show v))
+        nodeVarForState' _             _                  = Nothing
+
+        nodeVarForState :: AMState l -> Maybe String
         nodeVarForState (AMState (Conf n _) k) = nodeVarForState' n k
 
         stateMap :: HashMap (AMState l) String
-        stateMap = foldl (\mp st -> HM.insert st (nodeVarForState st) mp)
-                         HM.empty
-                         (nodeList graphPat)
+        stateMap = fixHash (nodeList graphPat) tryGetState
 
     finalNodes = map stateToVarNm $ sinks graphPat
 
@@ -202,7 +230,11 @@ graphPatternToCode sym graphPat = dec <+> body
         recCall v = text (printf "(%s, %s) <- %s %s" (mkInNode v) (mkOutNode v) ("genCfg" :: String) v)
 
     doWire = vcat $ normalEdgeList graphPat <&> \(a, b) ->
-                                             text (nameBase 'connect) <+> text (stateToVarNm a) <+> text (stateToVarNm b)
+                      -- There are conceivable weird scenarios where this elides a self-edge that should exist
+                      if a /= b && stateToVarNm a == stateToVarNm b then
+                        mempty
+                       else
+                        text (nameBase 'connect) <+> text (stateToVarNm a) <+> text (stateToVarNm b)
 
     doReturn = text (printf "return (%s [%s], %s [%s])" (nameBase 'inNodes) inNode (nameBase 'outNodes) (intercalate "," finalNodes))
 

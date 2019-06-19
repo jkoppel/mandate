@@ -17,6 +17,7 @@ module Graph (
 
   , member
   , succs
+  , preds
   , sinks
 
 
@@ -31,7 +32,7 @@ import Control.Monad.Writer ( tell, execWriter )
 import Control.Monad.State ( gets, modify, evalStateT )
 
 import Data.Function ( on )
-import Data.List ( partition, elemIndex, sortBy, groupBy, null )
+import Data.List ( partition, elemIndex, sortBy, groupBy, null, nub )
 import Data.Maybe (fromMaybe)
 
 import GHC.Generics (Generic)
@@ -188,10 +189,17 @@ insert x et y (Graph m) = Graph $ addEdge x et y
 member :: (Eq a, Hashable a) => a -> Graph a -> Bool
 member a = M.member a . getGraph
 
+-- | All types of edges
 succs :: (Eq a, Hashable a) => Graph a -> a -> [a]
 succs g a = case M.lookup a (getGraph g) of
               Nothing -> error ("succs: Node not in graph")
               Just n  -> map snd $ S.toList (edges n)
+
+
+-- | All types of edges
+---  Warning: iterates over entire graph; does quadratic filtering
+preds :: (Eq a, Hashable a) => Graph a -> a -> [a]
+preds g a = nub $ map (\(n,_,_) -> n) $ filter (\(_,_,x) -> x == a) $ edgeList g
 
 sinks :: (Eq a, Hashable a) => Graph a -> [a]
 sinks g = filter (\x -> null (succs g x)) $ nodeList g
