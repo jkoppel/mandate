@@ -171,6 +171,7 @@ instance Meetable (Term l) where
   meet Star       x            = Just x -- FIXME: Is this case redundant
   meet x                 (GMetaVar v  mt) = GMetaVar v <$> meet (matchTypeForTerm x) mt
   meet (GMetaVar v mt)   x                = GMetaVar v <$> meet (matchTypeForTerm x) mt
+  meet _                 _                = Nothing
 
 
   isMinimal (GStar _) = False
