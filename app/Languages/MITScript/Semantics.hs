@@ -697,13 +697,20 @@ runExternalComputation RunBuiltin (stack, heap) [IntCast, vv] = returnInt $ read
 
 runExternalComputation AbsAllocAddress _ _ = return $ emptyConf ValStar
 
-runExternalComputation func state [GStar _] = return $ emptyConf ValStar
-runExternalComputation func state [_]       = return $ emptyConf ValStar
+runExternalComputation func state [GStar  _] = return $ emptyConf ValStar
+runExternalComputation func state [ValVar _] = return $ emptyConf ValStar
 
-runExternalComputation func state [GStar _, _] = return $ emptyConf ValStar
-runExternalComputation func state [_, GStar _] = return $ emptyConf ValStar
+runExternalComputation func state [GStar _, _]  = return $ emptyConf ValStar
+runExternalComputation func state [_, GStar _]  = return $ emptyConf ValStar
+runExternalComputation func state [ValVar _, _] = return $ emptyConf ValStar
+runExternalComputation func state [_, ValVar _] = return $ emptyConf ValStar
 
-runExternalComputation func state [GStar _, _, _] = return $ emptyConf ValStar
-runExternalComputation func state [_, GStar _, _] = return $ emptyConf ValStar
-runExternalComputation func state [_, _, GStar _] = return $ emptyConf ValStar
+runExternalComputation func state [GStar _, _, _]  = return $ emptyConf ValStar
+runExternalComputation func state [_, GStar _, _]  = return $ emptyConf ValStar
+runExternalComputation func state [_, _, GStar _]  = return $ emptyConf ValStar
+runExternalComputation func state [ValVar _, _, _] = return $ emptyConf ValStar
+runExternalComputation func state [_, ValVar _, _] = return $ emptyConf ValStar
+runExternalComputation func state [_, _, ValVar _] = return $ emptyConf ValStar
+
+
 runExternalComputation func state terms = error $ show func ++ "\t" ++ show state ++ "\t" ++ show terms
