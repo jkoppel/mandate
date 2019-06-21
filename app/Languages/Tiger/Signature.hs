@@ -52,7 +52,7 @@ tigerSig = Signature [ NodeSig "PExp"  ["Exp"]     "Program"
                      , NodeSig "IfExp"     ["Exp", "Exp", "Exp"]           "Exp"
                      , NodeSig "WhileExp"  ["Exp", "Exp"]                  "Exp"
                      , NodeSig "ForExp"    ["VarDec", "Exp", "Exp", "Exp"] "Exp"
-                     , NodeSig "BreakExp"  []                              "Exp"
+                     , ValSig  "BreakExp"  []                              "Exp"
                      , NodeSig "LetExp"    ["DecList", "Exp"]              "Exp"
                      , NodeSig "ArrayExp"  ["Symbol", "Exp", "Exp"]        "Exp"
 
@@ -232,7 +232,7 @@ pattern ForExp :: Term Tiger -> Term Tiger -> Term Tiger -> Term Tiger -> Term T
 pattern ForExp a b c d = Node "ForExp" [a, b, c, d]
 
 pattern BreakExp :: Term Tiger
-pattern BreakExp = Node "BreakExp" []
+pattern BreakExp = Val "BreakExp" []
 
 pattern LetExp :: Term Tiger -> Term Tiger -> Term Tiger
 pattern LetExp a b = Node "LetExp" [a, b]
