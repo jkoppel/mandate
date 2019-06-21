@@ -35,7 +35,7 @@ instance ToGeneric MITScript M.Stmt where
   toGeneric (M.ExpStmt s) = G.ExpStmt (toGeneric s)
   toGeneric (M.If p t e) = G.If (toGeneric p) (toGeneric t) (toGeneric e)
   toGeneric (M.While e s) = G.While (toGeneric e) (toGeneric s)
-  toGeneric (M.Return e) = G.Return (toGeneric e)
+  toGeneric (M.Return e) = G.MkReturn (toGeneric e)
   toGeneric (M.Block ss) = G.Block (toGeneric ss)
 
 instance ToGeneric MITScript [M.Stmt] where
@@ -103,7 +103,7 @@ instance FromGeneric MITScript M.Stmt where
   fromGeneric (G.ExpStmt s) = M.ExpStmt <$> fromGeneric s
   fromGeneric (G.If p t e) = M.If <$> fromGeneric p <*> fromGeneric t <*> fromGeneric e
   fromGeneric (G.While e s) = M.While <$> fromGeneric e <*> fromGeneric s
-  fromGeneric (G.Return e) = M.Return <$> fromGeneric e
+  fromGeneric (G.MkReturn e) = M.Return <$> fromGeneric e
   fromGeneric (G.Block ss) = M.Block <$> fromGeneric ss
   fromGeneric _ = Nothing
 
