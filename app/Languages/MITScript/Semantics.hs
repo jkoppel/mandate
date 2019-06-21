@@ -163,13 +163,20 @@ mitScriptRules = sequence [
             StepTo (conf (ConsStmt (Global mg) ms) env)
             (Build $ conf (ConsStmt (Assign (Var mg) GlobalVar) ms) env)
 
-    , name "seq-ret-cong" $
+    , name "ret-cong" $
     mkPairRule2 $ \env env' ->
-    mkRule3 $ \s val val' ->
-        let (ms, tval, mval) = (mv s, tv val, mv val') in
-            StepTo (conf (ConsStmt (Return tval) ms) env)
-                (LetStepTo (conf mval env') (conf tval env)
-                (Build $ conf (ConsStmt (Return mval) ms) env'))
+    mkRule2 $ \val val' ->
+        let (tval, mval) = (tv val, mv val') in
+            StepTo (conf (MkReturn tval) env)
+              (LetStepTo (conf mval env') (conf tval env)
+                (Build $ conf (MkReturn mval) env'))
+
+    , name "ret-done" $
+    mkPairRule1 $ \env ->
+    mkRule1 $ \s ->
+        let (vs) = (vv s) in
+            StepTo (conf (MkReturn vs) env)
+              (Build $ conf (Return vs) env)
 
     , name "seq-ret-eval" $
     mkPairRule1 $ \env ->
@@ -640,19 +647,19 @@ matchRedState (stack, heap) = (mv stack, WholeSimpEnv heap)
 builtinPrint :: Term MITScript
 builtinPrint = Closure
                     (ConsName (Name "x") NilName)
-                    (Block (ConsStmt (Return (Builtin Print (Var $ Name "x"))) NilStmt))
+                    (Block (ConsStmt (MkReturn (Builtin Print (Var $ Name "x"))) NilStmt))
                     (HeapAddr $ -1)
 
 builtinIntCast :: Term MITScript
 builtinIntCast = Closure
                     (ConsName (Name "x") NilName)
-                    (Block (ConsStmt (Return (Builtin IntCast (Var $ Name "x"))) NilStmt))
+                    (Block (ConsStmt (MkReturn (Builtin IntCast (Var $ Name "x"))) NilStmt))
                     (HeapAddr $ -1)
 
 builtinRead :: Term MITScript
 builtinRead = Closure
                     NilName
-                    (Block (ConsStmt (Return (Builtin Read None)) NilStmt))
+                    (Block (ConsStmt (MkReturn (Builtin Read None)) NilStmt))
                     (HeapAddr $ -1)
 
 runExternalComputation :: CompFunc MITScript -> RedState MITScript -> [Term MITScript] -> MatchEffect (Configuration MITScript)

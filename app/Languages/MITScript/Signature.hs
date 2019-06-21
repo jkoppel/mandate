@@ -45,13 +45,14 @@ mitScriptSig = Signature [ StrSig "Name" "Name"
                          , ValSig "ReducedRecordNil"  []                                             "ReducedRecordPairList"
                          , ValSig "ReducedRecordCons" ["ReducedRecordPair", "ReducedRecordPairList"] "ReducedRecordPairList"
 
-                         , ValSig  "Global"  ["Name"]                "Stmt"
-                         , NodeSig "Assign"  ["Exp", "Exp"]          "Stmt"
-                         , NodeSig "ExpStmt" ["Exp"]                 "Stmt"
-                         , NodeSig "If"      ["Exp", "Stmt", "Stmt"] "Stmt"
-                         , NodeSig "While"   ["Exp", "Stmt"]         "Stmt"
-                         , NodeSig "Block"   ["StmtList"]            "Stmt"
-                         , ValSig  "Return"  ["Exp"]                 "Stmt"
+                         , ValSig  "Global"   ["Name"]                "Stmt"
+                         , NodeSig "Assign"   ["Exp", "Exp"]          "Stmt"
+                         , NodeSig "ExpStmt"  ["Exp"]                 "Stmt"
+                         , NodeSig "If"       ["Exp", "Stmt", "Stmt"] "Stmt"
+                         , NodeSig "While"    ["Exp", "Stmt"]         "Stmt"
+                         , NodeSig "Block"    ["StmtList"]            "Stmt"
+                         , NodeSig "MkReturn" ["Exp"]                 "Stmt"
+                         , ValSig  "Return"   ["Exp"]                 "Stmt"
 
                          , NodeSig "PLUS"  [] "BinOp"
                          , NodeSig "MINUS" [] "BinOp"
@@ -130,6 +131,9 @@ pattern If a b c = Node "If" [a, b, c]
 
 pattern While :: Term MITScript -> Term MITScript -> Term MITScript
 pattern While a b = Node "While" [a, b]
+
+pattern MkReturn :: Term MITScript -> Term MITScript
+pattern MkReturn a = Node "MkReturn" [a]
 
 pattern Return :: Term MITScript -> Term MITScript
 pattern Return a = Val "Return" [a]
