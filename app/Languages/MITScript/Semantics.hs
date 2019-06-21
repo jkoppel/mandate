@@ -107,7 +107,7 @@ instance HasSOS MITScript where
     rules = mitScriptRules
 
 instance HasTopState MITScript where
-  topRedState = (ValStar, JustSimpMap $ SingletonSimpMap ValStar ValStar)
+  topRedState = (ValStar, JustSimpMap $ SingletonSimpMap Star ValStar)
 
 emptyConf :: Term MITScript -> Configuration MITScript
 emptyConf t = Conf t (ReducedRecordNil, EmptySimpEnv)

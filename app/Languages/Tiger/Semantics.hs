@@ -107,7 +107,7 @@ instance Irrelevance (CompFunc Tiger) where
     irrelevance _ OpIsntShortCircuit = OpIsntShortCircuit
 
 instance HasTopState Tiger where
-  topRedState = (ValStar, JustSimpMap $ SingletonSimpMap ValStar ValStar)
+  topRedState = (ValStar, JustSimpMap $ SingletonSimpMap Star ValStar)
 
 realStartingEnv :: SimpEnv (Term Tiger) (Term Tiger)
 realStartingEnv = JustSimpMap $ SimpEnvMap $ Map.fromList

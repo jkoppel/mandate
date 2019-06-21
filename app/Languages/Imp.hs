@@ -63,7 +63,7 @@ instance Lang ImpLang where
   initConf t = Conf t EmptySimpEnv
 
 instance HasTopState ImpLang where
-  topRedState = JustSimpMap $ SingletonSimpMap ValStar ValStar
+  topRedState = JustSimpMap $ SingletonSimpMap Star ValStar
 
 instance Hashable (CompFunc ImpLang)
 
