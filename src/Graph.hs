@@ -144,7 +144,10 @@ realNodesConv :: (Eq a, Show b) => Graph a -> (a -> b) -> [RealGraph.LNode Strin
 realNodesConv g conv = map (\key -> (nodeToIndex g key, show $ conv key)) (M.keys $ getGraph g)
 
 realEdgesForNode :: (Eq a) => Graph a -> a -> GraphNode a -> [RealGraph.LEdge String]
-realEdgesForNode g n es = S.toList $ S.map (\(edgeType, targ) -> (nodeToIndex g n, nodeToIndex g targ, show edgeType)) (edges es)
+realEdgesForNode g n es = S.toList $ S.map (\(edgeType, targ) -> (nodeToIndex g n, nodeToIndex g targ, prettyET edgeType)) (edges es)
+  where
+    prettyET NormalEdge = ""
+    prettyET TransitiveEdge = "transitive"
 
 realEdges :: (Eq a) => Graph a -> [RealGraph.LEdge String]
 realEdges g = concat $ M.mapWithKey (realEdgesForNode g) (getGraph g)

@@ -56,10 +56,13 @@ instance (Lang l) => Irrelevance (Term l) where
                         Just s@(Sort _) -> if s == sort then ValStar else t
                         _ -> t
 
+      deferentialGetSort x st = maybe st id $ sortOfTerm @l signature x
+      processNode (x, st) = if deferentialGetSort x st == sort then ValStar else x
+
       sortSubtermsToStar (Node s ts) = let (NodeSig _ stSorts _) = getSigNode (signature @l) s in
-                                       Node s $ map (\(x, st) -> if st == sort then ValStar else x) (zip ts stSorts)
+                                       Node s $ map processNode (zip ts stSorts)
       sortSubtermsToStar (Val  s ts) = let (ValSig  _ stSorts _) = getSigNode (signature @l) s in
-                                       Val s $ map (\(x, st) -> if st == sort then ValStar else x) (zip ts stSorts)
+                                       Val s  $ map processNode (zip ts stSorts)
       sortSubtermsToStar x           = x
 
 

@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveGeneric, FlexibleContexts, FlexibleInstances, MultiParamTypeClasses, Rank2Types, UndecidableInstances #-}
+{-# LANGUAGE CPP, DeriveGeneric, FlexibleContexts, FlexibleInstances, MultiParamTypeClasses, Rank2Types, UndecidableInstances #-}
 
 module Semantics.GeneralMachine (
     GenAMRhs(..)
@@ -106,8 +106,11 @@ instance (Lang l, Show (GenAMState t l), Unifiable t) => Unifiable (GenAMState t
                                                           liftJoin2 unify (fillMatch e1) (fillMatch e2)
 
 instance (Show (Configuration l), Show (Context l)) => Show (GenAMState () l) where
-  showsPrec d (GenAMState c k ()) = showString "<" . showsPrec d c . showString " | " .
-                                    showsPrec d k . showString ">"
+  showsPrec d (GenAMState c k ()) =
+    if shortNodeName then
+       showsPrec d (confTerm c)
+    else
+       showString "<" . showsPrec d c . showString " | " . showsPrec d k . showString ">"
 
 
 -------------------------------------------------------------------------
