@@ -105,6 +105,7 @@ instance {-# OVERLAPPABLE #-} (MonadState MatchState m, MonadVarAllocator m, Mon
                         Nothing   -> do debugM $ "Setting var " ++ show var ++ " to " ++ show val
                                         modify (modVarMap $ Map.insert var (AnyMatchable val))
                         Just val' -> do newVal <- hoistMaybe $ meet val val'
+                                        debugM $ "Met " ++ show val ++ " and " ++ show val'
                                         modify (modVarMap $ Map.insert var (AnyMatchable newVal))
 
   clearVar var = modify (modVarMap $ Map.delete var)
@@ -180,10 +181,12 @@ instance (Typeable l) => Matchable (Term l) where
                                                                     Just mtMeet -> putVar v (GStar @l mtMeet)
                                                                     Nothing     -> mzero
 
-  -- FIXME: In this next case, if mt1 < mt2, all other uses of v2 should be narrowed
-  match (Pattern (GMetaVar v1 mt1)) (Matchee (GMetaVar v2 mt2)) = case mt1 `meet` mt2 of
-                                                                    Just mtMeet -> putVar v1 (GMetaVar @l v2 mtMeet)
-                                                                    Nothing     -> mzero
+  -- FIXME: I'm still not really sure if this should fail to match if mt2 > mt1, or if it should narrow v2
+  match (Pattern (GMetaVar v1 mt1)) (Matchee (GMetaVar v2 mt2)) = if mt2 `prec` mt1 then
+                                                                    putVar v1 (GMetaVar @l v2 mt2)
+                                                                  else
+                                                                    mzero
+
   match (Pattern (GMetaVar v mt)) (Matchee t) = do guard (matchTypeForTerm t `prec` mt)
                                                    putVar v t
 
