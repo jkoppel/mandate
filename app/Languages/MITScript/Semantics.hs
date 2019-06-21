@@ -156,12 +156,12 @@ mitScriptRules = sequence [
             StepTo (conf (ConsStmt NilStmt ms) env)
             (Build $ conf ms env)
 
-    , name "seq-global" $
+    , name "global" $
     mkPairRule1 $ \env ->
-    mkRule2 $ \s g ->
-        let (ms, mg) = (mv s, mv g) in
-            StepTo (conf (ConsStmt (Global mg) ms) env)
-            (Build $ conf (ConsStmt (Assign (Var mg) GlobalVar) ms) env)
+    mkRule1 $ \g ->
+        let (mg) = (mv g) in
+            StepTo (conf (Global mg) env)
+              (Build $ conf (Assign (Var mg) GlobalVar) env)
 
     , name "ret-cong" $
     mkPairRule2 $ \env env' ->

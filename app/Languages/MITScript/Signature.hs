@@ -45,7 +45,7 @@ mitScriptSig = Signature [ StrSig "Name" "Name"
                          , ValSig "ReducedRecordNil"  []                                             "ReducedRecordPairList"
                          , ValSig "ReducedRecordCons" ["ReducedRecordPair", "ReducedRecordPairList"] "ReducedRecordPairList"
 
-                         , ValSig  "Global"   ["Name"]                "Stmt"
+                         , NodeSig "Global"   ["Name"]                "Stmt"
                          , NodeSig "Assign"   ["Exp", "Exp"]          "Stmt"
                          , NodeSig "ExpStmt"  ["Exp"]                 "Stmt"
                          , NodeSig "If"       ["Exp", "Stmt", "Stmt"] "Stmt"
@@ -118,7 +118,7 @@ pattern ConsName :: Term MITScript -> Term MITScript -> Term MITScript
 pattern ConsName a b = Val "ConsName" [a, b]
 
 pattern Global :: Term MITScript -> Term MITScript
-pattern Global a = Val "Global" [a]
+pattern Global a = Node "Global" [a]
 
 pattern Assign :: Term MITScript -> Term MITScript -> Term MITScript
 pattern Assign a b = Node "Assign" [a, b]
