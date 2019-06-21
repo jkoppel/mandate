@@ -547,7 +547,7 @@ mitScriptRules = sequence [
             StepTo (conf NilExp env)
                 (Build $ conf ReducedNilExp env)
 
-    -- Bultins
+    -- Builtins
     , name "builtin-cong" $
     mkPairRule2 $ \env env' ->
     mkRule3 $ \var ret func ->
