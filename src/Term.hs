@@ -174,6 +174,15 @@ instance Meetable (Term l) where
   meet _                 _                = Nothing
 
 
+  -- This is a bit weird and not well theoretically-justified. Basically:
+  -- this is the subsumption preorder (ish), except that ties are broken
+  -- to var < star, so that simpler things are maximal
+  prec x y
+    | ((x `meet` y) == Just x) = True
+  prec (GMetaVar _ mt1) (GStar mt2)      = mt1 `prec` mt2
+  prec (GStar mt1)      (GStar mt2)      = mt1 `prec` mt2
+  prec _                _                = False
+
   isMinimal (GStar _) = False
   isMinimal (Val  _ ts) = all isMinimal ts
   isMinimal (Node _ ts) = all isMinimal ts
