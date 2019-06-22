@@ -182,6 +182,7 @@ useGenAmRule matchOrUnify (NamedGenAMRule nm (GenAMRule left right)) st = do
     debugM $ "LHS matched: " ++ BS.unpack nm
     ret <- runGenAmRhs matchOrUnify right
     debugM $ "Rule succeeeded:" ++ BS.unpack nm
+    debugM $ "Result is " ++ show ret
     return ret
 
 
