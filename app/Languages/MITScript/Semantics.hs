@@ -248,54 +248,78 @@ mitScriptRules = sequence [
             (LetStepTo (conf me' env') (conf te env)
             (Build $ conf (Assign mvar me') env'))
 
-    , name "stack-assn-eval" $
-    mkRule6 $ \var val mu h frame rest->
-        let (mvar, vval, mframe, mrest) = (mv var, vv val, mv frame, mv rest) in
-            StepTo (Conf (Assign (Var mvar) vval) (ConsFrame mframe mrest, WholeSimpEnv h))
-            (Build $ Conf (Assign (FieldAccess (ReferenceVal mframe) mvar) vval) (ConsFrame mframe mrest, WholeSimpEnv h))
-
-    , name "field-assn-cong" $
+    , name "assn-lval-cong" $
     mkPairRule2 $ \env env' ->
-    mkRule4 $ \field val re re'  ->
-        let (mfield, vval, tre, mre) = (mv field, vv val, tv re, mv re') in
-            StepTo (conf (Assign (FieldAccess tre mfield) vval) env)
-            (LetStepTo (conf mre env') (conf tre env)
-            (Build $ conf (Assign (FieldAccess mre mfield) vval) env'))
+    mkRule3 $ \lv lv' e ->
+        let (tlv, mlv', ve) = (tv lv, mv lv', vv e) in
+            StepTo (conf (Assign tlv ve) env)
+              (LetStepTo (conf mlv' env') (conf tlv env)
+                (Build $ conf (Assign mlv' ve) env'))
+
+    , name "stack-lvar-eval" $
+    mkRule5 $ \var mu h frame rest ->
+        let (mvar, mframe, mrest) = (mv var, mv frame, mv rest) in
+            StepTo (Conf (LVar mvar) (ConsFrame mframe mrest, WholeSimpEnv h))
+              (Build $ Conf (MkLFieldAccess (ReferenceVal mframe) mvar) (ConsFrame mframe mrest, WholeSimpEnv h))
+
+    , name "lfield-cong" $
+    mkPairRule2 $ \env env' ->
+    mkRule3 $ \field re re'  ->
+        let (mfield, tre, mre) = (mv field, tv re, mv re') in
+            StepTo (conf (MkLFieldAccess tre mfield) env)
+              (LetStepTo (conf mre env') (conf tre env)
+                (Build $ conf (MkLFieldAccess mre mfield) env'))
+
+    , name "lfield-done" $
+    mkPairRule1 $ \env ->
+    mkRule2 $ \re field ->
+        let (vre, mfield) = (vv re, mv field) in
+            StepTo (conf (MkLFieldAccess vre mfield) env)
+              (Build $ conf (LFieldAccess vre mfield) env)
 
     , name "field-assn-eval-nonglobal" $
     mkRule7 $ \val field ref mu h re re'->
         let (vval, mref, mfield, vre, vre', mmu) = (vv val, mv ref, mv field, vv re, vv re', mv mu) in
-            StepTo (Conf (Assign (FieldAccess (ReferenceVal mref) mfield) vval) (mmu, AssocOneVal h mref vre))
-            (LetComputation (emptyConf (ReducedRecord vre')) (extComp WriteField (mmu, AssocOneVal h mref vre) [vre, mfield, vval])
-            (Build $ Conf NilStmt (mmu, AssocOneVal h mref (ReducedRecord vre'))))
+            StepTo (Conf (Assign (LFieldAccess (ReferenceVal mref) mfield) vval) (mmu, AssocOneVal h mref vre))
+              (LetComputation (emptyConf (ReducedRecord vre')) (extComp WriteField (mmu, AssocOneVal h mref vre) [vre, mfield, vval])
+                (Build $ Conf NilStmt (mmu, AssocOneVal h mref (ReducedRecord vre'))))
 
+
+    -- FIXME: This rule has an external computatino returning a non-value
     , name "field-assn-eval-global" $
     mkRule7 $ \val field ref mu h re assign->
         let (vval, mref, mfield, vre, massign, mmu) = (vv val, mv ref, mv field, vv re, mv assign, mv mu) in
-            StepTo (Conf (Assign (FieldAccess (ReferenceVal mref) mfield) vval) (mmu, AssocOneVal h mref vre))
-            (LetComputation (emptyConf (Assign massign vval)) (extComp WriteField (mmu, AssocOneVal h mref vre) [vre, mfield, vval])
-            (Build $ Conf (Assign massign vval) (mmu, AssocOneVal h mref vre)))
+            StepTo (Conf (Assign (LFieldAccess (ReferenceVal mref) mfield) vval) (mmu, AssocOneVal h mref vre))
+              (LetComputation (emptyConf (Assign massign vval)) (extComp WriteField (mmu, AssocOneVal h mref vre) [vre, mfield, vval])
+                (Build $ Conf (Assign massign vval) (mmu, AssocOneVal h mref vre)))
 
-    , name "index-assn-cong-1" $
+    , name "lindex-cong-1" $
     mkPairRule2 $ \env env' ->
-    mkRule4 $ \index val re re'  ->
-        let (mindex, vval, tre, mre) = (mv index, vv val, tv re, mv re') in
-            StepTo (conf (Assign (Index tre mindex) vval) env)
-            (LetStepTo (conf mre env') (conf tre env)
-            (Build $ conf (Assign (Index mre mindex) vval) env'))
+    mkRule3 $ \index re re'  ->
+        let (mindex, tre, mre) = (mv index, tv re, mv re') in
+            StepTo (conf (MkLIndex tre mindex) env)
+              (LetStepTo (conf mre env') (conf tre env)
+                (Build $ conf (MkLIndex mre mindex) env'))
 
-    , name "index-assn-cong-2" $
+    , name "lindex-cong-2" $
     mkPairRule2 $ \env env' ->
-    mkRule4 $ \index val re index'  ->
-        let (tindex, vval, vre, mindex) = (tv index, vv val, vv re, mv index') in
-            StepTo (conf (Assign (Index vre tindex) vval) env)
-            (LetStepTo (conf mindex env') (conf tindex env)
-            (Build $ conf (Assign (Index vre mindex) vval) env'))
+    mkRule3 $ \index re index'  ->
+        let (tindex, vre, mindex) = (tv index, vv re, mv index') in
+            StepTo (conf (MkLIndex vre tindex) env)
+              (LetStepTo (conf mindex env') (conf tindex env)
+                (Build $ conf (MkLIndex vre mindex) env'))
+
+    , name "lindex-done" $
+    mkPairRule1 $ \env ->
+    mkRule2 $ \index re ->
+        let (vindex, vre) = (vv index, vv re) in
+            StepTo (conf (MkLIndex vindex vre) env)
+              (Build $ conf (MkLIndex vindex vre) env)
 
     , name "index-assn-eval" $
     mkRule7 $ \val index ref mu h re re'->
         let (vval, mref, mindex, vre, vre', mmu) = (vv val, mv ref, mv index, vv re, vv re', mv mu) in
-            StepTo (Conf (Assign (Index (ReferenceVal mref) mindex) vval) (mmu, AssocOneVal h mref vre))
+            StepTo (Conf (Assign (LIndex (ReferenceVal mref) mindex) vval) (mmu, AssocOneVal h mref vre))
             (LetComputation (emptyConf vre')
                 (extComp WriteIndex (mmu, AssocOneVal h mref vre) [vre, mindex, vval])
                 (Build $ Conf NilStmt (mmu, AssocOneVal h mref vre')))
