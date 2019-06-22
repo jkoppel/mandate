@@ -71,7 +71,7 @@ maximalElts []     = []
 maximalElts (x:xs) = if any (x `prec`) xs then
                        maximalElts xs
                      else
-                       x : maximalElts xs
+                       x : maximalElts (filter (not . (`prec` x)) xs)
 
 
 
