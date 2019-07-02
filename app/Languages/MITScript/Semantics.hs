@@ -618,7 +618,7 @@ readField heap x y = if isGlobal heap x y then
         readField' heap (ReducedRecordCons (ReducedRecordPair (Name k) v) rps) field = if ibsToString k == field then v else readField' heap rps field
         readField' heap (Parent p) f = case Configuration.lookup p heap of
                                             Just (ReducedRecord parent) -> readField heap parent f
-                                            Nothing -> error "ERR: Dangling Pointer"
+                                            Nothing -> error ("ERR: Dangling Pointer:" ++ show y)
         readField' heap ReducedRecordNil field = None
         readField' heap item field = error (show heap ++ "\n\t" ++ show item ++ "\n\t" ++ show field)
 
