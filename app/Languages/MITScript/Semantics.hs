@@ -525,7 +525,7 @@ mitScriptRules = sequence [
     mkRule5 $ \param params body arg args ->
         let (mparam, mparams, mbody, varg, vargs) = (mv param, mv params, mv body, vv arg, vv args) in
             StepTo (conf (Scope (Block mbody) (ConsName mparam mparams) (ReducedConsExp varg vargs)) env)
-                (Build $ conf (Scope (Block (ConsStmt (Assign (Var mparam) varg) mbody)) mparams vargs) env)
+                (Build $ conf (Scope (Block (ConsStmt (Assign (LVar mparam) varg) mbody)) mparams vargs) env)
 
     , name "fun-call-cong-body" $
     mkPairRule2 $ \env env'->
