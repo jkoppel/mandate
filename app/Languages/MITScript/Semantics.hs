@@ -314,7 +314,7 @@ mitScriptRules = sequence [
     mkRule2 $ \index re ->
         let (vindex, vre) = (vv index, vv re) in
             StepTo (conf (MkLIndex vindex vre) env)
-              (Build $ conf (MkLIndex vindex vre) env)
+              (Build $ conf (LIndex vindex vre) env)
 
     , name "index-assn-eval" $
     mkRule7 $ \val index ref mu h re re'->
