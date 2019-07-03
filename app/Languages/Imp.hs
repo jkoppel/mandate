@@ -249,10 +249,10 @@ impLangRules = sequence [
 
                  , name "read-int" $
                    mkRule2 $ \val mu ->
-                             let (mval) = (mv val) in
+                             let (vval) = (vv val) in
                              StepTo (conf ReadInt mu)
-                               (LetComputation (initConf mval) (extComp DoReadInt (WholeSimpEnv mu) [Skip])
-                               (Build $ conf mval mu))
+                               (LetComputation (initConf vval) (extComp DoReadInt (WholeSimpEnv mu) [Skip])
+                               (Build $ conf vval mu))
 
                  , name "write-int-cong" $
                    mkRule4 $ \arg arg' mu mu' ->
@@ -265,7 +265,7 @@ impLangRules = sequence [
                    mkRule3 $ \arg val mu ->
                              let (varg) = (vv arg) in
                              StepTo (conf (WriteInt varg) mu)
-                               (LetComputation (initConf $ MetaVar val) (extComp DoWriteInt (WholeSimpEnv mu) [varg])
+                               (LetComputation (initConf $ ValVar val) (extComp DoWriteInt (WholeSimpEnv mu) [varg])
                                (Build $ conf Skip mu))
 
 
@@ -280,7 +280,7 @@ impLangRules = sequence [
                    mkRule3 $ \arg val mu ->
                              let (varg) = (vv arg) in
                              StepTo (conf (Write varg) mu)
-                               (LetComputation (initConf $ MetaVar val) (extComp DoWrite (WholeSimpEnv mu) [varg])
+                               (LetComputation (initConf $ ValVar val) (extComp DoWrite (WholeSimpEnv mu) [varg])
                                (Build $ conf Skip mu))
 
                  ------------------------ Vars  ---------------------------------------------
