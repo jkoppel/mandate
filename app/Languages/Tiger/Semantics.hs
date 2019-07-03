@@ -955,9 +955,11 @@ runExternalComputation Compute state [DivideOp,   IntExp (ConstInt n1), IntExp (
 
 runExternalComputation Compute state [EqOp, IntExp    (ConstInt n1), IntExp    (ConstInt n2)] = returnBool $ n1 == n2
 runExternalComputation Compute state [EqOp, StringExp (ConstStr n1), StringExp (ConstStr n2)] = returnBool $ n1 == n2
+runExternalComputation Compute state [EqOp, NilExp,                  NilExp                 ] = returnBool $ True
 
 runExternalComputation Compute state [NeqOp, IntExp    (ConstInt n1), IntExp    (ConstInt n2)] = returnBool $ n1 /= n2
 runExternalComputation Compute state [NeqOp, StringExp (ConstStr n1), StringExp (ConstStr n2)] = returnBool $ n1 /= n2
+runExternalComputation Compute state [NeqOp, NilExp,                  NilExp                 ] = returnBool $ False
 
 runExternalComputation Compute state [LtOp, IntExp    (ConstInt n1), IntExp    (ConstInt n2)] = returnBool $ n1 < n2
 runExternalComputation Compute state [LtOp, StringExp (ConstStr n1), StringExp (ConstStr n2)] = returnBool $ n1 < n2
