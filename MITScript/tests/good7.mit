@@ -1,8 +1,9 @@
+console = {log: print;};
 x = 5;
 foo = fun(t){
    if(t > 4){
    x = t;
-   moo = fun(u){
+   moo = fun(){
 	x = 3;
 	boo = fun(v){
 		console.log("x should be " + v + " is " + x);
