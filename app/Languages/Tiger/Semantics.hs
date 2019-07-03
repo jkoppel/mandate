@@ -644,7 +644,7 @@ tigerRules = sequence [
             (Build $ conf (LetExp (ConsDecList (VarDecDec (VarDec mi) NoneSym mlow)
                                      (ConsDecList (VarDecDec (VarDec loopHiSym) NoneSym mhi)
                                         NilDecList))
-                                  (WhileExp (OpExp (VarExp (SimpleVar mi)) LtOp (VarExp (SimpleVar loopHiSym)))
+                                  (WhileExp (OpExp (VarExp (SimpleVar mi)) LeOp (VarExp (SimpleVar loopHiSym)))
                                        (SeqExp (ConsExpList me
                                                   (ConsExpList (AssignExp (SimpleVar mi) (OpExp (VarExp $ SimpleVar mi) PlusOp (IntExp (ConstInt 1))))
                                                     NilExpList)))))
