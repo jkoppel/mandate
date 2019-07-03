@@ -326,6 +326,8 @@ instance (Matchable a, Matchable b, Typeable a, UpperBound b) => Matchable (Simp
   -- FIXME: WTF is this doing? Why is it not matching v1 also to m2-m1
   match (Pattern (SimpEnvRest v1 m1)) (Matchee (SimpEnvRest v2 m2)) = putVar v1 (WholeSimpEnv @a @b v2) >> match (Pattern m1) (Matchee m2)
 
+  match (Pattern x@(JustSimpMap _)) (Matchee y@(SimpEnvRest _ _)) = mzero
+
   -- TODO: Do we need a case for matching SimpMap with EnvRest? (Beware infinite recursion if so)
 
   refreshVars (JustSimpMap m)   = JustSimpMap <$> refreshVars m
@@ -343,7 +345,7 @@ instance (Matchable a, Matchable b, Typeable a, UpperBound b) => Matchable (Simp
       (Just (JustSimpMap m2))    -> return $ JustSimpMap $ normalizeEnvMap $
                                                    SimpEnvMap (Map.unionWithKey
                                                                    -- Weak updates for * nodes; strong updates for concrete
-                                                                   (\k x y -> if isMinimal k then y else upperBound x y)
+                                                                   (\k x y -> if isMinimal k then x else upperBound x y)
                                                                    (getSimpEnvMap m1')
                                                                    (getSimpEnvMap m2))
       Nothing -> return $ SimpEnvRest v m1'
