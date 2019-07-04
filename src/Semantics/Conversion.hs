@@ -13,6 +13,7 @@ module Semantics.Conversion (
 
 import Control.Monad ( (>=>), void, forM_, liftM, filterM, forM )
 import Control.Monad.Writer ( Writer, tell, execWriter )
+import Data.List ( concatMap )
 import Data.Maybe ( isJust, fromJust )
 import Data.Set ( Set )
 import qualified Data.Set as Set
@@ -84,8 +85,8 @@ fillPAMRhs (GenAMRhs (GenAMState t c p)) = GenAMRhs <$> (GenAMState <$> fillMatc
 
 
 -- The input term must not have overlapping var names as the rule; we're combining namespaces here
-specializeUpRuleForStartTerm :: (Lang l) => Term l -> PAMRule l -> IO (PAMRule l)
-specializeUpRuleForStartTerm startT (PAM left rhs) = liftM fromJust $ runMatchUnique $ do
+specializeRuleForStartTerm :: (Lang l) => Term l -> PAMRule l -> IO (PAMRule l)
+specializeRuleForStartTerm startT (PAM left rhs) = liftM fromJust $ runMatchUnique $ do
   let (GenAMState (Conf leftT leftSt) _ _) = left
   unify leftT startT
   left' <- fillMatch left
@@ -93,7 +94,7 @@ specializeUpRuleForStartTerm startT (PAM left rhs) = liftM fromJust $ runMatchUn
   return $ PAM left' rhs'
 
 stateUnifies :: (Unifiable (GenAMState t l)) => GenAMState t l -> NamedGenAMRule t l -> IO Bool
-stateUnifies st (NamedGenAMRule _ (GenAMRule lhs _)) = isJust <$> runMatchUnique (unify lhs st)
+stateUnifies st (NamedGenAMRule nm (GenAMRule lhs _)) = debugM ("Unifying with " ++ show nm) >> ( isJust <$> runMatchUnique (unify lhs st))
 
 findUnifyingLhs :: (Lang l) => NamedPAMRules l -> PAMState l -> IO (NamedPAMRules l)
 findUnifyingLhs rs st = filterM (stateUnifies st) rs
@@ -151,7 +152,7 @@ upRulesInvertible rs = allM upRuleInvertible (upRules $ classifyPAMRules rs)
     upRuleInvertible (NamedPAMRule nm r) = do
       debugM $ "Trying to invert rule " ++ BS.unpack nm
       t <- nextVar
-      (PAM startState (GenAMRhs upState)) <- specializeUpRuleForStartTerm (NonvalVar t) r
+      (PAM startState (GenAMRhs upState)) <- specializeRuleForStartTerm (NonvalVar t) r
       invertRule rs (swapPhase upState) startState
 
 -- Keep taking steps to invert rule until no available matches, or rule is inverted
@@ -192,7 +193,7 @@ mergePAMUpRule :: (Lang l) => NamedPAMRules l -> NamedPAMRule l -> IO (NamedAMRu
 mergePAMUpRule rs (NamedPAMRule nm1 r) = do
     debugM $ "Trying to merge rule " ++ BS.unpack nm1
     t <- nextVar
-    (PAM startState (GenAMRhs upState)) <- specializeUpRuleForStartTerm (ValVar t) r
+    (PAM startState (GenAMRhs upState)) <- specializeRuleForStartTerm (ValVar t) r
 
     nextRules <- findUnifyingLhs rs (swapPhase upState)
     forM nextRules $ \(NamedPAMRule nm2 (PAM left2 rhs2)) -> fromJust <$> (runMatchUnique $ do
@@ -203,6 +204,64 @@ mergePAMUpRule rs (NamedPAMRule nm1 r) = do
       return $ NamedAMRule nm' (AM (dropPhase startState') (dropPhase rhs2')))
 
 
+-- This is not as general as it could be; only merges if the second rule has no computations
+mergePAMComputationRule :: (Lang l) => NamedPAMRules l -> NamedPAMRule l -> IO (NamedPAMRule l)
+mergePAMComputationRule rs rule@(NamedPAMRule nm (PAM l1 (GenAMLetComputation c f (GenAMRhs r1)))) = do
+  nextRules <- findUnifyingLhs rs r1
+  case nextRules of
+    [NamedPAMRule _ (PAM l2 (GenAMRhs r2))] -> do
+        debugM ("Merging computation rule " ++ show nm)
+        fromJust <$> (runMatchUnique $ do
+            match (Pattern l2) (Matchee r1)
+            r2' <- fillMatch r2
+            return $ NamedPAMRule nm (PAM l1 (GenAMLetComputation c f (GenAMRhs r2'))))
+    xs  -> {- debugM ("Won't merge rule matches " ++ concatMap getRName xs ++ ": " ++ show rule) >> -} return rule
+mergePAMComputationRule rs x = return x
+
+{-
+anyM :: (Monad m) => (a -> m Bool) -> [a] -> m Bool
+anyM _ []     = return False
+anyM p (x:xs) = do
+        q <- p x
+        if q then
+          return True
+         else
+          anyM p xs
+
+maximalLHSs :: (Lang l) => NamedPAMRules l -> IO (NamedPAMRules l)
+maximalLHSs []     = return []
+maximalLHSs (r:rs) = do b <- anyM (r `subsumed`) rs
+                        if b then           debugM ("Was subsumed " ++ show r) >> maximalLHSs rs
+                             else (r :) <$> maximalLHSs rs
+  where
+    subsumed :: (Lang l) => NamedPAMRule l -> NamedPAMRule l -> IO Bool
+    subsumed (NamedPAMRule _ (PAM l1 _)) (NamedPAMRule _ (PAM l2 _)) = isJust <$> runMatchUnique (match (Pattern l1) (Matchee l2))
+-}
+
+
+-- getRName (NamedPAMRule nm _) = show nm
+
+refreshNamedRule :: (Lang l, MonadMatchable m) => NamedPAMRule l -> m (NamedPAMRule l)
+refreshNamedRule (NamedPAMRule nm (PAM a b)) = NamedPAMRule nm <$> (PAM <$> refreshVars a
+                                                                        <*> refreshVars b)
+
+-- Like nub `on` normalizeVars, except there is no standard nub taking
+-- an equality operator as a parameter
+uniquifyRules :: (Lang l) => NamedPAMRules l -> IO (NamedPAMRules l)
+uniquifyRules rs = go rs
+  where
+    refr :: (Lang l) => NamedPAMRule l -> IO (PAMRule l)
+    refr npr = do NamedPAMRule _ r <- liftM fromJust $ runMatchUnique $ refreshNamedRule npr
+                  return r
+
+    go :: (Lang l) => NamedPAMRules l -> IO (NamedPAMRules l)
+    go [] = return []
+    go (r : rs) = do r' <- refr r
+                     rs' <- mapM refr rs
+                     if elem r' rs' then
+                       go rs
+                      else
+                       (r :) <$> go rs
 
 pamToAM :: (Lang l) => NamedPAMRules l -> IO (NamedAMRules l)
 pamToAM rs = do canTrans <- upRulesInvertible rs
@@ -210,10 +269,44 @@ pamToAM rs = do canTrans <- upRulesInvertible rs
                   error "Up-rules not invertible; cannot convert PAM to abstract machine"
                 else do
                   --upRulesSplit <- concat <$> mapM partitionContextVals upRules
-                  upRules' <- concat <$> mapM (mergePAMUpRule rs) upRules
+                  rs' <- mrs'
+                  let ClassifiedPAMRules { upRules=upRules
+                                         , compRules=compRules
+                                         , downRules=downRules} = classifyPAMRules rs'
+
+                  upRules' <- concat <$> mapM (mergePAMUpRule rs') upRules
                   return $ upRules' ++ map dropPhase compRules ++ map dropPhase downRules
   where
-    ClassifiedPAMRules {upRules=upRules, compRules=compRules, downRules=downRules} = classifyPAMRules rs
+
+    -- The sosToPAM conversion algorithm will split a rule like
+    -- (+(v1,v2),u) ~> let n=+(v1,v2) in (n,u)
+    --
+    -- into two rules:
+    -- <+(v1,v2); u | K> -> let n=+(v1,v2) in <n; u | [\('1, '2) -> ('1, '2)] . K>
+    -- <v; u | [\('1, '2) -> ('1, '2)] . K> -> <v; u | K>
+    --
+    -- This makes the algorithm beautiful, but produces a stupid result (and multiple
+    -- duplicate rules). We fuse and drop these, not
+    -- even leaving a trace of the name
+
+    dropNoOpRules :: (Lang l) => NamedPAMRule l -> [NamedPAMRule l]
+    dropNoOpRules (NamedPAMRule _ (PAM (PAMState c1 (KPush (KInp i pf) k1) Down) (GenAMRhs (PAMState c2 k2 Up))))
+      | c1 == c2 && k1 == k2 && (KBuild i) == pf
+      = []
+    dropNoOpRules npr = [npr]
+
+    simplifyExtCompRules (NamedPAMRule nm (PAM ps1 (GenAMLetComputation c1 comp (GenAMRhs (PAMState c2 (KPush (KInp i pf) k) Down)))))
+      | (KBuild i) == pf
+      = [NamedPAMRule nm (PAM ps1 (GenAMLetComputation c1 comp (GenAMRhs (PAMState c2 k Down))))]
+    simplifyExtCompRules npr = [npr]
+
+    mrs' = do
+      uniqueRs <- uniquifyRules rs
+
+      -- This is so janky. (Variables really need namespaces; this relies on coincidence of picking different names)
+      distinctNamesRs <- fromJust <$> runMatchUnique (mapM refreshNamedRule uniqueRs)
+      concatMap simplifyExtCompRules <$> concatMap dropNoOpRules <$> mapM (mergePAMComputationRule distinctNamesRs) uniqueRs
+
 
 
 -------------------------------- Checking determinism --------------------------------------------------
