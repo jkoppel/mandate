@@ -203,7 +203,8 @@ instance (Lang l, Matchable (Configuration l)) => Matchable (Context l) where
 
   refreshVars KHalt       = return KHalt
   refreshVars (KPush f c) = KPush <$> refreshVars f <*> refreshVars c
-  refreshVars (KVar v)    = KVar  <$> refreshVar (\v -> KVar @l v) v
+  refreshVars (KVar v)    = KVar  <$> getVarMaybe v (\(KVar v' :: Context l) -> return v')
+                                                    (refreshVar (\v' -> KVar @l v') v)
 
   fillMatch KHalt       = return KHalt
   fillMatch (KPush f c) = KPush <$> fillMatch f <*> fillMatch c

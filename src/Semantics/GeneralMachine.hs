@@ -108,6 +108,7 @@ instance (Show (Configuration l), Show (Context l)) => Show (GenAMState () l) wh
 data GenAMRule t l = GenAMRule { genAmBefore :: GenAMState t l
                                , genAmAfter  :: GenAMRhs (GenAMState t) l
                                }
+  deriving (Eq )
 
 instance (Show (Configuration l), Lang l, Show (GenAMState t l)) => Show (GenAMRule t l) where
   showsPrec d (GenAMRule before after) = showsPrec d before . showString "  ---->  " . showsPrec d after
@@ -115,6 +116,7 @@ instance (Show (Configuration l), Lang l, Show (GenAMState t l)) => Show (GenAMR
 data NamedGenAMRule t l = NamedGenAMRule { genAmRuleName :: ByteString
                                          , getGenAmRule  :: GenAMRule t l
                                          }
+  deriving ( Eq )
 
 type NamedGenAMRules t l = [NamedGenAMRule t l]
 

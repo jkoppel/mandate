@@ -331,7 +331,9 @@ instance (Matchable a, Matchable b, Typeable a, UpperBound b) => Matchable (Simp
   -- TODO: Do we need a case for matching SimpMap with EnvRest? (Beware infinite recursion if so)
 
   refreshVars (JustSimpMap m)   = JustSimpMap <$> refreshVars m
-  refreshVars (SimpEnvRest v m) = SimpEnvRest <$> refreshVar (\v -> WholeSimpEnv @a @b v) v <*> refreshVars m
+  refreshVars (SimpEnvRest v m) = SimpEnvRest <$> getVarMaybe v (\(WholeSimpEnv v' :: SimpEnv a b) -> return v')
+                                                                (refreshVar (\v' -> WholeSimpEnv @a @b v') v)
+                                              <*> refreshVars m
 
   fillMatch (SimpEnvRest v m1) = do
     filledVar <- getVarMaybe v (return.Just) (return Nothing)
