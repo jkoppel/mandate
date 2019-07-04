@@ -3,7 +3,7 @@
 x = 7; 
 foo = fun(x val){
    if(x>0){
-      foo(x-1, val + "x"); 
+      return foo(x-1, val + "x"); 
    }else{
       return val;
    } 

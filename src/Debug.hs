@@ -2,6 +2,7 @@
 
 module Debug (
     debugM
+  , shortNodeName
   ) where
 
 import Debug.Trace ( traceM )
@@ -24,4 +25,13 @@ debugM :: (Monad m) => String -> m ()
 debugM = traceM
 #else
 debugM s = return ()
+#endif
+
+
+-- #define SHORT_NODE_NAME
+shortNodeName :: Bool
+#ifdef SHORT_NODE_NAME
+shortNodeName = True
+#else
+shortNodeName = False
 #endif

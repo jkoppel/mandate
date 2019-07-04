@@ -26,6 +26,7 @@ import Matching
 import Semantics.Abstraction
 import Semantics.Conversion
 import Semantics.General
+import Semantics.GraphPattern
 import Semantics.PAM
 import Semantics.SOS
 import Term
@@ -105,6 +106,9 @@ instance Irrelevance (CompFunc MITScript) where
 instance HasSOS MITScript where
     rules = mitScriptRules
 
+instance HasTopState MITScript where
+  topRedState = (ValStar, JustSimpMap $ SingletonSimpMap Star ValStar)
+
 emptyConf :: Term MITScript -> Configuration MITScript
 emptyConf t = Conf t (ReducedRecordNil, EmptySimpEnv)
 
@@ -152,20 +156,27 @@ mitScriptRules = sequence [
             StepTo (conf (ConsStmt NilStmt ms) env)
             (Build $ conf ms env)
 
-    , name "seq-global" $
+    , name "global" $
     mkPairRule1 $ \env ->
-    mkRule2 $ \s g ->
-        let (ms, mg) = (mv s, mv g) in
-            StepTo (conf (ConsStmt (Global mg) ms) env)
-            (Build $ conf (ConsStmt (Assign (Var mg) GlobalVar) ms) env)
+    mkRule1 $ \g ->
+        let (mg) = (mv g) in
+            StepTo (conf (Global mg) env)
+              (Build $ conf (Assign (Var mg) GlobalVar) env)
 
-    , name "seq-ret-cong" $
+    , name "ret-cong" $
     mkPairRule2 $ \env env' ->
-    mkRule3 $ \s val val' ->
-        let (ms, tval, mval) = (mv s, tv val, mv val') in
-            StepTo (conf (ConsStmt (Return tval) ms) env)
-                (LetStepTo (conf mval env') (conf tval env)
-                (Build $ conf (ConsStmt (Return mval) ms) env'))
+    mkRule2 $ \val val' ->
+        let (tval, mval) = (tv val, mv val') in
+            StepTo (conf (MkReturn tval) env)
+              (LetStepTo (conf mval env') (conf tval env)
+                (Build $ conf (MkReturn mval) env'))
+
+    , name "ret-done" $
+    mkPairRule1 $ \env ->
+    mkRule1 $ \s ->
+        let (vs) = (vv s) in
+            StepTo (conf (MkReturn vs) env)
+              (Build $ conf (Return vs) env)
 
     , name "seq-ret-eval" $
     mkPairRule1 $ \env ->
@@ -237,54 +248,78 @@ mitScriptRules = sequence [
             (LetStepTo (conf me' env') (conf te env)
             (Build $ conf (Assign mvar me') env'))
 
-    , name "stack-assn-eval" $
-    mkRule6 $ \var val mu h frame rest->
-        let (mvar, vval, mframe, mrest) = (mv var, vv val, mv frame, mv rest) in
-            StepTo (Conf (Assign (Var mvar) vval) (ConsFrame mframe mrest, WholeSimpEnv h))
-            (Build $ Conf (Assign (FieldAccess (ReferenceVal mframe) mvar) vval) (ConsFrame mframe mrest, WholeSimpEnv h))
-
-    , name "field-assn-cong" $
+    , name "assn-lval-cong" $
     mkPairRule2 $ \env env' ->
-    mkRule4 $ \field val re re'  ->
-        let (mfield, vval, tre, mre) = (mv field, vv val, tv re, mv re') in
-            StepTo (conf (Assign (FieldAccess tre mfield) vval) env)
-            (LetStepTo (conf mre env') (conf tre env)
-            (Build $ conf (Assign (FieldAccess mre mfield) vval) env'))
+    mkRule3 $ \lv lv' e ->
+        let (tlv, mlv', ve) = (tv lv, mv lv', vv e) in
+            StepTo (conf (Assign tlv ve) env)
+              (LetStepTo (conf mlv' env') (conf tlv env)
+                (Build $ conf (Assign mlv' ve) env'))
+
+    , name "stack-lvar-eval" $
+    mkRule5 $ \var mu h frame rest ->
+        let (mvar, mframe, mrest) = (mv var, mv frame, mv rest) in
+            StepTo (Conf (LVar mvar) (ConsFrame mframe mrest, WholeSimpEnv h))
+              (Build $ Conf (MkLFieldAccess (ReferenceVal mframe) mvar) (ConsFrame mframe mrest, WholeSimpEnv h))
+
+    , name "lfield-cong" $
+    mkPairRule2 $ \env env' ->
+    mkRule3 $ \field re re'  ->
+        let (mfield, tre, mre) = (mv field, tv re, mv re') in
+            StepTo (conf (MkLFieldAccess tre mfield) env)
+              (LetStepTo (conf mre env') (conf tre env)
+                (Build $ conf (MkLFieldAccess mre mfield) env'))
+
+    , name "lfield-done" $
+    mkPairRule1 $ \env ->
+    mkRule2 $ \re field ->
+        let (vre, mfield) = (vv re, mv field) in
+            StepTo (conf (MkLFieldAccess vre mfield) env)
+              (Build $ conf (LFieldAccess vre mfield) env)
 
     , name "field-assn-eval-nonglobal" $
     mkRule7 $ \val field ref mu h re re'->
         let (vval, mref, mfield, vre, vre', mmu) = (vv val, mv ref, mv field, vv re, vv re', mv mu) in
-            StepTo (Conf (Assign (FieldAccess (ReferenceVal mref) mfield) vval) (mmu, AssocOneVal h mref vre))
-            (LetComputation (emptyConf (ReducedRecord vre')) (extComp WriteField (mmu, AssocOneVal h mref vre) [vre, mfield, vval])
-            (Build $ Conf NilStmt (mmu, AssocOneVal h mref (ReducedRecord vre'))))
+            StepTo (Conf (Assign (LFieldAccess (ReferenceVal mref) mfield) vval) (mmu, AssocOneVal h mref vre))
+              (LetComputation (emptyConf (ReducedRecord vre')) (extComp WriteField (mmu, AssocOneVal h mref vre) [vre, mfield, vval])
+                (Build $ Conf NilStmt (mmu, AssocOneVal h mref (ReducedRecord vre'))))
 
+
+    -- FIXME: This rule has an external computatino returning a non-value
     , name "field-assn-eval-global" $
     mkRule7 $ \val field ref mu h re assign->
         let (vval, mref, mfield, vre, massign, mmu) = (vv val, mv ref, mv field, vv re, mv assign, mv mu) in
-            StepTo (Conf (Assign (FieldAccess (ReferenceVal mref) mfield) vval) (mmu, AssocOneVal h mref vre))
-            (LetComputation (emptyConf (Assign massign vval)) (extComp WriteField (mmu, AssocOneVal h mref vre) [vre, mfield, vval])
-            (Build $ Conf (Assign massign vval) (mmu, AssocOneVal h mref vre)))
+            StepTo (Conf (Assign (LFieldAccess (ReferenceVal mref) mfield) vval) (mmu, AssocOneVal h mref vre))
+              (LetComputation (emptyConf (Assign massign vval)) (extComp WriteField (mmu, AssocOneVal h mref vre) [vre, mfield, vval])
+                (Build $ Conf (Assign massign vval) (mmu, AssocOneVal h mref vre)))
 
-    , name "index-assn-cong-1" $
+    , name "lindex-cong-1" $
     mkPairRule2 $ \env env' ->
-    mkRule4 $ \index val re re'  ->
-        let (mindex, vval, tre, mre) = (mv index, vv val, tv re, mv re') in
-            StepTo (conf (Assign (Index tre mindex) vval) env)
-            (LetStepTo (conf mre env') (conf tre env)
-            (Build $ conf (Assign (Index mre mindex) vval) env'))
+    mkRule3 $ \index re re'  ->
+        let (mindex, tre, mre) = (mv index, tv re, mv re') in
+            StepTo (conf (MkLIndex tre mindex) env)
+              (LetStepTo (conf mre env') (conf tre env)
+                (Build $ conf (MkLIndex mre mindex) env'))
 
-    , name "index-assn-cong-2" $
+    , name "lindex-cong-2" $
     mkPairRule2 $ \env env' ->
-    mkRule4 $ \index val re index'  ->
-        let (tindex, vval, vre, mindex) = (tv index, vv val, vv re, mv index') in
-            StepTo (conf (Assign (Index vre tindex) vval) env)
-            (LetStepTo (conf mindex env') (conf tindex env)
-            (Build $ conf (Assign (Index vre mindex) vval) env'))
+    mkRule3 $ \index re index'  ->
+        let (tindex, vre, mindex) = (tv index, vv re, mv index') in
+            StepTo (conf (MkLIndex vre tindex) env)
+              (LetStepTo (conf mindex env') (conf tindex env)
+                (Build $ conf (MkLIndex vre mindex) env'))
+
+    , name "lindex-done" $
+    mkPairRule1 $ \env ->
+    mkRule2 $ \index re ->
+        let (vindex, vre) = (vv index, vv re) in
+            StepTo (conf (MkLIndex vindex vre) env)
+              (Build $ conf (LIndex vindex vre) env)
 
     , name "index-assn-eval" $
     mkRule7 $ \val index ref mu h re re'->
         let (vval, mref, mindex, vre, vre', mmu) = (vv val, mv ref, mv index, vv re, vv re', mv mu) in
-            StepTo (Conf (Assign (Index (ReferenceVal mref) mindex) vval) (mmu, AssocOneVal h mref vre))
+            StepTo (Conf (Assign (LIndex (ReferenceVal mref) mindex) vval) (mmu, AssocOneVal h mref vre))
             (LetComputation (emptyConf vre')
                 (extComp WriteIndex (mmu, AssocOneVal h mref vre) [vre, mindex, vval])
                 (Build $ Conf NilStmt (mmu, AssocOneVal h mref vre')))
@@ -490,7 +525,7 @@ mitScriptRules = sequence [
     mkRule5 $ \param params body arg args ->
         let (mparam, mparams, mbody, varg, vargs) = (mv param, mv params, mv body, vv arg, vv args) in
             StepTo (conf (Scope (Block mbody) (ConsName mparam mparams) (ReducedConsExp varg vargs)) env)
-                (Build $ conf (Scope (Block (ConsStmt (Assign (Var mparam) varg) mbody)) mparams vargs) env)
+                (Build $ conf (Scope (Block (ConsStmt (Assign (LVar mparam) varg) mbody)) mparams vargs) env)
 
     , name "fun-call-cong-body" $
     mkPairRule2 $ \env env'->
@@ -536,7 +571,7 @@ mitScriptRules = sequence [
             StepTo (conf NilExp env)
                 (Build $ conf ReducedNilExp env)
 
-    -- Bultins
+    -- Builtins
     , name "builtin-cong" $
     mkPairRule2 $ \env env' ->
     mkRule3 $ \var ret func ->
@@ -583,7 +618,7 @@ readField heap x y = if isGlobal heap x y then
         readField' heap (ReducedRecordCons (ReducedRecordPair (Name k) v) rps) field = if ibsToString k == field then v else readField' heap rps field
         readField' heap (Parent p) f = case Configuration.lookup p heap of
                                             Just (ReducedRecord parent) -> readField heap parent f
-                                            Nothing -> error "ERR: Dangling Pointer"
+                                            Nothing -> error ("ERR: Dangling Pointer:" ++ show y)
         readField' heap ReducedRecordNil field = None
         readField' heap item field = error (show heap ++ "\n\t" ++ show item ++ "\n\t" ++ show field)
 
@@ -636,19 +671,19 @@ matchRedState (stack, heap) = (mv stack, WholeSimpEnv heap)
 builtinPrint :: Term MITScript
 builtinPrint = Closure
                     (ConsName (Name "x") NilName)
-                    (Block (ConsStmt (Return (Builtin Print (Var $ Name "x"))) NilStmt))
+                    (Block (ConsStmt (MkReturn (Builtin Print (Var $ Name "x"))) NilStmt))
                     (HeapAddr $ -1)
 
 builtinIntCast :: Term MITScript
 builtinIntCast = Closure
                     (ConsName (Name "x") NilName)
-                    (Block (ConsStmt (Return (Builtin IntCast (Var $ Name "x"))) NilStmt))
+                    (Block (ConsStmt (MkReturn (Builtin IntCast (Var $ Name "x"))) NilStmt))
                     (HeapAddr $ -1)
 
 builtinRead :: Term MITScript
 builtinRead = Closure
                     NilName
-                    (Block (ConsStmt (Return (Builtin Read None)) NilStmt))
+                    (Block (ConsStmt (MkReturn (Builtin Read None)) NilStmt))
                     (HeapAddr $ -1)
 
 runExternalComputation :: CompFunc MITScript -> RedState MITScript -> [Term MITScript] -> MatchEffect (Configuration MITScript)
@@ -688,18 +723,25 @@ runExternalComputation ReadField (stack, heap)  [ReducedRecord r, Name f] = retu
 runExternalComputation WriteField (stack, heap) [ReducedRecord r, Name f, val]   = return $ emptyConf $ writeField heap r (ibsToString f) val
 
 runExternalComputation RunBuiltin state         [Read, None]  = emptyConf <$> Str <$> ConstStr <$> intern <$> matchEffectInput
-runExternalComputation RunBuiltin (stack, heap) [Print, vv]   = matchEffectOutput (BS.pack $ fromString $ toString vv heap) >> return (emptyConf None)
+runExternalComputation RunBuiltin (stack, heap) [Print, vv]   = matchEffectOutput (BS.pack $ fromString $ toString vv heap ++ "\n") >> return (emptyConf None)
 runExternalComputation RunBuiltin (stack, heap) [IntCast, vv] = returnInt $ read $ toString vv heap
 
 runExternalComputation AbsAllocAddress _ _ = return $ emptyConf ValStar
 
-runExternalComputation func state [GStar _] = return $ emptyConf ValStar
-runExternalComputation func state [_]       = return $ emptyConf ValStar
+runExternalComputation func state [GStar  _] = return $ emptyConf ValStar
+runExternalComputation func state [ValVar _] = return $ emptyConf ValStar
 
-runExternalComputation func state [GStar _, _] = return $ emptyConf ValStar
-runExternalComputation func state [_, GStar _] = return $ emptyConf ValStar
+runExternalComputation func state [GStar _, _]  = return $ emptyConf ValStar
+runExternalComputation func state [_, GStar _]  = return $ emptyConf ValStar
+runExternalComputation func state [ValVar _, _] = return $ emptyConf ValStar
+runExternalComputation func state [_, ValVar _] = return $ emptyConf ValStar
 
-runExternalComputation func state [GStar _, _, _] = return $ emptyConf ValStar
-runExternalComputation func state [_, GStar _, _] = return $ emptyConf ValStar
-runExternalComputation func state [_, _, GStar _] = return $ emptyConf ValStar
+runExternalComputation func state [GStar _, _, _]  = return $ emptyConf ValStar
+runExternalComputation func state [_, GStar _, _]  = return $ emptyConf ValStar
+runExternalComputation func state [_, _, GStar _]  = return $ emptyConf ValStar
+runExternalComputation func state [ValVar _, _, _] = return $ emptyConf ValStar
+runExternalComputation func state [_, ValVar _, _] = return $ emptyConf ValStar
+runExternalComputation func state [_, _, ValVar _] = return $ emptyConf ValStar
+
+
 runExternalComputation func state terms = error $ show func ++ "\t" ++ show state ++ "\t" ++ show terms

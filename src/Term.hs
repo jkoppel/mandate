@@ -32,6 +32,7 @@ module Term (
   , mapTerm
   , traverseTerm
 
+  , getSigNode
   , checkSig
   , checkTerm
   , sortOfTerm
@@ -158,14 +159,29 @@ instance UpperBound MatchType where
   upperBound _ _ = TermOrValue
 
 instance Meetable (Term l) where
-  -- TODO: What to do if there's a var?
+  -- I'm not sure if the var cases are correct
   meet x y
     | x == y = Just x
+  meet (GMetaVar v1 mt1) (GMetaVar v2 mt2) = GMetaVar (min v1 v2) <$> meet mt1 mt2
+  meet (GMetaVar v mt1)  (GStar mt2)       = GMetaVar v <$> meet mt1 mt2
+  meet (GStar mt1)       (GMetaVar v mt2)  = GMetaVar v <$> meet mt1 mt2
   meet (GStar mt1) (GStar mt2) = GStar <$> meet mt1 mt2
   meet t s@(GStar _)           = meet s t
-  meet (GStar mt) x            =  if matchTypeForTerm x `prec` mt then Just x else Nothing
-  meet Star       x            = Just x
-  meet _          _            = Nothing
+  meet (GStar mt) x            = if matchTypeForTerm x `prec` mt then Just x else Nothing
+  meet Star       x            = Just x -- FIXME: Is this case redundant
+  meet x                 (GMetaVar v  mt) = GMetaVar v <$> meet (matchTypeForTerm x) mt
+  meet (GMetaVar v mt)   x                = GMetaVar v <$> meet (matchTypeForTerm x) mt
+  meet _                 _                = Nothing
+
+
+  -- This is a bit weird and not well theoretically-justified. Basically:
+  -- this is the subsumption preorder (ish), except that ties are broken
+  -- to var < star, so that simpler things are maximal
+  prec x y
+    | ((x `meet` y) == Just x) = True
+  prec (GMetaVar _ mt1) (GStar mt2)      = mt1 `prec` mt2
+  prec (GStar mt1)      (GStar mt2)      = mt1 `prec` mt2
+  prec _                _                = False
 
   isMinimal (GStar _) = False
   isMinimal (Val  _ ts) = all isMinimal ts
@@ -420,16 +436,15 @@ checkSig sorts (Signature sigs) = map checkNodeSig sigs `deepseq` ()
     checkNodeSig (StrSig  _    s) = checkSort s `deepseq` ()
 
 
--- private helper
 -- If want the language in error messages, can add Typeable constraints and show the TypeRep
-getInSig :: Signature l -> Symbol -> SigNode
-getInSig (Signature sig) s = case find (\n -> sigNodeSymbol n == s) sig of
-                           Just n -> n
-                           Nothing -> error ("Cannot find symbol " ++ show s ++ " in signature " ++ show sig)
+getSigNode :: Signature l -> Symbol -> SigNode
+getSigNode (Signature sig) s = case find (\n -> sigNodeSymbol n == s) sig of
+                                 Just n -> n
+                                 Nothing -> error ("Cannot find symbol " ++ show s ++ " in signature " ++ show sig)
 
 -- private helper
 sortForSym :: Signature l -> Symbol -> Sort
-sortForSym sig s = sigNodeSort $ getInSig sig s
+sortForSym sig s = sigNodeSort $ getSigNode sig s
 
 -- Metavars/stars are currently unsorted / can have any sort
 sortOfTerm :: Signature l -> Term l -> Maybe Sort
@@ -464,16 +479,16 @@ checkInternalNode sig t ss ts = if length ss /= length ts then
 -- This version is for debugging only, and will halt execution on failure
 -- Bad terms should never be created
 checkTerm :: Signature l -> Term l -> ()
-checkTerm sig t@(Node s ts)   = case getInSig sig s of
+checkTerm sig t@(Node s ts)   = case getSigNode sig s of
                                   NodeSig _ ss _ -> checkInternalNode sig t ss ts
                                   sym            -> error ("In Term " ++ show t ++ ", symbol " ++ show sym ++ " used as node: " ++ show s)
-checkTerm sig t@(Val  s ts)   = case getInSig sig s of
+checkTerm sig t@(Val  s ts)   = case getSigNode sig s of
                                   ValSig  _ ss _ -> checkInternalNode sig t ss ts
                                   sym            -> error ("In Term " ++ show t ++ ", symbol " ++ show sym ++ " used as ValNode: " ++ show s)
-checkTerm sig t@(IntNode s i) = case getInSig sig s of
+checkTerm sig t@(IntNode s i) = case getSigNode sig s of
                                   IntSig _ _    -> ()
                                   sym            -> error ("In Term " ++ show t ++ ", symbol " ++ show sym ++ " used as IntNode: " ++ show s)
-checkTerm sig t@(StrNode s i) = case getInSig sig s of
+checkTerm sig t@(StrNode s i) = case getSigNode sig s of
                                   StrSig _ _    -> ()
                                   sym            -> error ("In Term " ++ show t ++ ", symbol " ++ show sym ++ " used as StrNode: " ++ show s)
 checkTerm sig (GStar _)       = ()

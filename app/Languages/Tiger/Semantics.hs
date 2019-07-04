@@ -25,6 +25,7 @@ import Matching
 import Semantics.Abstraction
 import Semantics.Conversion
 import Semantics.General
+import Semantics.GraphPattern
 import Semantics.PAM
 import Semantics.SOS
 import Term hiding ( Symbol )
@@ -104,6 +105,9 @@ instance Irrelevance (CompFunc Tiger) where
     irrelevance _ AbsValIsTrue    = AbsValIsTrue
 
     irrelevance _ OpIsntShortCircuit = OpIsntShortCircuit
+
+instance HasTopState Tiger where
+  topRedState = (ValStar, JustSimpMap $ SingletonSimpMap Star ValStar)
 
 realStartingEnv :: SimpEnv (Term Tiger) (Term Tiger)
 realStartingEnv = JustSimpMap $ SimpEnvMap $ Map.fromList
@@ -640,7 +644,7 @@ tigerRules = sequence [
             (Build $ conf (LetExp (ConsDecList (VarDecDec (VarDec mi) NoneSym mlow)
                                      (ConsDecList (VarDecDec (VarDec loopHiSym) NoneSym mhi)
                                         NilDecList))
-                                  (WhileExp (OpExp (VarExp (SimpleVar mi)) LtOp (VarExp (SimpleVar loopHiSym)))
+                                  (WhileExp (OpExp (VarExp (SimpleVar mi)) LeOp (VarExp (SimpleVar loopHiSym)))
                                        (SeqExp (ConsExpList me
                                                   (ConsExpList (AssignExp (SimpleVar mi) (OpExp (VarExp $ SimpleVar mi) PlusOp (IntExp (ConstInt 1))))
                                                     NilExpList)))))
@@ -951,9 +955,11 @@ runExternalComputation Compute state [DivideOp,   IntExp (ConstInt n1), IntExp (
 
 runExternalComputation Compute state [EqOp, IntExp    (ConstInt n1), IntExp    (ConstInt n2)] = returnBool $ n1 == n2
 runExternalComputation Compute state [EqOp, StringExp (ConstStr n1), StringExp (ConstStr n2)] = returnBool $ n1 == n2
+runExternalComputation Compute state [EqOp, NilExp,                  NilExp                 ] = returnBool $ True
 
 runExternalComputation Compute state [NeqOp, IntExp    (ConstInt n1), IntExp    (ConstInt n2)] = returnBool $ n1 /= n2
 runExternalComputation Compute state [NeqOp, StringExp (ConstStr n1), StringExp (ConstStr n2)] = returnBool $ n1 /= n2
+runExternalComputation Compute state [NeqOp, NilExp,                  NilExp                 ] = returnBool $ False
 
 runExternalComputation Compute state [LtOp, IntExp    (ConstInt n1), IntExp    (ConstInt n2)] = returnBool $ n1 < n2
 runExternalComputation Compute state [LtOp, StringExp (ConstStr n1), StringExp (ConstStr n2)] = returnBool $ n1 < n2

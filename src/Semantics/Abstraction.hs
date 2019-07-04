@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleContexts, FlexibleInstances, MultiParamTypeClasses, OverloadedStrings, UndecidableInstances #-}
+{-# LANGUAGE FlexibleContexts, FlexibleInstances, MultiParamTypeClasses, OverloadedStrings, ScopedTypeVariables, TypeApplications, UndecidableInstances #-}
 
 module Semantics.Abstraction (
     Abstraction
@@ -50,11 +50,21 @@ instance (Lang l) => Irrelevance (Term l) where
       valToStar (Val _ _) = ValStar
       valToStar t         = t
 
-  irrelevance (SortIrr sort) = mapTerm exprToStar
+  irrelevance (SortIrr sort) = mapTerm (sortToStar . sortSubtermsToStar)
     where
-      exprToStar t  = case sortOfTerm signature t of
+      sortToStar t  = case sortOfTerm signature t of
                         Just s@(Sort _) -> if s == sort then ValStar else t
                         _ -> t
+
+      deferentialGetSort x st = maybe st id $ sortOfTerm @l signature x
+      processNode (x, st) = if deferentialGetSort x st == sort then ValStar else x
+
+      sortSubtermsToStar (Node s ts) = let (NodeSig _ stSorts _) = getSigNode (signature @l) s in
+                                       Node s $ map processNode (zip ts stSorts)
+      sortSubtermsToStar (Val  s ts) = let (ValSig  _ stSorts _) = getSigNode (signature @l) s in
+                                       Val s  $ map processNode (zip ts stSorts)
+      sortSubtermsToStar x           = x
+
 
 
 instance Irrelevance EmptyState where

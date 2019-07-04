@@ -41,10 +41,13 @@ library:
   - intern
   - logict
   - mtl
+  - pretty
   - process
+  - template-haskell
   - text
   - transformers
   - unordered-containers
+  - utility-ht
 
 executables:
   derive-cfg:
@@ -67,7 +70,6 @@ executables:
     - fgl
     - graphviz
     - text
-
 
 
 

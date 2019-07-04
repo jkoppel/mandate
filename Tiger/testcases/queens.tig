@@ -1,7 +1,7 @@
 /* A program to solve the 8-queens problem */
 
 let
-    var N := 8
+    var N := 4
 
     type intArray = array of int
 
@@ -22,11 +22,11 @@ let
      if c=N
      then printboard()
      else for r := 0 to N-1
-	   do if row[r]=0 & diag1[r+c]=0 & diag2[r+7-c]=0
-	           then (row[r]:=1; diag1[r+c]:=1; diag2[r+7-c]:=1;
+	   do if row[r]=0 & diag1[r+c]=0 & diag2[r+(N-1)-c]=0
+	           then (row[r]:=1; diag1[r+c]:=1; diag2[r+(N-1)-c]:=1;
 		         col[c]:=r;
 	                 try(c+1);
-			 row[r]:=0; diag1[r+c]:=0; diag2[r+7-c]:=0)
+			 row[r]:=0; diag1[r+c]:=0; diag2[r+(N-1)-c]:=0)
 
 )
  in try(0)

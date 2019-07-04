@@ -28,7 +28,7 @@ import Control.Monad.State ( MonadState(..), StateT, evalStateT, modify )
 import Control.Monad.Trans ( lift )
 
 import Data.Foldable ( fold )
-import Data.Map ( Map, (!) )
+import Data.Map ( Map )
 import qualified Data.Map as Map
 import Data.Set ( Set )
 import qualified Data.Set as Set
@@ -102,9 +102,10 @@ instance {-# OVERLAPPABLE #-} (MonadState MatchState m, MonadVarAllocator m, Mon
   hasVar var = Map.member var <$> ms_varMap <$> get
   putVar var val = do curVal <- getVarMaybe var (return.Just) (return Nothing)
                       case curVal of
-                        Nothing   -> do debugM $ "Setting var " ++ show var
+                        Nothing   -> do debugM $ "Setting var " ++ show var ++ " to " ++ show val
                                         modify (modVarMap $ Map.insert var (AnyMatchable val))
                         Just val' -> do newVal <- hoistMaybe $ meet val val'
+                                        debugM $ "Met " ++ show val ++ " and " ++ show val'
                                         modify (modVarMap $ Map.insert var (AnyMatchable newVal))
 
   clearVar var = modify (modVarMap $ Map.delete var)
@@ -180,10 +181,12 @@ instance (Typeable l) => Matchable (Term l) where
                                                                     Just mtMeet -> putVar v (GStar @l mtMeet)
                                                                     Nothing     -> mzero
 
-  -- FIXME: In this next case, if mt1 < mt2, all other uses of v2 should be narrowed
-  match (Pattern (GMetaVar v1 mt1)) (Matchee (GMetaVar v2 mt2)) = case mt1 `meet` mt2 of
-                                                                    Just mtMeet -> putVar v1 (GMetaVar @l v2 mtMeet)
-                                                                    Nothing     -> mzero
+  -- FIXME: I'm still not really sure if this should fail to match if mt2 > mt1, or if it should narrow v2
+  match (Pattern (GMetaVar v1 mt1)) (Matchee (GMetaVar v2 mt2)) = if mt2 `prec` mt1 then
+                                                                    putVar v1 (GMetaVar @l v2 mt2)
+                                                                  else
+                                                                    mzero
+
   match (Pattern (GMetaVar v mt)) (Matchee t) = do guard (matchTypeForTerm t `prec` mt)
                                                    putVar v t
 
@@ -276,6 +279,8 @@ instance (Matchable a, Matchable b, UpperBound b) => Matchable (SimpEnvMap a b) 
   -- 1) What we do now: For key k1 in pattern and k2 in matchee, if k2 <= k1 or k1 <= k2,
   --    then join all values mapping to the k2's, match against value of k1
   -- 2) For each k1/k2 that may match, branch
+  --
+  -- Something something I think these produce principal unifiers in different orderings
   match (Pattern (SimpEnvMap m1)) (Matchee (SimpEnvMap m2)) = do
     m1' <- mapKeysM fillMatch m1
     sequence_ $ forMap m1' $ \k1 v1 ->
@@ -291,16 +296,6 @@ instance (Matchable a, Matchable b, UpperBound b) => Matchable (SimpEnvMap a b) 
 -- | Used as a hint to type inference
 declareTypesEq :: (Monad m) => a -> a -> m ()
 declareTypesEq _ _ = return ()
-
--- | partitionAbstractMap m1 m2 partitions m2 into the things which may match a key in m1,
---   and the things which may not match a key in m1. The intersection of the two maps will be
---   abstract keys
-partitionAbstractMap :: (Meetable a, Ord a) => Map a b -> Map a b -> (Map a b, Map a b)
-partitionAbstractMap m1 m2 = ( Map.differenceWithKey (\k a _ -> if isMinimal k then Nothing else Just a) m2 m1
-                             , Map.filterWithKey (\k _ -> not (isMinimal k) || anyIntersecting k ) m2
-                             )
-  where
-    anyIntersecting k2 = any (\k1 -> (k1 `meet` k2) /= Nothing) (Map.keys m1)
 
 instance (Matchable a, Matchable b, Typeable a, UpperBound b) => Matchable (SimpEnv a b) where
   getVars (SimpEnvRest v m) = Set.insert v (getVars m)

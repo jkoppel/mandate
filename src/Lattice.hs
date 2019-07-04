@@ -6,7 +6,12 @@ module Lattice (
   , upperBoundDefault
 
   , maximalElts
+  , partitionAbstractMap
   ) where
+
+
+import Data.Map ( Map )
+import qualified Data.Map as Map
 
 
 class (Eq m) => Meetable m where
@@ -23,7 +28,7 @@ class (Meetable m) => UpperBound m where
   top :: m
 
   -- | If z = x `upperBound` y, then x < z and y < z
-  -- Not necessarily a join; the relevannt poset may not have least upper-bounds
+  -- Not necessarily a join; the relevant poset may not have least upper-bounds
   -- (Namely, maps do not)
   upperBound  :: m -> m -> m
 
@@ -58,10 +63,25 @@ upperBoundDefault :: (Eq m, UpperBound m) => m -> m -> m
 upperBoundDefault a b = if a == b then a else top
 
 
+-------------------------------------- Utility --------------------------------
+
 -- Naive n^2
 maximalElts :: (Meetable a) => [a] -> [a]
 maximalElts []     = []
 maximalElts (x:xs) = if any (x `prec`) xs then
                        maximalElts xs
                      else
-                       x : maximalElts xs
+                       x : maximalElts (filter (not . (`prec` x)) xs)
+
+
+
+
+-- | partitionAbstractMap m1 m2 partitions m2 into the things which may match a key in m1,
+--   and the things which may not match a key in m1. The intersection of the two maps will be
+--   abstract keys
+partitionAbstractMap :: (Meetable a, Ord a) => Map a b -> Map a b -> (Map a b, Map a b)
+partitionAbstractMap m1 m2 = ( Map.differenceWithKey (\k a _ -> if isMinimal k then Nothing else Just a) m2 m1
+                             , Map.filterWithKey (\k _ -> not (isMinimal k) || anyIntersecting k ) m2
+                             )
+  where
+    anyIntersecting k2 = any (\k1 -> (k1 `meet` k2) /= Nothing) (Map.keys m1)

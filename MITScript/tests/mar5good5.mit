@@ -22,9 +22,9 @@ im = fun(x y){
    return " ";
 };
 i = 0;
-while(i < 30){
+while(i < 3){
  
-   consolePrint(im, 30, 30);
+   consolePrint(im, 3, 3);
    p.x = i;
    p.y = i;
    i = i+1;

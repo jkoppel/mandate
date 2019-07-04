@@ -63,7 +63,7 @@ instance Lang ImpLang where
   initConf t = Conf t EmptySimpEnv
 
 instance HasTopState ImpLang where
-  topRedState = JustSimpMap $ SingletonSimpMap ValStar ValStar
+  topRedState = JustSimpMap $ SingletonSimpMap Star ValStar
 
 instance Hashable (CompFunc ImpLang)
 
@@ -84,7 +84,7 @@ instance HasSOS ImpLang where
   rules = impLangRules
 
 impLangSig :: Signature ImpLang
-impLangSig = Signature [ NodeSig ":=" ["Var", "Exp"] "Exp"
+impLangSig = Signature [ NodeSig ":=" ["Var", "Exp"] "Stmt"
                        , ValSig "Skip" [] "Exp"
                        , NodeSig "Seq" ["Stmt", "Stmt"] "Stmt"
                        , NodeSig "If" ["Exp", "Stmt", "Stmt"] "Stmt"
@@ -95,7 +95,7 @@ impLangSig = Signature [ NodeSig ":=" ["Var", "Exp"] "Exp"
                        , NodeSig "Write" ["Exp"] "Stmt"
 
                        , NodeSig "Var" ["VarName"] "Var"
-                       , StrSig "VarName" "VarName"
+                       , StrSig  "VarName" "VarName"
                        , NodeSig "VarExp" ["Var"] "Exp"
 
                        , ValSig "true" [] "Exp"
@@ -349,8 +349,12 @@ runExternalComputation DoWrite state [EVal (StrConst s)] = matchEffectOutput (un
 
 runExternalComputation AbsRunAdd state [GStar _, _] = return $ initConf ValStar
 runExternalComputation AbsRunAdd state [_, GStar _] = return $ initConf ValStar
+runExternalComputation AbsRunAdd state [ValVar _, _] = return $ initConf ValStar
+runExternalComputation AbsRunAdd state [_, ValVar _] = return $ initConf ValStar
 runExternalComputation AbsRunLT  state [GStar _, _] = (return $ initConf True) `mplus` (return $ initConf False)
 runExternalComputation AbsRunLT  state [_, GStar _] = (return $ initConf True) `mplus` (return $ initConf False)
+runExternalComputation AbsRunLT  state [ValVar _, _] = (return $ initConf True) `mplus` (return $ initConf False)
+runExternalComputation AbsRunLT  state [_, ValVar _] = (return $ initConf True) `mplus` (return $ initConf False)
 
 runExternalComputation AbsDoReadInt   state [_] = return $ initConf ValStar
 runExternalComputation AbsDoWriteInt  state [_] = return $ initConf Skip

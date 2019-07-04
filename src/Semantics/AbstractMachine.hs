@@ -13,6 +13,7 @@ module Semantics.AbstractMachine (
 
   , stepAm1
   , stepAm
+  , stepAmNarrowing
 
   , amEvaluationSequence
   , amEvaluationTreeDepth
@@ -63,6 +64,9 @@ stepAm1 rules st = runMatchFirst $ stepGenAm rules st
 
 stepAm :: (Lang l) => NamedAMRules l -> AMState l -> IO [AMState l]
 stepAm rules st = runMatch $ stepGenAm rules st
+
+stepAmNarrowing :: (Lang l) => NamedAMRules l -> AMState l -> IO [AMState l]
+stepAmNarrowing rules st = runMatch $ stepGenAmNarrowing rules st
 
 initAmState :: (Lang l) => Term l -> AMState l
 initAmState t = AMState (initConf t) KHalt
