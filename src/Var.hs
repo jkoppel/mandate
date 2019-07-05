@@ -111,8 +111,11 @@ globalVarCounter :: IORef Int
 globalVarCounter = unsafePerformIO (newIORef 0)
 {-# NOINLINE globalVarCounter #-}
 
+nextVarCount :: IO Int
+nextVarCount = atomicModifyIORef globalVarCounter (\x -> (x+1, x))
+
 nextVar :: IO MetaVar
-nextVar = MetaVar NormalVar <$> atomicModifyIORef globalVarCounter (\x -> (x+1, VarId x))
+nextVar = MetaVar NormalVar <$> (VarId <$> nextVarCount)
 
 
 data VarAllocator = VarAllocator { allocVar :: (MetaVar, VarAllocator) }
@@ -127,8 +130,8 @@ mkIncVarAllocator tp start inc = genVarAllocator start
 
                                      }
 
-mkNormalVarAllocator :: VarAllocator
-mkNormalVarAllocator = mkIncVarAllocator NormalVar 1 1
+mkNormalVarAllocator :: IO VarAllocator
+mkNormalVarAllocator = mkIncVarAllocator NormalVar <$> nextVarCount <*> pure 1
 
 mkBoundVarAllocator :: VarAllocator
 mkBoundVarAllocator = mkIncVarAllocator BoundVar 1 1

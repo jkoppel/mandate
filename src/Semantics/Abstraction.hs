@@ -16,6 +16,7 @@ import Lang
 import Semantics.Context
 import Semantics.General
 import Term
+import Var
 
 import Data.Interned.ByteString ( InternedByteString(..) )
 
@@ -37,14 +38,18 @@ instance Irrelevance () where
 instance (Irrelevance s, Lang l) => Irrelevance (GConfiguration s l) where
   irrelevance irr (Conf t s) = Conf (irrelevance irr t) (irrelevance irr s)
 
+
+-- Ugly special case: Don't abstract boundvars. Not especially principled.
 instance (Lang l) => Irrelevance (Term l) where
   irrelevance ValueIrr = mapTerm valToStar
     where
+      valToStar x@(GMetaVar v _) | getVarType v == BoundVar = x
       valToStar (Val _ _) = ValStar
       valToStar t         = t
 
   irrelevance (VarNotIrr name) = mapTerm valToStar
     where
+      valToStar x@(GMetaVar v _) | getVarType v == BoundVar = x
       valToStar t@(Val "true" _) = t
       valToStar t@(Val "false" _) = t
       valToStar (Val _ _) = ValStar
@@ -52,11 +57,14 @@ instance (Lang l) => Irrelevance (Term l) where
 
   irrelevance (SortIrr sort) = mapTerm (sortToStar . sortSubtermsToStar)
     where
+      sortToStar x@(GMetaVar v _) | getVarType v == BoundVar = x
       sortToStar t  = case sortOfTerm signature t of
                         Just s@(Sort _) -> if s == sort then ValStar else t
                         _ -> t
 
       deferentialGetSort x st = maybe st id $ sortOfTerm @l signature x
+
+      processNode (x@(GMetaVar v _), _) | getVarType v == BoundVar = x
       processNode (x, st) = if deferentialGetSort x st == sort then ValStar else x
 
       sortSubtermsToStar (Node s ts) = let (NodeSig _ stSorts _) = getSigNode (signature @l) s in

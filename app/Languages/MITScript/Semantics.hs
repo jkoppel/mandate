@@ -278,7 +278,7 @@ mitScriptRules = sequence [
               (Build $ conf (LFieldAccess vre mfield) env)
 
     , name "field-assn-eval-nonglobal" $
-    mkRule7 $ \val field ref mu h re re'->
+    mkRule7 $ \val field ref mu h re re' ->
         let (vval, mref, mfield, vre, vre', mmu) = (vv val, mv ref, mv field, vv re, vv re', mv mu) in
             StepTo (Conf (Assign (LFieldAccess (ReferenceVal mref) mfield) vval) (mmu, AssocOneVal h mref vre))
               (LetComputation (emptyConf (ReducedRecord vre')) (extComp WriteField (mmu, AssocOneVal h mref vre) [vre, mfield, vval])
@@ -286,11 +286,11 @@ mitScriptRules = sequence [
 
 
     , name "field-assn-eval-global" $
-    mkRule7 $ \val field ref mu h re assign->
-        let (vval, mref, mfield, vre, massign, mmu) = (vv val, mv ref, mv field, vv re, mv assign, mv mu) in
+    mkRule8 $ \val field ref mu h re fval field2 ->
+        let (vval, mref, mfield, vre, vfval, mfield2, mmu) = (vv val, mv ref, mv field, vv re, vv fval, mv field2, mv mu) in
             StepTo (Conf (Assign (LFieldAccess (ReferenceVal mref) mfield) vval) (mmu, AssocOneVal h mref vre))
-              (LetComputation (emptyConf (ShouldAssign massign vval)) (extComp WriteField (mmu, AssocOneVal h mref vre) [vre, mfield, vval])
-                (Build $ Conf (Assign massign vval) (mmu, AssocOneVal h mref vre)))
+              (LetComputation (emptyConf (ShouldAssign (FieldAccess vfval mfield2) vval)) (extComp WriteField (mmu, AssocOneVal h mref vre) [vre, mfield, vval])
+                (Build $ Conf (Assign (FieldAccess vfval mfield2) vval) (mmu, AssocOneVal h mref vre)))
 
     , name "lindex-cong-1" $
     mkPairRule2 $ \env env' ->

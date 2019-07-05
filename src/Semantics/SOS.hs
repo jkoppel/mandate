@@ -106,7 +106,7 @@ runRhs rs (LetComputation c f r) = do res <- runExtComp f
 
 useRule :: (Matchable (Configuration l), Lang l) => NamedRules l -> NamedRule l -> Configuration l -> Match (Configuration l)
 useRule rs (NamedRule nm (StepTo c1 r)) c2 = do
-    debugM $ "Trying rule " ++ BS.unpack nm ++ " for term " ++ show (confTerm c2)
+    debugM $ "Trying rule " ++ BS.unpack nm ++ " for conf " ++ show c2
     match (Pattern c1) (Matchee $ symbolizeVars c2)
     debugM $ "LHS matched: " ++ BS.unpack nm
     ret <- runRhs rs r

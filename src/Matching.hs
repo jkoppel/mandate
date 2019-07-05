@@ -69,10 +69,12 @@ modVarMap f m = m { ms_varMap = f (ms_varMap m) }
 type Match = StateT MatchState (LogicT IO)
 
 runMatch :: Match a -> IO [a]
-runMatch m = observeAllT $ evalStateT m (MatchState Map.empty mkNormalVarAllocator)
+runMatch m = do va <- mkNormalVarAllocator
+                observeAllT $ evalStateT m (MatchState Map.empty va)
 
 runMatchFirst :: Match a -> IO (Maybe a)
-runMatchFirst m = runLogicT (evalStateT m (MatchState Map.empty mkNormalVarAllocator)) (const . return . Just) (return Nothing)
+runMatchFirst m = do va <- mkNormalVarAllocator
+                     runLogicT (evalStateT m (MatchState Map.empty va)) (const . return . Just) (return Nothing)
 
 runMatchUnique :: Match a -> IO (Maybe a)
 runMatchUnique m = do xs <- runMatch m
@@ -248,6 +250,9 @@ instance (Typeable l) => Matchable (Term l) where
   match (Pattern (Val _ ts))      (Matchee (GStar mt)) = forM_ ts $ \ t -> match (Pattern t) (Matchee Star)
   match (Pattern (IntNode _ _))   (Matchee (GStar _))  = return ()
   match (Pattern (StrNode _ _))   (Matchee (GStar _))  = return ()
+
+  -- I thought I had convinced myself that Star's couldn't appear in a pattern, but...
+  match (Pattern (GStar mt))      (Matchee t)          = guard (matchTypeForTerm t `prec` mt)
 
   match _                         _                    = mzero
 

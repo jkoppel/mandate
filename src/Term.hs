@@ -201,9 +201,9 @@ instance UpperBound (Term l) where
                                            else
                                              ValStar
   upperBound (Node s1 ts1) (Node s2 ts2) = if s1 == s2 then
-                                             Val s1 (map (uncurry upperBound) (zip ts1 ts2))
+                                             Node s1 (map (uncurry upperBound) (zip ts1 ts2))
                                            else
-                                             ValStar
+                                             NonvalStar
   -- IntNode, StrNode handled by equality case
   upperBound (GStar mt)    t             = if matchTypeForTerm t `prec` mt then GStar mt else Star
   upperBound t             (GStar mt)    = if matchTypeForTerm t `prec` mt then GStar mt else Star

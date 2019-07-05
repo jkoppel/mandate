@@ -218,8 +218,10 @@ instance (Lang l, Matchable (Configuration l)) => Matchable (Context l) where
 -------------------------------------- Unification ----------------------------------------
 
 instance (Lang l, Unifiable (Configuration l)) => Unifiable (PosFrame l) where
-  unify (KBuild c1) (KBuild c2) = unify c1 c2
-  unify _ _ = error "Not implementing: Unifying two PosFrame's other than KBuild"
+  unify (KBuild c1)        (KBuild c2)        = unify c1 c2
+  unify (KStepTo c1 f1)    (KStepTo c2 f2)    = unify c1 c2 >> unify f1 f2
+  unify (KComputation _ _) (KComputation _ _) = error "Not implemented: Unifying two KLetComputation's"
+  unify _                  _                  = mzero
 
 instance (Lang l, Unifiable (Configuration l)) => Unifiable (Frame l) where
   unify (KInp c1 pf1) (KInp c2 pf2) = do

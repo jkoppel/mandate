@@ -87,9 +87,13 @@ unifyTerm' (GMetaVar v1 mt1) t@(GMetaVar v2 mt2) =
                      when (sort [vt1, vt2] == sort [NormalVar, SymbolVar]) $
                          error "Unimplemented: unifying normal var and symbol"
 
+                     when (sort [vt1, vt2] == sort [NormalVar, BoundVar]) $ mzero
+
                      let [vMin, vMax] = case (vt1, vt2) of
-                                           (NormalVar, _        ) -> [v1, v2]
-                                           (_        , NormalVar) -> [v2, v1]
+                                           (NormalVar, SymbolVar) -> [v1, v2]
+                                           (SymbolVar, NormalVar) -> [v2, v1]
+
+                                           -- FIXME: This should actually make the thing of higher match type subst to thing of lower match type
                                            (_        , _        ) -> sort [v1, v2]
 
                      elimVar vMin (GMetaVar @l vMax mtMeet)

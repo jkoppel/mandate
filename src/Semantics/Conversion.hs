@@ -12,6 +12,7 @@ module Semantics.Conversion (
 
 
 import Control.Monad ( (>=>), void, forM_, liftM, filterM, forM )
+import Control.Monad.IO.Class ( liftIO )
 import Control.Monad.Writer ( Writer, tell, execWriter )
 import Data.List ( concatMap )
 import Data.Maybe ( isJust, fromJust )
@@ -55,7 +56,8 @@ normalize :: (Lang l) => ByteString -> PAMState l -> PAMRhs l -> IO (NamedPAMRul
 normalize nm st rhs = fromJust <$> runMatchUnique (NamedPAMRule nm <$> (PAM <$> normalizeBoundVars st <*> normalizeBoundVars rhs))
 
 unboundifyingVars :: (Matchable f, MonadMatchable m) => m f -> m f
-unboundifyingVars = withVarAllocator mkNormalVarAllocator
+unboundifyingVars x = do va <- liftIO mkNormalVarAllocator
+                         withVarAllocator va x
 
 
 sosRuleToPam' :: (Lang l) => InfNameStream -> PAMState l -> Context l -> PosFrame l -> IO [NamedPAMRule l]
@@ -161,7 +163,7 @@ upRulesInvertible rs = allM upRuleInvertible (upRules $ classifyPAMRules rs)
     -- upRuleInvertible :: NamedPAMRule l -> IO Bool
     upRuleInvertible (NamedPAMRule nm r) = do
       debugM $ "Trying to invert rule " ++ BS.unpack nm
-      t <- varToSymbol <$> nextVar
+      t <- nextVar
       (PAM startState (GenAMRhs upState)) <- specializeRuleForStartTerm (NonvalVar t) r
       invertRule rs (swapPhase upState) startState
 
@@ -172,7 +174,7 @@ invertRule rs st startState = do
     case nextSt of
       Nothing -> return False
       Just nst -> do
-          res <- fmap fromJust $ runMatchUnique $ alphaEq (swapPhase nst) startState
+          res <- fmap fromJust $ runMatchUnique $ alphaEq (mapVars symbolToVar $ swapPhase nst) startState
           case res of 
               False -> invertRule rs nst startState
               True  -> return res 
@@ -281,7 +283,7 @@ uniquifyRules rs = go rs
                        (r :) <$> go rs
 
 pamToAM :: (Lang l) => NamedPAMRules l -> IO (NamedAMRules l)
-pamToAM rs = do canTrans <- return True--upRulesInvertible rs
+pamToAM rs = do canTrans <- upRulesInvertible rs
                 if not canTrans then
                   error "Up-rules not invertible; cannot convert PAM to abstract machine"
                 else do
