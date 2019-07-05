@@ -285,12 +285,11 @@ mitScriptRules = sequence [
                 (Build $ Conf NilStmt (mmu, AssocOneVal h mref (ReducedRecord vre'))))
 
 
-    -- FIXME: This rule has an external computatino returning a non-value
     , name "field-assn-eval-global" $
     mkRule7 $ \val field ref mu h re assign->
         let (vval, mref, mfield, vre, massign, mmu) = (vv val, mv ref, mv field, vv re, mv assign, mv mu) in
             StepTo (Conf (Assign (LFieldAccess (ReferenceVal mref) mfield) vval) (mmu, AssocOneVal h mref vre))
-              (LetComputation (emptyConf (Assign massign vval)) (extComp WriteField (mmu, AssocOneVal h mref vre) [vre, mfield, vval])
+              (LetComputation (emptyConf (ShouldAssign massign vval)) (extComp WriteField (mmu, AssocOneVal h mref vre) [vre, mfield, vval])
                 (Build $ Conf (Assign massign vval) (mmu, AssocOneVal h mref vre)))
 
     , name "lindex-cong-1" $
@@ -380,7 +379,7 @@ mitScriptRules = sequence [
     mkRule4 $ \h mu val ref ->
         let (vval, mref, mmu) = (vv val, mv ref, mv mu) in
             StepTo (Conf (HeapAlloc vval) (mmu, WholeSimpEnv h))
-            (LetComputation (emptyConf mref) (extComp AllocAddress (matchRedState (mu, h)) [NilStmt])
+            (LetComputation (emptyConf (ReferenceVal mref)) (extComp AllocAddress (matchRedState (mu, h)) [NilStmt])
             (Build $ Conf (ReferenceVal mref) (mmu, AssocOneVal h mref vval)))
 
     -- Record Literals -> Runtime Records
@@ -516,7 +515,7 @@ mitScriptRules = sequence [
     mkRule7 $ \params body frame mu ref h args ->
         let (mparams, mbody, mframe, mmu, mref, vargs) = (mv params, mv body, mv frame, mv mu, mv ref, vv args) in
             StepTo (Conf (FunCall (Closure mparams (Block mbody) mframe) vargs) (mmu, WholeSimpEnv h))
-                   (LetComputation (emptyConf mref) (extComp AllocAddress (mmu, WholeSimpEnv h) [NilStmt])
+                   (LetComputation (emptyConf (ReferenceVal mref)) (extComp AllocAddress (mmu, WholeSimpEnv h) [NilStmt])
                       (Build $ Conf (Scope (Block (ConsStmt (Block mbody) (Return None))) mparams vargs)
                                     (ConsFrame mref mmu, AssocOneVal h mref (ReducedRecord $ Parent mframe))))
 
@@ -583,10 +582,10 @@ mitScriptRules = sequence [
     , name "builtin-eval" $
     mkPairRule1 $ \env ->
     mkRule3 $ \var ret func ->
-        let (vvar, mret, mfunc) = (vv var, mv ret, mv func) in
+        let (vvar, vret, mfunc) = (vv var, vv ret, mv func) in
             StepTo (conf (Builtin mfunc vvar) env)
-                (LetComputation (emptyConf mret) (extComp RunBuiltin (matchRedState env) [mfunc, vvar])
-                    (Build $ conf mret env))
+                (LetComputation (emptyConf vret) (extComp RunBuiltin (matchRedState env) [mfunc, vvar])
+                    (Build $ conf vret env))
 
     ]
 
@@ -624,7 +623,7 @@ readField heap x y = if isGlobal heap x y then
 
 writeField :: SimpEnv (Term MITScript) (Term MITScript) -> Term MITScript -> String -> Term MITScript -> Term MITScript
 writeField heap x y z = if isGlobal heap x y then
-                            Assign (FieldAccess (ReferenceVal (HeapAddr 0)) (Name (stringToIbs y))) z
+                            ShouldAssign (FieldAccess (ReferenceVal (HeapAddr 0)) (Name (stringToIbs y))) z
                         else
                             ReducedRecord (writeField' x y z)
     where
@@ -714,7 +713,7 @@ runExternalComputation Compute state [AND, BConst l, BConst r]       = returnBoo
 runExternalComputation Compute state [OR, BConst False, BConst False] = returnBool Prelude.False
 runExternalComputation Compute state [OR, BConst l, BConst r]         = returnBool Prelude.True
 
-runExternalComputation AllocAddress (stack, heap) _ = return $ emptyConf (HeapAddr $ size heap)
+runExternalComputation AllocAddress (stack, heap) _ = return $ emptyConf (ReferenceVal $ HeapAddr $ size heap)
 
 runExternalComputation ReadIndex (stack, heap)  [ReducedRecord r, i]      = return $ emptyConf $ readField heap r (toString i heap)
 runExternalComputation WriteIndex (stack, heap) [ReducedRecord r, i, val] = return $ emptyConf $ writeField heap r (toString i heap) val

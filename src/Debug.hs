@@ -1,7 +1,8 @@
 {-# LANGUAGE CPP #-}
 
 module Debug (
-    debugM
+    isDebug
+  , debugM
   , shortNodeName
   ) where
 
@@ -19,6 +20,13 @@ import Debug.Trace ( traceM )
 
 -- TODO: Why doesn't giving the flag in Stack work?
 #define DEBUG_STEP
+
+isDebug :: Bool
+#ifdef DEBUG_STEP
+isDebug = True
+#else
+isDebug = False
+#endif
 
 debugM :: (Monad m) => String -> m ()
 #ifdef DEBUG_STEP

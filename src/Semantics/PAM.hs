@@ -68,7 +68,7 @@ instance Meetable Phase where
 
 instance Matchable Phase where
   getVars _ = Set.empty
-  refreshVars t = return t
+  mapVarsM f t = return t
   match (Pattern x) (Matchee y) = guard (x == y)
   fillMatch t = return t
 

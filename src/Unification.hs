@@ -49,6 +49,9 @@ instance (MonadMatchable m) => MonadUnify m where
                                                          fillMatch x)
                    putVar v x
 
+guardNormalVar :: (MonadPlus m) => MetaVar -> m ()
+guardNormalVar v = guard (getVarType v == NormalVar)
+
 unifyTerm' :: forall l m. (Unifiable (Term l), MonadUnify m) => Term l -> Term l -> m ()
 unifyTerm' (Node f1 ts1) (Node f2 ts2) = do guard (f1 == f2)
                                             forM_ (zip ts1 ts2) $ \(t1, t2) ->
@@ -59,27 +62,36 @@ unifyTerm' (Val  f1 ts1) (Val  f2 ts2) = do guard (f1 == f2)
 unifyTerm' (IntNode s1 i1) (IntNode s2 i2) = guard (s1 == s2) >> guard (i1 == i2)
 unifyTerm' (StrNode s1 x1) (StrNode s2 x2) = guard (s1 == s2) >> guard (x1 == x2)
 
-unifyTerm'   (ValVar v) t@(Val  _ _) = elimVar v t
-unifyTerm' t@(Val _ _)    (ValVar v) = elimVar v t
+unifyTerm'   (ValVar v) t@(Val  _ _) = guardNormalVar v >> elimVar v t
+unifyTerm' t@(Val _ _)    (ValVar v) = guardNormalVar v >> elimVar v t
 
-unifyTerm'   (NonvalVar v) t@(Node _ _)    = elimVar v t
-unifyTerm' t@(Node _ _)      (NonvalVar v) = elimVar v t
+unifyTerm'   (NonvalVar v) t@(Node _ _)    = guardNormalVar v >> elimVar v t
+unifyTerm' t@(Node _ _)      (NonvalVar v) = guardNormalVar v >> elimVar v t
 
-unifyTerm' (MetaVar v) t@(Val     _ _) = elimVar v t
-unifyTerm' (MetaVar v) t@(Node    _ _) = elimVar v t
-unifyTerm' (MetaVar v) t@(IntNode _ _) = elimVar v t
-unifyTerm' (MetaVar v) t@(StrNode _ _) = elimVar v t
-unifyTerm' t@(Val     _ _) (MetaVar v) = elimVar v t
-unifyTerm' t@(Node    _ _) (MetaVar v) = elimVar v t
-unifyTerm' t@(IntNode _ _) (MetaVar v) = elimVar v t
-unifyTerm' t@(StrNode _ _) (MetaVar v) = elimVar v t
+unifyTerm' (MetaVar v) t@(Val     _ _) = guardNormalVar v >> elimVar v t
+unifyTerm' (MetaVar v) t@(Node    _ _) = guardNormalVar v >> elimVar v t
+unifyTerm' (MetaVar v) t@(IntNode _ _) = guardNormalVar v >> elimVar v t
+unifyTerm' (MetaVar v) t@(StrNode _ _) = guardNormalVar v >> elimVar v t
+unifyTerm' t@(Val     _ _) (MetaVar v) = guardNormalVar v >> elimVar v t
+unifyTerm' t@(Node    _ _) (MetaVar v) = guardNormalVar v >> elimVar v t
+unifyTerm' t@(IntNode _ _) (MetaVar v) = guardNormalVar v >> elimVar v t
+unifyTerm' t@(StrNode _ _) (MetaVar v) = guardNormalVar v >> elimVar v t
 
 unifyTerm' (GMetaVar v1 mt1) t@(GMetaVar v2 mt2) =
   case mt1 `meet` mt2 of
     Just mtMeet -> if v1 == v2 then
                      return () -- FIXME: Can I get rid of this case
-                   else
-                     let [vMin, vMax] = sort [v1, v2] in
+                   else do
+                     let (vt1, vt2) = (getVarType v1, getVarType v2)
+
+                     when (sort [vt1, vt2] == sort [NormalVar, SymbolVar]) $
+                         error "Unimplemented: unifying normal var and symbol"
+
+                     let [vMin, vMax] = case (vt1, vt2) of
+                                           (NormalVar, _        ) -> [v1, v2]
+                                           (_        , NormalVar) -> [v2, v1]
+                                           (_        , _        ) -> sort [v1, v2]
+
                      elimVar vMin (GMetaVar @l vMax mtMeet)
 
     Nothing -> mzero
@@ -87,7 +99,7 @@ unifyTerm' (GMetaVar v1 mt1) t@(GMetaVar v2 mt2) =
 -- For this case, maybe we should be binding v1 to a new variable,
 -- but this was easiier
 unifyTerm' (GMetaVar v1 mt1) (GStar mt2)    = case mt1 `meet` mt2 of
-                                                Just mtMeet -> elimVar v1 (GStar @l mtMeet)
+                                                Just mtMeet -> guardNormalVar v1 >> elimVar v1 (GStar @l mtMeet)
                                                 Nothing -> mzero
 unifyTerm' t1@(GStar _)   t2@(GMetaVar _ _) = unifyTerm' t2 t1
 

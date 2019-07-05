@@ -55,11 +55,11 @@ instance (Lang l) => Matchable (ExtComp l) where
   match (Pattern (ExtComp f1 ts1)) (Matchee (ExtComp f2 ts2)) = do
     guard (f1 == f2)
     guard (length ts1 == length ts2)
-    matchList (Pattern ts1) (Matchee ts2)
+    matchList ts1 ts2
 
   fillMatch (ExtComp f ts) = ExtComp f <$> fillMatchList ts
 
-  refreshVars (ExtComp f ts) = ExtComp f <$> refreshVarsList ts
+  mapVarsM g (ExtComp f ts) = ExtComp f <$> mapM (mapVarsM g) ts
 
 instance (Matchable a, Matchable b) => Matchable (a, b) where
   getVars (a,b) = getVars a `union` getVars b
@@ -70,7 +70,7 @@ instance (Matchable a, Matchable b) => Matchable (a, b) where
 
   fillMatch (a, b) = (,) <$> fillMatch a <*> fillMatch b
 
-  refreshVars (a, b) = (,) <$> refreshVars a <*> refreshVars b
+  mapVarsM f (a, b) = (,) <$> mapVarsM f a <*> mapVarsM f b
 
 
 ---------------------------------------------------------------------

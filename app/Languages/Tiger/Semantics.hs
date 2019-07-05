@@ -433,7 +433,7 @@ tigerRules = sequence [
       mkRule4 $ \h mu val ref ->
         let (vval, mref, mmu) = (vv val, mv ref, mv mu) in
           StepTo (Conf (HeapAlloc vval) (mmu, WholeSimpEnv h))
-            (LetComputation (emptyConf mref) (extComp AllocAddress (matchRedState (mu, h)) [NilExp])
+            (LetComputation (emptyConf (ReferenceVal mref)) (extComp AllocAddress (matchRedState (mu, h)) [NilExp])
               (Build $ Conf (ReferenceVal mref) (mmu, AssocOneVal h mref vval)))
 
       ---- Record Exp
@@ -657,7 +657,7 @@ tigerRules = sequence [
       mkRule6 $ \ds e top stack addr h ->
         let (mds, me, mtop, mstack, maddr) = (mv ds, mv e, mv top, mv stack, mv addr) in
           StepTo (Conf (LetExp mds me) (ConsFrame mtop mstack, WholeSimpEnv h))
-            (LetComputation (emptyConf maddr) (extComp AllocAddress (ConsFrame mtop mstack, WholeSimpEnv h) [NilExp])
+            (LetComputation (emptyConf (ReferenceVal maddr)) (extComp AllocAddress (ConsFrame mtop mstack, WholeSimpEnv h) [NilExp])
               (Build (Conf (Scope (DoLet mds me))
                            (ConsFrame maddr (ConsFrame mtop mstack), AssocOneVal h maddr (ReducedRecord $ Parent mtop)))))
 
@@ -973,7 +973,7 @@ runExternalComputation Compute state [GtOp, StringExp (ConstStr n1), StringExp (
 runExternalComputation Compute state [GeOp, IntExp    (ConstInt n1), IntExp    (ConstInt n2)] = returnBool $ n1 >= n2
 runExternalComputation Compute state [GeOp, StringExp (ConstStr n1), StringExp (ConstStr n2)] = returnBool $ n1 >= n2
 
-runExternalComputation AllocAddress (stack, heap) _ = return $ emptyConf (HeapAddr $ size heap)
+runExternalComputation AllocAddress (stack, heap) _ = return $ emptyConf (ReferenceVal $ HeapAddr $ size heap)
 
 runExternalComputation ReadIndex  (stack, heap) [ReducedRecord r, IntExp (ConstInt i)] = return $ emptyConf $ readField  heap r (show i)
 runExternalComputation WriteIndex (stack, heap) [addr, IntExp (ConstInt i), val]       = return $ emptyConf $ writeField heap addr (show i) val

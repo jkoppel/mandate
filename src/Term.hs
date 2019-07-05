@@ -169,6 +169,8 @@ instance Meetable (Term l) where
   meet t s@(GStar _)           = meet s t
   meet (GStar mt) x            = if matchTypeForTerm x `prec` mt then Just x else Nothing
   meet Star       x            = Just x -- FIXME: Is this case redundant
+
+  -- FIXME: WTF are these next cases
   meet x                 (GMetaVar v  mt) = GMetaVar v <$> meet (matchTypeForTerm x) mt
   meet (GMetaVar v mt)   x                = GMetaVar v <$> meet (matchTypeForTerm x) mt
   meet _                 _                = Nothing
@@ -183,7 +185,7 @@ instance Meetable (Term l) where
   prec (GStar mt1)      (GStar mt2)      = mt1 `prec` mt2
   prec _                _                = False
 
-  isMinimal (GStar _) = False
+  isMinimal (GStar _)   = False
   isMinimal (Val  _ ts) = all isMinimal ts
   isMinimal (Node _ ts) = all isMinimal ts
   isMinimal _           = True

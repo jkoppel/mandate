@@ -47,30 +47,40 @@ infNameStream nam = map (\i -> mconcat [nam, "-", BS.pack $ show i]) [1..]
 ----------------------------------- SOS to PAM conversion --------------------------------------------
 -- The business with prepend is a messy way to deal with IO, there's probably a better way to do it.
 
+
 prepend :: (Lang l) => NamedPAMRule l -> [NamedPAMRule l] -> IO [NamedPAMRule l]
 prepend head rest = return (head : rest)
 
 normalize :: (Lang l) => ByteString -> PAMState l -> PAMRhs l -> IO (NamedPAMRule l) 
 normalize nm st rhs = fromJust <$> runMatchUnique (NamedPAMRule nm <$> (PAM <$> normalizeBoundVars st <*> normalizeBoundVars rhs))
 
+unboundifyingVars :: (Matchable f, MonadMatchable m) => m f -> m f
+unboundifyingVars = withVarAllocator mkNormalVarAllocator
+
+
 sosRuleToPam' :: (Lang l) => InfNameStream -> PAMState l -> Context l -> PosFrame l -> IO [NamedPAMRule l]
 sosRuleToPam' (nm:nms) st k (KBuild c) = do
     rule <- normalize nm st (GenAMRhs $ PAMState c k Up)
     return [rule]
-
 sosRuleToPam' (nm:nms) st k (KStepTo c f@(KInp i pf)) = do
     rule <- normalize nm st (GenAMRhs $ PAMState c (KPush f k) Down)
-    (sosRuleToPam' nms (PAMState i (KPush f k) Up) k pf) >>= prepend rule  
+    (i', pf') <- fromJust <$> (runMatchUnique $ unboundifyingVars $ ((,) <$> refreshVars i <*> fillVars pf))
+    rules <- sosRuleToPam' nms (PAMState i' (KPush f k) Up) k pf'
+    return (rule : rules)
+sosRuleToPam' (nm:nms) st k (KComputation comp f@(KInp i pf)) = do
+    (i', pf') <- fromJust <$> (runMatchUnique $ unboundifyingVars $ ((,) <$> refreshVars i <*> fillVars pf))
+    rule <- normalize nm st (GenAMLetComputation i' comp (GenAMRhs $ PAMState i' (KPush f k) Down))
+    rules <- sosRuleToPam' nms (PAMState i' (KPush f k) Down) k pf'
+    return (rule : rules)
 
-sosRuleToPam' (nm:nms) st k (KComputation comp f@(KInp c pf)) = do
-    rule <- normalize nm st (GenAMLetComputation c comp (GenAMRhs $ PAMState c (KPush f k) Down))
-    (sosRuleToPam' nms (PAMState c (KPush f k) Down) k pf) >>= prepend rule
 
 sosRuleToPam :: (Lang l) => NamedRule l -> IO [NamedPAMRule l]
 sosRuleToPam (NamedRule nam (StepTo conf rhs)) = do
   kv <- nextVar
   let startState = PAMState conf (KVar kv) Down
-  sosRuleToPam' (infNameStream nam) startState (KVar kv) (rhsToFrame rhs)
+  fr <- liftM fromJust $ runMatchUnique $ rhsToFrame rhs
+  debugM $ "Frame is " ++ show fr
+  sosRuleToPam' (infNameStream nam) startState (KVar kv) fr
 
 sosToPam :: (Lang l) => NamedRules l -> IO (NamedPAMRules l)
 sosToPam rs = concat <$> mapM sosRuleToPam rs
@@ -151,7 +161,7 @@ upRulesInvertible rs = allM upRuleInvertible (upRules $ classifyPAMRules rs)
     -- upRuleInvertible :: NamedPAMRule l -> IO Bool
     upRuleInvertible (NamedPAMRule nm r) = do
       debugM $ "Trying to invert rule " ++ BS.unpack nm
-      t <- nextVar
+      t <- varToSymbol <$> nextVar
       (PAM startState (GenAMRhs upState)) <- specializeRuleForStartTerm (NonvalVar t) r
       invertRule rs (swapPhase upState) startState
 
@@ -201,24 +211,30 @@ mergePAMUpRule rs (NamedPAMRule nm1 r) = do
       let nm' = BS.concat [nm1, "-", nm2]
       startState' <- fillMatch startState
       rhs2' <- fillPAMRhs rhs2
-      return $ NamedAMRule nm' (AM (dropPhase startState') (dropPhase rhs2')))
+      debugM $ "Rule is " ++ show startState' ++ " to " ++ show rhs2'
+      return $ NamedAMRule nm' (AM (mapVars symbolToVarLax $ dropPhase startState') (mapVars symbolToVarLax $ dropPhase rhs2')))
 
 
 -- This is not as general as it could be; only merges if the second rule has no computations
 mergePAMComputationRule :: (Lang l) => NamedPAMRules l -> NamedPAMRule l -> IO (NamedPAMRule l)
 mergePAMComputationRule rs rule@(NamedPAMRule nm (PAM l1 (GenAMLetComputation c f (GenAMRhs r1)))) = do
-  nextRules <- findUnifyingLhs rs r1
+  nextRules <- maximalLHSs =<< findUnifyingLhs rs r1
   case nextRules of
     [NamedPAMRule _ (PAM l2 (GenAMRhs r2))] -> do
         debugM ("Merging computation rule " ++ show nm)
-        fromJust <$> (runMatchUnique $ do
-            match (Pattern l2) (Matchee r1)
+        fromJust' <$> (runMatchUnique $ do
+            debugM ("mergeCompRule: About to match " ++ show l2 ++ " and " ++ show r1)
+            match (Pattern l2) (Matchee $ symbolizeVars r1)
+            debugM "mergeCompRule: match completed"
             r2' <- fillMatch r2
-            return $ NamedPAMRule nm (PAM l1 (GenAMLetComputation c f (GenAMRhs r2'))))
-    xs  -> {- debugM ("Won't merge rule matches " ++ concatMap getRName xs ++ ": " ++ show rule) >> -} return rule
+            return $ NamedPAMRule nm (PAM l1 (GenAMLetComputation c f (GenAMRhs (mapVars symbolToVar r2')))))
+    xs  -> debugM ("Won't merge rule matches " ++ concatMap getRName xs ++ ": " ++ show rule) >> return rule
 mergePAMComputationRule rs x = return x
 
-{-
+
+fromJust' (Just x) = x
+fromJust' Nothing = error "Special fromJust"
+
 anyM :: (Monad m) => (a -> m Bool) -> [a] -> m Bool
 anyM _ []     = return False
 anyM p (x:xs) = do
@@ -232,18 +248,19 @@ maximalLHSs :: (Lang l) => NamedPAMRules l -> IO (NamedPAMRules l)
 maximalLHSs []     = return []
 maximalLHSs (r:rs) = do b <- anyM (r `subsumed`) rs
                         if b then           debugM ("Was subsumed " ++ show r) >> maximalLHSs rs
-                             else (r :) <$> maximalLHSs rs
+                             else (r :) <$> (maximalLHSs =<< (filterM (liftM not . (`subsumed` r)) rs))
   where
     subsumed :: (Lang l) => NamedPAMRule l -> NamedPAMRule l -> IO Bool
-    subsumed (NamedPAMRule _ (PAM l1 _)) (NamedPAMRule _ (PAM l2 _)) = isJust <$> runMatchUnique (match (Pattern l1) (Matchee l2))
--}
+    subsumed r1@(NamedPAMRule _ (PAM l1 _)) r2@(NamedPAMRule _ (PAM l2 _)) = do
+        debugM ("Trying to subsume " ++ show l1 ++ " by " ++ show l2)
+        isJust <$> runMatchUnique (match (Pattern l2) (Matchee $ symbolizeVars l1))
 
 
--- getRName (NamedPAMRule nm _) = show nm
+getRName (NamedPAMRule nm _) = show nm
 
 refreshNamedRule :: (Lang l, MonadMatchable m) => NamedPAMRule l -> m (NamedPAMRule l)
-refreshNamedRule (NamedPAMRule nm (PAM a b)) = NamedPAMRule nm <$> (PAM <$> refreshVars a
-                                                                        <*> refreshVars b)
+refreshNamedRule (NamedPAMRule nm (PAM a b)) = NamedPAMRule nm <$> (PAM <$> refreshVarsPreserveType a
+                                                                        <*> refreshVarsPreserveType b)
 
 -- Like nub `on` normalizeVars, except there is no standard nub taking
 -- an equality operator as a parameter
@@ -264,12 +281,17 @@ uniquifyRules rs = go rs
                        (r :) <$> go rs
 
 pamToAM :: (Lang l) => NamedPAMRules l -> IO (NamedAMRules l)
-pamToAM rs = do canTrans <- upRulesInvertible rs
+pamToAM rs = do canTrans <- return True--upRulesInvertible rs
                 if not canTrans then
                   error "Up-rules not invertible; cannot convert PAM to abstract machine"
                 else do
                   --upRulesSplit <- concat <$> mapM partitionContextVals upRules
-                  rs' <- mrs'
+                  uniqueRs <- uniquifyRules rs
+
+                  -- This is so janky. (Variables really need namespaces; this relies on coincidence of picking different names)
+                  distinctNamesRs <- fromJust <$> runMatchUnique (mapM refreshNamedRule uniqueRs)
+                  rs' <- mapM (mergePAMComputationRule distinctNamesRs) uniqueRs
+
                   let ClassifiedPAMRules { upRules=upRules
                                          , compRules=compRules
                                          , downRules=downRules} = classifyPAMRules rs'
@@ -289,6 +311,7 @@ pamToAM rs = do canTrans <- upRulesInvertible rs
     -- duplicate rules). We fuse and drop these, not
     -- even leaving a trace of the name
 
+    {-
     dropNoOpRules :: (Lang l) => NamedPAMRule l -> [NamedPAMRule l]
     dropNoOpRules (NamedPAMRule _ (PAM (PAMState c1 (KPush (KInp i pf) k1) Down) (GenAMRhs (PAMState c2 k2 Up))))
       | c1 == c2 && k1 == k2 && (KBuild i) == pf
@@ -299,13 +322,8 @@ pamToAM rs = do canTrans <- upRulesInvertible rs
       | (KBuild i) == pf
       = [NamedPAMRule nm (PAM ps1 (GenAMLetComputation c1 comp (GenAMRhs (PAMState c2 k Down))))]
     simplifyExtCompRules npr = [npr]
+    -}
 
-    mrs' = do
-      uniqueRs <- uniquifyRules rs
-
-      -- This is so janky. (Variables really need namespaces; this relies on coincidence of picking different names)
-      distinctNamesRs <- fromJust <$> runMatchUnique (mapM refreshNamedRule uniqueRs)
-      concatMap simplifyExtCompRules <$> concatMap dropNoOpRules <$> mapM (mergePAMComputationRule distinctNamesRs) uniqueRs
 
 
 
