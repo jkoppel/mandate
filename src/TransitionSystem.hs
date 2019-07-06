@@ -35,15 +35,18 @@ genTransitionGraph step start = fst <$> execStateT (go [start]) (Graph.insertNod
     go states = do nextStates <- concat <$> mapM expand states
                    go nextStates
 
-    expand st = do modify (\(g, seen) -> (g, S.insert st seen))
-                   debugM "Doing step"
-                   succs <- lift (step st)
-                   debugM "Evalling succs"
-                   forM_ succs $ \(succ, edgeType) ->
-                                  modify $ \(g, seen) -> (Graph.insert st edgeType succ g, seen)
-                   debugM "Inserted nexts succs"
-                   seen <- gets snd
-                   return $ filter (\s -> not (S.member s seen)) $ map fst succs
+    expand st = do alreadySeen <- gets (S.member st . snd)
+                   if alreadySeen then return []
+                    else do
+                      modify (\(g, seen) -> (g, S.insert st seen))
+                      debugM "Doing step"
+                      succs <- lift (step st)
+                      debugM "Evalling succs"
+                      forM_ succs $ \(succ, edgeType) ->
+                                     modify $ \(g, seen) -> (Graph.insert st edgeType succ g, seen)
+                      debugM "Inserted nexts succs"
+                      seen <- gets snd
+                      return $ filter (\s -> not (S.member s seen)) $ map fst succs
 
 -- | Similar to `transitionTree`, but merges repeated states. Especially important for cyclic transition systems.
 --
