@@ -11,6 +11,9 @@ module Semantics.GraphPattern (
 import Prelude hiding ( (<>) )
 
 import Control.Monad ( forM, (=<<) )
+import Control.Monad.IO.Class ( liftIO )
+import Control.Monad.Trans ( lift )
+import Control.Monad.Trans.State ( StateT, evalStateT, gets, modify )
 import Data.Foldable ( foldMap )
 import Data.Functor ( (<&>) )
 import Data.Hashable ( Hashable )
@@ -55,15 +58,23 @@ conf t s = swapState (initConf t) s
 abstractGraphPattern :: forall l. (HasTopState l) => Abstraction (CompFunc l) -> Abstraction (AMState l) -> NamedAMRules l -> Term l -> IO (Graph (AMState l))
 abstractGraphPattern absFunc abs rules t = do
     initState <- abs <$> AMState (conf t (topRedState @l)) <$> KVar <$> nextVar
-    genTransitionGraph step initState
+    evalStateT (genTransitionGraph step initState) Map.empty
   where
-    step :: AMState l -> IO [(AMState l, EdgeType)]
+    evalVarFor :: MetaVar -> StateT (Map MetaVar MetaVar) IO MetaVar
+    evalVarFor v = do b <- gets (Map.lookup v)
+                      case b of
+                        Just v' -> return v'
+                        Nothing -> do v' <- liftIO nextVar
+                                      modify (Map.insert v v')
+                                      return v'
+
+    step :: AMState l -> StateT (Map MetaVar MetaVar) IO [(AMState l, EdgeType)]
     -- IDEA: If we used Top/Halt instead of a KVar for the graph pattern top, wouldn't need these next two cases
     step (AMState (Conf ValStar _)    (KVar _)) = return []
     step (AMState (Conf (ValVar _) _) (KVar _)) = return []
     step as@(AMState (Conf  NonvalStar   _) k) = return [(AMState (Conf ValStar (topRedState @l)) k, TransitiveEdge)]
-    step as@(AMState (Conf (NonvalVar _) _) k) = nextVar >>= \v -> return [(AMState (Conf (ValVar v) (topRedState @l)) k, TransitiveEdge)]
-    step as = map (,NormalEdge) <$> map abs <$> stepAmNarrowing (map (abstractCompFuncs absFunc) rules) as
+    step as@(AMState (Conf (NonvalVar v) _) k) = evalVarFor v >>= \v' -> return [(AMState (Conf (ValVar v') (topRedState @l)) k, TransitiveEdge)]
+    step as = map (,NormalEdge) <$> map abs <$> (lift $ stepAmNarrowing (map (abstractCompFuncs absFunc) rules) as)
 
 
 --FIXME: The way this works (namely, instantiating children as nonval nodes) means that
