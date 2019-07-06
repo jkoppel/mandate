@@ -217,6 +217,17 @@ mergePAMUpRule rs (NamedPAMRule nm1 r) = do
       return $ NamedAMRule nm' (AM (mapVars symbolToVarLax $ dropPhase startState') (mapVars symbolToVarLax $ dropPhase rhs2')))
 
 
+-- The sosToPAM conversion algorithm will split a rule like
+-- (+(v1,v2),u) ~> let n=+(v1,v2) in (n,u)
+--
+-- into two rules:
+-- <+(v1,v2); u | K> -> let n=+(v1,v2) in <n; u | [\('1, '2) -> ('1, '2)] . K>
+-- <v; u | [\('1, '2) -> ('1, '2)] . K> -> <v; u | K>
+--
+-- This makes the algorithm beautiful, but produces a stupid result (and multiple
+-- duplicate rules). We fuse and drop these, not
+-- even leaving a trace of the name
+--
 -- This is not as general as it could be; only merges if the second rule has no computations
 mergePAMComputationRule :: (Lang l) => NamedPAMRules l -> NamedPAMRule l -> IO (NamedPAMRule l)
 mergePAMComputationRule rs rule@(NamedPAMRule nm (PAM l1 (GenAMLetComputation c f (GenAMRhs r1)))) = do
@@ -300,33 +311,6 @@ pamToAM rs = do canTrans <- upRulesInvertible rs
 
                   upRules' <- concat <$> mapM (mergePAMUpRule rs') upRules
                   return $ upRules' ++ map dropPhase compRules ++ map dropPhase downRules
-  where
-
-    -- The sosToPAM conversion algorithm will split a rule like
-    -- (+(v1,v2),u) ~> let n=+(v1,v2) in (n,u)
-    --
-    -- into two rules:
-    -- <+(v1,v2); u | K> -> let n=+(v1,v2) in <n; u | [\('1, '2) -> ('1, '2)] . K>
-    -- <v; u | [\('1, '2) -> ('1, '2)] . K> -> <v; u | K>
-    --
-    -- This makes the algorithm beautiful, but produces a stupid result (and multiple
-    -- duplicate rules). We fuse and drop these, not
-    -- even leaving a trace of the name
-
-    {-
-    dropNoOpRules :: (Lang l) => NamedPAMRule l -> [NamedPAMRule l]
-    dropNoOpRules (NamedPAMRule _ (PAM (PAMState c1 (KPush (KInp i pf) k1) Down) (GenAMRhs (PAMState c2 k2 Up))))
-      | c1 == c2 && k1 == k2 && (KBuild i) == pf
-      = []
-    dropNoOpRules npr = [npr]
-
-    simplifyExtCompRules (NamedPAMRule nm (PAM ps1 (GenAMLetComputation c1 comp (GenAMRhs (PAMState c2 (KPush (KInp i pf) k) Down)))))
-      | (KBuild i) == pf
-      = [NamedPAMRule nm (PAM ps1 (GenAMLetComputation c1 comp (GenAMRhs (PAMState c2 k Down))))]
-    simplifyExtCompRules npr = [npr]
-    -}
-
-
 
 
 -------------------------------- Checking determinism --------------------------------------------------
