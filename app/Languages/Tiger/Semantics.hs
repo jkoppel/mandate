@@ -516,7 +516,7 @@ tigerRules = sequence [
       mkRule5 $ \var mu h frame rest->
         let (mvar, mframe, mrest) = (mv var, mv frame, mv rest) in
           StepTo (Conf (LSimpleVar mvar) (ConsFrame mframe mrest, WholeSimpEnv h))
-            (Build $ Conf (FieldVar (ReferenceVal mframe) mvar) (ConsFrame mframe mrest, WholeSimpEnv h))
+            (Build $ Conf (LFieldVar (ReferenceVal mframe) mvar) (ConsFrame mframe mrest, WholeSimpEnv h))
 
     , name "lfieldvar-cong" $
       mkPairRule2 $ \env env' ->
@@ -655,7 +655,7 @@ tigerRules = sequence [
                                         NilDecList))
                                   (WhileExp (OpExp (VarExp (SimpleVar mi)) LeOp (VarExp (SimpleVar loopHiSym)))
                                        (Seq me
-                                         (AssignExp (SimpleVar mi) (OpExp (VarExp $ SimpleVar mi) PlusOp (IntExp (ConstInt 1)))))))
+                                         (AssignExp (LSimpleVar mi) (OpExp (VarExp $ SimpleVar mi) PlusOp (IntExp (ConstInt 1)))))))
                           env)
 
       ---- LetExp
