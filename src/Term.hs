@@ -160,9 +160,10 @@ instance UpperBound MatchType where
 
 instance Meetable (Term l) where
   -- I'm not sure if the var cases are correct
+  -- FIXME: Should change var type
   meet x y
     | x == y = Just x
-  meet (GMetaVar v1 mt1) (GMetaVar v2 mt2) = GMetaVar (min v1 v2) <$> meet mt1 mt2
+  meet (GMetaVar v1 mt1) (GMetaVar v2 mt2) = GMetaVar <$> meet v1 v2 <*> meet mt1 mt2
   meet (GMetaVar v mt1)  (GStar mt2)       = GMetaVar v <$> meet mt1 mt2
   meet (GStar mt1)       (GMetaVar v mt2)  = GMetaVar v <$> meet mt1 mt2
   meet (GStar mt1) (GStar mt2) = GStar <$> meet mt1 mt2
@@ -185,10 +186,11 @@ instance Meetable (Term l) where
   prec (GStar mt1)      (GStar mt2)      = mt1 `prec` mt2
   prec _                _                = False
 
-  isMinimal (GStar _)   = False
-  isMinimal (Val  _ ts) = all isMinimal ts
-  isMinimal (Node _ ts) = all isMinimal ts
-  isMinimal _           = True
+  -- FIXME: Should have something for vars, now that the VarType refactoring happened
+  isMinimal (GStar _)       = False
+  isMinimal (Val  _ ts)     = all isMinimal ts
+  isMinimal (Node _ ts)     = all isMinimal ts
+  isMinimal _               = True
 
 instance UpperBound (Term l) where
   top = Star

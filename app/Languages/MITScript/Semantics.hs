@@ -24,6 +24,7 @@ import Configuration
 import Lang
 import Matching
 import Semantics.Abstraction
+import Semantics.AbstractMachine
 import Semantics.Conversion
 import Semantics.General
 import Semantics.GraphPattern
@@ -35,6 +36,19 @@ import Var
 import Languages.MITScript.Signature
 import Languages.MITScript.Translate
 import Languages.MITScript.Parse
+
+-- | Only valid to use this in a graph-pattern context,
+--  when state has already been maximally abstracted
+absSkippingScope :: Abstraction (Term MITScript) -> Abstraction (Term MITScript)
+absSkippingScope f (Scope _ _ _) = ValStar
+absSkippingScope f x             = f x
+
+
+irrSkippingScope :: IrrelevanceType -> Abstraction (AMState MITScript)
+irrSkippingScope irr (AMState (Conf t s) ctx) = AMState (Conf ((absSkippingScope $ irrelevance irr) t)
+                                                              (irrelevance irr s))
+                                                        (irrelevance irr ctx)
+
 
 instance Lang MITScript where
 
@@ -523,19 +537,18 @@ mitScriptRules = sequence [
                 (LetStepTo (conf margs env') (conf targs env)
                 (Build $ conf (FunCall vfun margs) env'))
 
-    , name "fun-call-cong-deref" $
-    mkRule5 $ \ref args fun mu h ->
-        let (mref, vargs, mmu, mfun) = (mv ref, vv args, mv mu, mv fun) in
-            StepTo (Conf (FunCall (ReferenceVal mref) vargs) (mmu, AssocOneVal h mref mfun))
-                    (Build $ Conf (FunCall mfun vargs) (mmu, AssocOneVal h mref mfun))
-
-    , name "fun-call-cong-alloc-frame" $
-    mkRule7 $ \params body frame mu ref h args ->
-        let (mparams, mbody, mframe, mmu, mref, vargs) = (mv params, mv body, mv frame, mv mu, mv ref, vv args) in
-            StepTo (Conf (FunCall (Closure mparams (Block mbody) mframe) vargs) (mmu, WholeSimpEnv h))
-                   (LetComputation (emptyConf (ReferenceVal mref)) (extComp AllocAddress (mmu, WholeSimpEnv h) [NilStmt])
-                      (Build $ Conf (Scope (Block (ConsStmt (Block mbody) (Return None))) mparams vargs)
-                                    (ConsFrame mref mmu, AssocOneVal h mref (ReducedRecord $ Parent mframe))))
+    , name "fun-call-exec" $
+    mkRule9 $ \ref args fun mu h params body frame frameAddr ->
+        let (mref, vargs, mmu, mfun, mparams, mbody, mframe, mframeAddr)
+                                                = (mv ref, vv args, mv mu, mv fun, mv params, mv body, mv frame, mv frameAddr) in
+          let wholeClosure = Closure mparams (Block mbody) mframe
+              wholeHeap    = AssocOneVal h mref wholeClosure in
+            StepTo (Conf (FunCall (ReferenceVal mref) vargs) (mmu, wholeHeap))
+              (LetComputation (emptyConf (ReferenceVal mframeAddr)) (extComp AllocAddress (mmu, wholeHeap) [NilStmt])
+                (Build $ Conf (Scope (Block (ConsStmt (Block mbody) (Return None))) mparams vargs)
+                           ( ConsFrame mframeAddr mmu
+                           , SimpEnvRest h (SimpEnvMap $ Map.fromList [ (mref, wholeClosure)
+                                                                      , (mframeAddr, ReducedRecord $ Parent mframe)]))))
 
     , name "fun-call-cong-assign-args" $
     mkPairRule1 $ \env->
@@ -557,6 +570,8 @@ mitScriptRules = sequence [
         let (vresult, mmu, mrest) = (vv result, mv mu, mv rest) in
             StepTo (Conf (Scope (Return vresult) NilName ReducedNilExp) (ConsFrame mmu mrest, WholeSimpEnv h))
                 (Build $ Conf vresult (mrest, WholeSimpEnv h))
+
+
 
     -- Function argument lists
     , name "cons-expr-cong-car" $

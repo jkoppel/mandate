@@ -30,6 +30,8 @@ import System.IO.Unsafe ( unsafePerformIO )
 
 import Data.Hashable ( Hashable )
 
+import Lattice
+
 -------------------------------------------------------------------
 
 
@@ -44,6 +46,21 @@ import Data.Hashable ( Hashable )
 -- to y.
 data VarType = NormalVar | SymbolVar | BoundVar
   deriving ( Eq, Ord, Show, Generic )
+
+-- Ordering: a meet b = type c such that metavars of type a and b
+-- may both be bound to something up type c
+--
+-- Only relation: SymbolVar < NormalVar
+instance Meetable VarType where
+  meet NormalVar SymbolVar = Just SymbolVar
+  meet SymbolVar NormalVar = Just SymbolVar
+  meet x         y
+              | x == y     = Just x
+  meet _         _         = Nothing
+
+  isMinimal NormalVar = False
+  isMinimal SymbolVar = True
+  isMinimal BoundVar  = True
 
 instance Hashable VarType
 
@@ -60,6 +77,10 @@ newtype VarId = VarId Int
 -- there already was stronger hiding around MetaVar than Term, making it easier to do things this way
 data MetaVar = MetaVar VarType VarId
   deriving ( Eq, Ord, Generic )
+
+instance Meetable MetaVar where
+  meet (MetaVar t1 (VarId n1)) (MetaVar t2 (VarId n2)) = MetaVar <$> meet t1  t2 <*> (pure $ VarId $ min n1 n2)
+  isMinimal _ = False
 
 instance Show MetaVar where
   show (MetaVar NormalVar (VarId n)) = show n
