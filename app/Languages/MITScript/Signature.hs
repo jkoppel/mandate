@@ -93,11 +93,13 @@ mitScriptSig = Signature [ StrSig "Name" "Name"
                          , NodeSig "FieldAccess"    ["Exp", "Name"]                      "Exp*"
                          , NodeSig "MkLFieldAccess" ["Exp", "Name"]                      "LVal"
                          , ValSig  "LFieldAccess"   ["Exp", "Name"]                      "LVal"
-                         , ValSig  "ShouldAssign"   ["LVal", "Exp"]                      "Stmt*"
                          , NodeSig "HeapAlloc"      ["Exp"]                              "Exp*"
                          , NodeSig "Record"         ["RecordPairList"]                   "Exp*"
                          , ValSig  "ReducedRecord"  ["ReducedRecordPairList"]            "Exp"
                          , NodeSig "Builtin"        ["Builtin", "Exp"]                   "Exp*"
+
+                         , ValSig  "ShouldGlobalAssign" ["LVal", "Exp"] "Stmt*"
+                         , NodeSig "GlobalAssign"       ["LVal", "Exp"] "Stmt*"
 
                          , NodeSig "RecordPair"        ["Name", "Exp"] "RecordPair"
                          , ValSig  "ReducedRecordPair" ["Name", "Exp"] "ReducedRecordPair"
@@ -231,9 +233,6 @@ pattern FieldAccess a b = Node "FieldAccess" [a, b]
 pattern LFieldAccess :: Term MITScript -> Term MITScript -> Term MITScript
 pattern LFieldAccess a b = Val "LFieldAccess" [a, b]
 
-pattern ShouldAssign :: Term MITScript -> Term MITScript -> Term MITScript
-pattern ShouldAssign a b = Val "ShouldAssign" [a, b]
-
 pattern MkLFieldAccess :: Term MITScript -> Term MITScript -> Term MITScript
 pattern MkLFieldAccess a b = Node "MkLFieldAccess" [a, b]
 
@@ -323,6 +322,12 @@ pattern Read = Node "Read" []
 
 pattern Builtin :: Term MITScript -> Term MITScript -> Term MITScript
 pattern Builtin name arg = Node "Builtin" [name, arg]
+
+pattern ShouldGlobalAssign :: Term MITScript -> Term MITScript -> Term MITScript
+pattern ShouldGlobalAssign a b = Val "ShouldGlobalAssign" [a, b]
+
+pattern GlobalAssign :: Term MITScript -> Term MITScript -> Term MITScript
+pattern GlobalAssign a b = Node "GlobalAssign" [a, b]
 
 pattern GlobalVar :: Term MITScript
 pattern GlobalVar = Val "GlobalVar" []

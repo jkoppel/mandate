@@ -156,12 +156,20 @@ mitScriptRules = sequence [
             StepTo (conf (ConsStmt NilStmt ms) env)
             (Build $ conf ms env)
 
+    -- | Note: We've had the semantics of "global" wrong the whole time.
+    -- It's actually supposed to take effect for the entire scope, but we've been treating
+    -- it as if it's only supposed to take effect for the remainder of the scope.
+    --
+    -- Oh well; let's just leave it like this.
     , name "global" $
-    mkPairRule1 $ \env ->
-    mkRule1 $ \g ->
-        let (mg) = (mv g) in
-            StepTo (conf (Global mg) env)
-              (Build $ conf (Assign (Var mg) GlobalVar) env)
+    mkRule5 $ \g frame rest h r ->
+        let (mg, mframe, mrest, vr) = (mv g, mv frame, mv rest, vv r) in
+            StepTo (Conf (Global mg) (ConsFrame mframe mrest, AssocOneVal h mframe (ReducedRecord vr)))
+              (Build $ Conf NilStmt
+                            ( ConsFrame mframe mrest
+                            , AssocOneVal h mframe
+                                            (ReducedRecord (ReducedRecordCons (ReducedRecordPair mg GlobalVar) vr))))
+
 
     , name "ret-cong" $
     mkPairRule2 $ \env env' ->
@@ -289,8 +297,18 @@ mitScriptRules = sequence [
     mkRule8 $ \val field ref mu h re fval field2 ->
         let (vval, mref, mfield, vre, vfval, mfield2, mmu) = (vv val, mv ref, mv field, vv re, vv fval, mv field2, mv mu) in
             StepTo (Conf (Assign (LFieldAccess (ReferenceVal mref) mfield) vval) (mmu, AssocOneVal h mref vre))
-              (LetComputation (emptyConf (ShouldAssign (FieldAccess vfval mfield2) vval)) (extComp WriteField (mmu, AssocOneVal h mref vre) [vre, mfield, vval])
-                (Build $ Conf (Assign (FieldAccess vfval mfield2) vval) (mmu, AssocOneVal h mref vre)))
+              (LetComputation (emptyConf (ShouldGlobalAssign (LFieldAccess vfval mfield2) vval)) (extComp WriteField (mmu, AssocOneVal h mref vre) [vre, mfield, vval])
+                (Build $ Conf (GlobalAssign (LFieldAccess vfval mfield2) vval) (mmu, AssocOneVal h mref vre)))
+
+
+    , name "global-assn-eval" $
+    mkRule7 $ \val field ref mu h re re' ->
+        let (vval, mref, mfield, vre, vre', mmu) = (vv val, mv ref, mv field, vv re, vv re', mv mu) in
+            StepTo (Conf (GlobalAssign (LFieldAccess (ReferenceVal mref) mfield) vval) (mmu, AssocOneVal h mref vre))
+              (LetComputation (emptyConf (ReducedRecord vre')) (extComp WriteField (mmu, AssocOneVal h mref vre) [vre, mfield, vval])
+                (Build $ Conf NilStmt (mmu, AssocOneVal h mref (ReducedRecord vre'))))
+
+
 
     , name "lindex-cong-1" $
     mkPairRule2 $ \env env' ->
@@ -623,7 +641,7 @@ readField heap x y = if isGlobal heap x y then
 
 writeField :: SimpEnv (Term MITScript) (Term MITScript) -> Term MITScript -> String -> Term MITScript -> Term MITScript
 writeField heap x y z = if isGlobal heap x y then
-                            ShouldAssign (FieldAccess (ReferenceVal (HeapAddr 0)) (Name (stringToIbs y))) z
+                            ShouldGlobalAssign (LFieldAccess (ReferenceVal (HeapAddr 0)) (Name (stringToIbs y))) z
                         else
                             ReducedRecord (writeField' x y z)
     where
