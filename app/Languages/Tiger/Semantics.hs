@@ -509,6 +509,54 @@ tigerRules = sequence [
               (Build (conf (HeapAlloc vval) env)))
 
 
+      ---- LVal's
+
+
+    , name "lsimplervar-eval" $
+      mkRule5 $ \var mu h frame rest->
+        let (mvar, mframe, mrest) = (mv var, mv frame, mv rest) in
+          StepTo (Conf (LSimpleVar mvar) (ConsFrame mframe mrest, WholeSimpEnv h))
+            (Build $ Conf (FieldVar (ReferenceVal mframe) mvar) (ConsFrame mframe mrest, WholeSimpEnv h))
+
+    , name "lfieldvar-cong" $
+      mkPairRule2 $ \env env' ->
+      mkRule3 $ \var var' field ->
+        let (tvar, mvar', mfield) = (tv var, mv var', mv field) in
+          StepTo (conf (MkLFieldVar tvar mfield) env)
+            (LetStepTo (conf mvar' env') (conf tvar env)
+              (Build (conf (MkLFieldVar mvar' mfield) env')))
+
+    , name "lfieldvar-done" $
+      mkPairRule1 $ \env ->
+      mkRule2 $ \val field ->
+        let (vval, mfield) = (vv val, mv field) in
+          StepTo (conf (MkLFieldVar vval mfield) env)
+            (Build (conf (LFieldVar vval mfield) env))
+
+
+    , name "lsubscript-cong-1" $
+      mkPairRule2 $ \env env' ->
+      mkRule3 $ \x x' s ->
+        let (tx, mx', ms) = (tv x, mv x', mv s) in
+          StepTo (conf (MkLSubscriptVar tx ms) env)
+            (LetStepTo (conf mx' env') (conf tx env)
+              (Build (conf (MkLSubscriptVar mx' ms) env')))
+
+    , name "lsubscript-cong-2" $
+      mkPairRule2 $ \env env' ->
+      mkRule3 $ \arr e e' ->
+        let (varr, te, me') = (vv arr, tv e, mv e') in
+          StepTo (conf (MkLSubscriptVar varr te) env)
+            (LetStepTo (conf me' env') (conf te env)
+              (Build (conf (MkLSubscriptVar varr me') env')))
+
+    , name "lsubscript-done" $
+      mkPairRule1 $ \env ->
+      mkRule2 $ \arr idx ->
+        let (varr, vidx) = (vv arr, vv idx) in
+          StepTo (conf (MkLSubscriptVar varr vidx) env)
+            (Build (conf (LSubscriptVar varr vidx) env))
+
       ---- AssignExp
 
     , name "assn-rhs-cong" $
@@ -519,48 +567,25 @@ tigerRules = sequence [
             (LetStepTo (conf me' env') (conf te env)
               (Build (conf (AssignExp ml me') env')))
 
-    , name "assn-simplevar-cong" $
-      mkRule6 $ \var val mu h frame rest->
-        let (mvar, vval, mframe, mrest) = (mv var, vv val, mv frame, mv rest) in
-          StepTo (Conf (AssignExp (SimpleVar mvar) vval) (ConsFrame mframe mrest, WholeSimpEnv h))
-            (Build $ Conf (AssignExp (FieldVar (ReferenceVal mframe) mvar) vval) (ConsFrame mframe mrest, WholeSimpEnv h))
-
-    , name "assn-field-cong" $
+    , name "assn-lhs-cong" $
       mkPairRule2 $ \env env' ->
-      mkRule4 $ \l l' sym r ->
-        let (tl, ml', msym, vr) = (tv l, mv l', mv sym, vv r) in
-          StepTo (conf (AssignExp (FieldVar tl msym) vr) env)
+      mkRule3 $ \l l' e ->
+        let (tl, ml', ve) = (tv l, mv l', vv e) in
+          StepTo (conf (AssignExp tl ve) env)
             (LetStepTo (conf ml' env') (conf tl env)
-              (Build (conf (AssignExp (FieldVar ml' msym) vr) env')))
-
-
-    , name "subscript-cong-1" $
-      mkPairRule2 $ \env env' ->
-      mkRule4 $ \l l' e r ->
-        let (tl, ml', me, vr) = (tv l, mv l', mv e, vv r) in
-          StepTo (conf (AssignExp (SubscriptVar tl me) vr) env)
-            (LetStepTo (conf ml' env') (conf tl env)
-              (Build (conf (AssignExp (SubscriptVar ml' me) vr) env')))
-
-    , name "subscript-cong-2" $
-      mkPairRule2 $ \env env' ->
-      mkRule4 $ \l e e' r ->
-        let (vl, te, me', vr) = (vv l, tv e, mv e', vv r) in
-          StepTo (conf (AssignExp (SubscriptVar vl te) vr) env)
-            (LetStepTo (conf me' env') (conf te env)
-              (Build (conf (AssignExp (SubscriptVar vl me') vr) env')))
+              (Build (conf (AssignExp ml' ve) env')))
 
     , name "field-assn-eval-field" $
       mkRule7 $ \val ref field re' addr mu h->
         let (vval, mref, mfield, vre', maddr, mmu) = (vv val, mv ref, mv field, vv re', mv addr, mv mu) in
-          StepTo (Conf (AssignExp (FieldVar (ReferenceVal mref) mfield) vval) (mmu, WholeSimpEnv h))
+          StepTo (Conf (AssignExp (LFieldVar (ReferenceVal mref) mfield) vval) (mmu, WholeSimpEnv h))
             (LetComputation (emptyConf (ReducedRecordPair maddr vre')) (extComp WriteField (mmu, WholeSimpEnv h) [mref, mfield, vval])
               (Build $ Conf NilExp (mmu, AssocOneVal h maddr vre')))
 
     , name "index-assn-eval" $
       mkRule7 $ \val ref index re' addr mu h ->
         let (vval, mref, vindex, vre', maddr, mmu) = (vv val, mv ref, vv index, vv re', mv addr, mv mu) in
-          StepTo (Conf (AssignExp (SubscriptVar (ReferenceVal mref) vindex) vval) (mmu, WholeSimpEnv h))
+          StepTo (Conf (AssignExp (LSubscriptVar (ReferenceVal mref) vindex) vval) (mmu, WholeSimpEnv h))
             (LetComputation (emptyConf (ReducedRecordPair maddr vre')) (extComp WriteIndex (mmu, WholeSimpEnv h) [mref, vindex, vval])
               (Build $ Conf NilExp (mmu, AssocOneVal h maddr vre')))
 

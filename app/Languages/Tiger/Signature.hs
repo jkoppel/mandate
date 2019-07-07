@@ -16,6 +16,8 @@ tigerSorts = [ "Program",  "Exp", "ExpList", "ExpOpt", "Dec", "DecList"
              , "Oper", "EField", "EFieldList", "VarDec", "Formals", "TypeDec", "TypeDecList"
              , "Symbol", "SymOpt", "ConstInt", "ConstStr"
 
+             , "LVal"
+
              --- Runtime values
              , "Frame", "FrameList"
              , "RecordPair", "RecordPairList"
@@ -38,6 +40,13 @@ tigerSig = Signature [ NodeSig "PExp"  ["Exp"]     "Program"
                      , NodeSig "FieldVar"     ["Var", "Symbol"] "Var"
                      , NodeSig "SubscriptVar" ["Var", "Exp"]    "Var"
 
+
+                     , NodeSig "LSimpleVar"      ["Symbol"]        "LVal"
+                     , NodeSig "MkLFieldVar"     ["Var", "Symbol"] "LVal"
+                     , ValSig  "LFieldVar"       ["Var", "Symbol"] "LVal"
+                     , NodeSig "MkLSubscriptVar" ["Var", "Exp"]    "LVal"
+                     , ValSig  "LSubscriptVar"   ["Var", "Exp"]    "LVal"
+
                      , NodeSig "VarExp"    ["Var"]                         "Exp"
                      , ValSig  "NilExp"    []                              "Exp"
                      , ValSig  "IntExp"    ["ConstInt"]                    "Exp"
@@ -45,7 +54,7 @@ tigerSig = Signature [ NodeSig "PExp"  ["Exp"]     "Program"
                      , NodeSig "Seq"       ["Exp", "Exp"]                  "Exp"
 
                      -- Taking a departure for simplicity; using Var instead of Symbol
-                     , NodeSig "AppExp"    ["Var", "ExpList"]              "Exp"
+                     , NodeSig "AppExp"    ["LVal", "ExpList"]             "Exp"
                      , NodeSig "OpExp"     ["Exp", "Oper", "Exp"]          "Exp"
                      , NodeSig "RecordExp" ["EFieldList", "Symbol"]        "Exp"
                      , NodeSig "AssignExp" ["Var", "Exp"]                  "Exp"
@@ -194,6 +203,21 @@ pattern FieldVar a b = Node "FieldVar" [a, b]
 
 pattern SubscriptVar :: Term Tiger -> Term Tiger -> Term Tiger
 pattern SubscriptVar a b = Node "SubscriptVar" [a, b]
+
+pattern LSimpleVar :: Term Tiger -> Term Tiger
+pattern LSimpleVar a = Node "LSimpleVar" [a]
+
+pattern MkLFieldVar :: Term Tiger -> Term Tiger -> Term Tiger
+pattern MkLFieldVar a b = Node "MkLFieldVar" [a, b]
+
+pattern LFieldVar :: Term Tiger -> Term Tiger -> Term Tiger
+pattern LFieldVar a b = Val "LFieldVar" [a, b]
+
+pattern MkLSubscriptVar :: Term Tiger -> Term Tiger -> Term Tiger
+pattern MkLSubscriptVar a b = Node "MkLSubscriptVar" [a, b]
+
+pattern LSubscriptVar :: Term Tiger -> Term Tiger -> Term Tiger
+pattern LSubscriptVar a b = Val "LSubscriptVar" [a, b]
 
 pattern VarExp :: Term Tiger -> Term Tiger
 pattern VarExp a = Node "VarExp" [a]
