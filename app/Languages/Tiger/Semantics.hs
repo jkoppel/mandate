@@ -240,31 +240,23 @@ tigerRules = sequence [
       mkPairRule2 $ \env env' ->
       mkRule3 $ \s1 s2 s1' ->
           let (ts1, ms2, ms1') = (tv s1, mv s2, mv s1') in
-              StepTo (conf (SeqExp (ConsExpList ts1 ms2)) env)
+              StepTo (conf (Seq ts1 ms2) env)
                 (LetStepTo (conf ms1' env')(conf ts1 env)
-                  (Build (conf (SeqExp (ConsExpList ms1' ms2)) env')))
+                  (Build (conf (Seq ms1' ms2) env')))
 
     , name "seq-next" $
       mkPairRule1 $ \env ->
-      mkRule3 $ \val s ss ->
-        let (vval, ms, mss) = (vv val, mv s, mv ss) in
-            StepTo (conf (SeqExp (ConsExpList vval (ConsExpList ms mss))) env)
-                (Build (conf (SeqExp (ConsExpList ms mss)) env))
-
-
-    , name "seq-done" $
-      mkPairRule1 $ \env ->
-      mkRule1 $ \val ->
-        let vval = vv val in
-            StepTo (conf (SeqExp (ConsExpList vval NilExpList)) env)
-                (Build (conf vval env))
+      mkRule2 $ \val ss ->
+        let (vval, mss) = (vv val, mv ss) in
+            StepTo (conf (Seq vval mss) env)
+                (Build (conf mss env))
 
 
     , name "seq-break" $
       mkPairRule1 $ \env ->
       mkRule1 $ \s ->
         let ms = mv s in
-            StepTo (conf (SeqExp (ConsExpList BreakExp ms)) env)
+            StepTo (conf (Seq BreakExp ms) env)
                 (Build (conf BreakExp env))
 
 
@@ -272,16 +264,8 @@ tigerRules = sequence [
       mkPairRule1 $ \env ->
       mkRule2 $ \s val ->
         let (ms, mval) = (mv s, mv val) in
-            StepTo (conf (SeqExp (ConsExpList (DoExit mval) ms)) env)
+            StepTo (conf (Seq (DoExit mval) ms) env)
                 (Build (conf (DoExit mval) env))
-
-
-     -- I don't know why the parser produces terms like this
-     , name "seq-empty" $
-       mkPairRule1 $ \env ->
-       mkRule0 $
-         StepTo (conf (SeqExp NilExpList) env)
-           (Build (conf NilExp env))
 
       --- VarExp
 
@@ -645,9 +629,8 @@ tigerRules = sequence [
                                      (ConsDecList (VarDecDec (VarDec loopHiSym) NoneSym mhi)
                                         NilDecList))
                                   (WhileExp (OpExp (VarExp (SimpleVar mi)) LeOp (VarExp (SimpleVar loopHiSym)))
-                                       (SeqExp (ConsExpList me
-                                                  (ConsExpList (AssignExp (SimpleVar mi) (OpExp (VarExp $ SimpleVar mi) PlusOp (IntExp (ConstInt 1))))
-                                                    NilExpList)))))
+                                       (Seq me
+                                         (AssignExp (SimpleVar mi) (OpExp (VarExp $ SimpleVar mi) PlusOp (IntExp (ConstInt 1)))))))
                           env)
 
       ---- LetExp

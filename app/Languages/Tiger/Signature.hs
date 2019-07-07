@@ -42,7 +42,7 @@ tigerSig = Signature [ NodeSig "PExp"  ["Exp"]     "Program"
                      , ValSig  "NilExp"    []                              "Exp"
                      , ValSig  "IntExp"    ["ConstInt"]                    "Exp"
                      , ValSig  "StringExp" ["ConstStr"]                    "Exp"
-                     , NodeSig "SeqExp"    ["ExpList"]                     "Exp"
+                     , NodeSig "Seq"       ["Exp", "Exp"]                  "Exp"
 
                      -- Taking a departure for simplicity; using Var instead of Symbol
                      , NodeSig "AppExp"    ["Var", "ExpList"]              "Exp"
@@ -207,8 +207,8 @@ pattern IntExp a = Val "IntExp" [a]
 pattern StringExp :: Term Tiger -> Term Tiger
 pattern StringExp a = Val "StringExp" [a]
 
-pattern SeqExp :: Term Tiger -> Term Tiger
-pattern SeqExp a = Node "SeqExp" [a]
+pattern Seq :: Term Tiger -> Term Tiger -> Term Tiger
+pattern Seq a b = Node "Seq" [a, b]
 
 pattern AppExp :: Term Tiger -> Term Tiger -> Term Tiger
 pattern AppExp a b = Node "AppExp" [a, b]
