@@ -23,6 +23,7 @@ import Configuration
 import Lang
 import Matching
 import Semantics.Abstraction
+import Semantics.AbstractMachine
 import Semantics.Conversion
 import Semantics.General
 import Semantics.GraphPattern
@@ -34,6 +35,21 @@ import Var
 import Languages.Tiger.Parse
 import Languages.Tiger.Signature
 import Languages.Tiger.Translate
+
+
+-- | Only valid to use this in a graph-pattern context,
+--  when state has already been maximally abstracted
+--
+-- Checks whether a use of Scope is function-associated
+absSkippingFunScope :: Abstraction (Term Tiger) -> Abstraction (Term Tiger)
+absSkippingFunScope f (Scope (LetExp (AssnFnArgs _ _) _)) = ValStar
+absSkippingFunScope f x                                   = f x
+
+
+irrSkippingFunScope :: IrrelevanceType -> Abstraction (AMState Tiger)
+irrSkippingFunScope irr (AMState (Conf t s) ctx) = AMState (Conf ((absSkippingFunScope $ irrelevance irr) t)
+                                                              (irrelevance irr s))
+                                                        (irrelevance irr ctx)
 
 instance Lang Tiger where
 
