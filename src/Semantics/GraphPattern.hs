@@ -10,12 +10,14 @@ module Semantics.GraphPattern (
 
 import Prelude hiding ( (<>) )
 
-import Control.Monad ( forM, (=<<) )
+import Control.Monad ( forM, (=<<), mplus )
 import Control.Monad.IO.Class ( liftIO )
 import Control.Monad.Trans ( lift )
 import Control.Monad.Trans.State ( StateT, evalStateT, gets, modify )
 import Data.Foldable ( foldMap )
+import Data.Function ( on )
 import Data.Functor ( (<&>) )
+import Data.List ( sortBy )
 import Data.Hashable ( Hashable )
 import Data.HashMap.Strict ( HashMap, (!) )
 import qualified Data.HashMap.Strict as HM
@@ -47,6 +49,16 @@ import Var
 class (Lang l) => HasTopState l where
   topRedState :: RedState l
 
+  -- This is an ugly decision; basically deadline code, except that there's no obvious better way.
+  -- Problem: Would like to collapse the state "Gamma, *: *v" into just "*: *v", but this requires
+  -- the information that "*: *v" (as opposed to *: *" is the top state
+  --
+  -- As of 7/7/2019, this is only important for graph pattern of ForExp in Tiger,
+  -- which is quite large (due to the large amount of actual code generated),
+  -- and involves sections which would collapse into one except for this issue
+  normalizeTopState :: RedState l -> RedState l
+  normalizeTopState = id
+
 -- | This is useful because the Configuration value holds
 -- some useful instances
 swapState :: Configuration l -> RedState l -> Configuration l
@@ -68,13 +80,16 @@ abstractGraphPattern absFunc abs rules t = do
                                       modify (Map.insert v v')
                                       return v'
 
+    normSt :: AMState l -> AMState l
+    normSt (AMState (Conf t s) k) = AMState (Conf t (normalizeTopState @l s)) k
+
     step :: AMState l -> StateT (Map MetaVar MetaVar) IO [(AMState l, EdgeType)]
     -- IDEA: If we used Top/Halt instead of a KVar for the graph pattern top, wouldn't need these next two cases
     step (AMState (Conf ValStar _)    (KVar _)) = return []
     step (AMState (Conf (ValVar _) _) (KVar _)) = return []
     step as@(AMState (Conf  NonvalStar   _) k) = return [(AMState (Conf ValStar (topRedState @l)) k, TransitiveEdge)]
     step as@(AMState (Conf (NonvalVar v) _) k) = evalVarFor v >>= \v' -> return [(AMState (Conf (ValVar v') (topRedState @l)) k, TransitiveEdge)]
-    step as = map (,NormalEdge) <$> map abs <$> (lift $ stepAmNarrowing (map (abstractCompFuncs absFunc) rules) as)
+    step as = map (,NormalEdge) <$> map (normSt.abs) <$> (lift $ stepAmNarrowing (map (abstractCompFuncs absFunc) rules) as)
 
 
 --FIXME: The way this works (namely, instantiating children as nonval nodes) means that
@@ -195,7 +210,7 @@ graphPatternToCode sym graphPat = dec <+> body
         --- dumb strongly-connected-component stuff in the rest of this function
         ---- It's also poorly behaved because it doesn't update each component simultaneously
         ---- (which is fine in the usecases, which have strong monotonicity properties)
-        fixHash :: (Eq a, Hashable a, Eq b) => [a] -> (HashMap a (Maybe b) -> a -> Maybe b) -> HashMap a b
+        --fixHash :: (Eq a, Hashable a, Eq b) => [a] -> (HashMap a (Maybe b) -> a -> Maybe b) -> HashMap a b
         fixHash labs f = doFix (HM.fromList (zip labs $ repeat Nothing))
           where
             doFix m = let m' = go labs m in
@@ -210,13 +225,40 @@ graphPatternToCode sym graphPat = dec <+> body
         tryGetState :: HashMap (AMState l) (Maybe String) -> AMState l -> Maybe String
         tryGetState hm st = case nodeVarForState st of
                               Just v  -> Just v
-                              Nothing -> case succs graphPat st of
-                                           []  -> error (printf "Unknown state %s is sink of graph pattern" $ show st)
-                                           [x] -> hm ! x
-                                           _   -> case preds graphPat st of
-                                                    []  -> error (printf "Unknown state %s is source of graph pattern" $ show st)
-                                                    [x] -> hm ! x
-                                                    _   -> error (printf "Unknown state %s cannot be fused with unique succ or pred" $ show st)
+
+                              -- The following case statement tries to glue a node to its unique predecessor
+                              -- if existing and already determined, then tries its successor.
+                              --
+                              -- Nodes that neither have a unique successor or predecessor and aren't already known...
+                              -- ...well, I have a hack for them.
+                              Nothing -> (case succs graphPat st of
+                                            []  -> error (printf "Unknown state %s is sink of graph pattern" $ show st)
+                                            [x] -> hm ! x
+                                            _   -> Nothing)
+                                         `mplus`
+                                          (case preds graphPat st of
+                                             []  -> error (printf "Unknown state %s is source of graph pattern" $ show st)
+                                             [x] -> hm ! x
+                                             xs  -> Nothing
+                                                         --error (printf "Unknown state %s cannot be fused with unique succ or pred"
+                                                         -- $ show st)
+                                              )
+                                         `mplus`
+
+                                           -- FIXME: This is deadline code, handling a corner case in Tiger's ForExp
+                                           -- I am not sure what the real solution is. I had thought the goal
+                                           -- was something like "merge nodes in the same connected components,
+                                           -- removing transitive edges," and this fixpoint thing was
+                                           -- a hacky partial-implementation, but it's not quite that.
+                                           --
+                                           -- It is still true, however, that merging with things in the same connected
+                                           -- component, not excluding transitive edges, would fix this case
+                                          (case (succs graphPat st, preds graphPat st) of
+                                            (s:ss, p:ps) -> hm ! (head $ sortBy (compare `on` (length . reachableNodes graphPat)) (p:ps))
+                                            _            -> Nothing
+                                          )
+
+
 
         nodeVarForState' :: Term l -> Context l -> Maybe String
         nodeVarForState' (Node s _)   (KVar _) | s == sym = Just inNode

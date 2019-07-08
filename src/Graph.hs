@@ -19,6 +19,7 @@ module Graph (
   , succs
   , preds
   , sinks
+  , reachableNodes
 
 
   , toRealGraph
@@ -206,6 +207,22 @@ preds g a = nub $ map (\(n,_,_) -> n) $ filter (\(_,_,x) -> x == a) $ edgeList g
 
 sinks :: (Eq a, Hashable a) => Graph a -> [a]
 sinks g = filter (\x -> null (succs g x)) $ nodeList g
+
+reachableNodes :: (Eq a, Hashable a) => Graph a -> a -> [a]
+reachableNodes g a = S.toList (go [a] S.empty)
+  where
+
+    expand []     (s, added) = (s, added)
+    expand (x:xs) (s, added) = expand xs (newS, newAdded)
+      where
+        (newS, newAdded) = foldr (\x' (s', added') -> if S.member x' s' then (s', added')
+                                                                        else (S.insert x' s', x' : added'))
+                                 (s, added)
+                                 (succs g x)
+
+    go xs s = case expand xs (s, []) of
+                (s', [])  -> s'
+                (s', xs') -> go xs' s'
 
 ------------------------ Graph quotients ---------------------------
 

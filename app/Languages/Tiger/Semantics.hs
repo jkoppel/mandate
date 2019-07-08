@@ -109,6 +109,9 @@ instance Irrelevance (CompFunc Tiger) where
 instance HasTopState Tiger where
   topRedState = (ValStar, JustSimpMap $ SingletonSimpMap Star ValStar)
 
+  normalizeTopState (stack, AssocOneVal h Star ValStar) = (stack, JustSimpMap $ SingletonSimpMap Star ValStar)
+  normalizeTopState x                                     = x
+
 realStartingEnv :: SimpEnv (Term Tiger) (Term Tiger)
 realStartingEnv = JustSimpMap $ SimpEnvMap $ Map.fromList
                       [
