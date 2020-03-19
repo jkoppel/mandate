@@ -15,7 +15,7 @@ module Semantics.SOS (
   , name
   , mkRule0, mkRule1, mkRule2
   , mkRule3, mkRule4, mkRule5
-  , mkRule6, mkRule7, mkRule8
+  , mkRule6, mkRule7, mkRule8, mkRule9
   , mkPairRule1, mkPairRule2
 
   , checkRule
@@ -97,17 +97,17 @@ runRhs rs (LetStepTo c1 c2 r) = do c2Filled <- fillMatch c2
                                    debugM $ "Filled match succeeded: " ++ show (confTerm c2Filled)
                                    c2' <- withFreshCtx $ stepConf rs c2Filled
                                    debugM $ "Recursive step suceeded. Result: " ++ show (confTerm c2')
-                                   match (Pattern c1) (Matchee c2')
+                                   match (Pattern c1) (Matchee $ symbolizeVars c2')
                                    runRhs rs r
 runRhs rs (LetComputation c f r) = do res <- runExtComp f
-                                      match (Pattern c) (Matchee res)
+                                      match (Pattern c) (Matchee $ symbolizeVars res)
                                       runRhs rs r
 
 
 useRule :: (Matchable (Configuration l), Lang l) => NamedRules l -> NamedRule l -> Configuration l -> Match (Configuration l)
 useRule rs (NamedRule nm (StepTo c1 r)) c2 = do
-    debugM $ "Trying rule " ++ BS.unpack nm ++ " for term " ++ show (confTerm c2)
-    match (Pattern c1) (Matchee c2)
+    debugM $ "Trying rule " ++ BS.unpack nm ++ " for conf " ++ show c2
+    match (Pattern c1) (Matchee $ symbolizeVars c2)
     debugM $ "LHS matched: " ++ BS.unpack nm
     ret <- runRhs rs r
     debugM $ "Rule succeeeded:" ++ BS.unpack nm
@@ -156,6 +156,9 @@ mkRule7 f = f <$> nextVar <*> nextVar <*> nextVar <*> nextVar <*> nextVar <*> ne
 
 mkRule8 :: (MetaVar -> MetaVar -> MetaVar -> MetaVar -> MetaVar -> MetaVar -> MetaVar -> MetaVar -> StepTo l) -> IO (StepTo l)
 mkRule8 f = f <$> nextVar <*> nextVar <*> nextVar <*> nextVar <*> nextVar <*> nextVar <*> nextVar <*> nextVar
+
+mkRule9 :: (MetaVar -> MetaVar -> MetaVar -> MetaVar -> MetaVar -> MetaVar -> MetaVar -> MetaVar -> MetaVar -> StepTo l) -> IO (StepTo l)
+mkRule9 f = f <$> nextVar <*> nextVar <*> nextVar <*> nextVar <*> nextVar <*> nextVar <*> nextVar <*> nextVar <*> nextVar
 
 mkPairRule1 :: ((MetaVar, MetaVar) -> IO (StepTo l)) -> IO (StepTo l)
 mkPairRule1 f = do

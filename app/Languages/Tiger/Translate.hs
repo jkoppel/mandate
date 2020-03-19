@@ -1,4 +1,4 @@
-{-# LANGUAGE FlexibleInstances, TypeSynonymInstances, MultiParamTypeClasses #-}
+{-# LANGUAGE FlexibleInstances, TypeSynonymInstances, MultiParamTypeClasses, TupleSections #-}
 
 module Languages.Tiger.Translate (
     ToGeneric(..)
@@ -26,6 +26,31 @@ import qualified Languages.Tiger.Signature as G
 
 ---------------------------------------------------------------------------------------------------------
 
+-- NOTE: The parser can generate things of the form (SeqExp []). We round-trip these to NilExp.
+-- I think this is safe.
+
+expListToSeq :: Term Tiger -> Term Tiger
+expListToSeq G.NilExpList                   = G.NilExp
+expListToSeq (G.ConsExpList t G.NilExpList) = t
+expListToSeq (G.ConsExpList t ts)           = G.Seq t (expListToSeq ts)
+
+seqToExpList :: Term Tiger -> Maybe [T.Exp]
+seqToExpList (G.Seq t ts) = (:) <$> fromGeneric t <*> seqToExpList ts
+seqToExpList t            = (:[]) <$> fromGeneric t
+
+
+expToLVal :: Term Tiger -> Term Tiger
+expToLVal (G.SimpleVar x)      = G.LSimpleVar x
+expToLVal (G.FieldVar x y)     = G.MkLFieldVar x y
+expToLVal (G.SubscriptVar x y) = G.MkLSubscriptVar x y
+expToLVal x                    = x
+
+lvalToExp :: Term Tiger -> Term Tiger
+lvalToExp (G.LSimpleVar x)        = G.SimpleVar x
+lvalToExp (G.MkLFieldVar x y)     = G.FieldVar x y
+lvalToExp (G.MkLSubscriptVar x y) = G.SubscriptVar x y
+lvalToExp x                       = x
+
 
 instance ToGeneric Tiger T.Program where
   toGeneric (T.Pexp e)   = G.PExp (toGeneric e)
@@ -41,11 +66,11 @@ instance ToGeneric Tiger T.Exp where
   toGeneric (T.NilExp _) = G.NilExp
   toGeneric (T.IntExp (n, _)) = G.IntExp (G.ConstInt $ toInteger n)
   toGeneric (T.StringExp (s, _)) = G.StringExp (G.ConstStr $ fromString s)
-  toGeneric (T.SeqExp es) = G.SeqExp (toGeneric es)
+  toGeneric (T.SeqExp es) = expListToSeq (toGeneric es)
   toGeneric (T.AppExp fn args _) = G.AppExp (G.SimpleVar $ toGeneric fn) (toGeneric args)
   toGeneric (T.OpExp l o r _) = G.OpExp (toGeneric l) (toGeneric o) (toGeneric r)
   toGeneric (T.RecordExp flds typ _) = G.RecordExp (toGeneric flds) (toGeneric typ)
-  toGeneric (T.AssignExp v e _) = G.AssignExp (toGeneric v) (toGeneric e)
+  toGeneric (T.AssignExp v e _) = G.AssignExp (expToLVal $ toGeneric v) (toGeneric e)
 
   toGeneric (T.IfExp e s1 (Just s2) _) = G.IfExp (toGeneric e) (toGeneric s1) (toGeneric s2)
   toGeneric (T.IfExp e s1 Nothing _) = G.IfExp (toGeneric e) (toGeneric s1) G.NilExp
@@ -139,6 +164,7 @@ instance ToGeneric Tiger (Maybe (T.Symbol, T.AlexPosn)) where
 
 ---------------------------------------------------------------------------------------------------------
 
+
 instance FromGeneric Tiger T.Program where
   fromGeneric (G.PExp e)   = T.Pexp <$> fromGeneric e
   fromGeneric (G.PDecs ds) = T.Pdecs <$> fromGeneric ds
@@ -155,11 +181,11 @@ instance FromGeneric Tiger T.Exp where
   fromGeneric  G.NilExp = return $ T.NilExp emptyPosn
   fromGeneric (G.IntExp (G.ConstInt n)) = return $ T.IntExp (fromInteger n, emptyPosn)
   fromGeneric (G.StringExp (G.ConstStr s)) = return $ T.StringExp (ibsToString s, emptyPosn)
-  fromGeneric (G.SeqExp es) = T.SeqExp <$> fromGeneric es
+  fromGeneric t@(G.Seq _ _) = T.SeqExp <$> (map (,emptyPosn) <$> seqToExpList t)
   fromGeneric (G.AppExp (G.SimpleVar fn) args) = T.AppExp <$> fromGeneric fn <*> fromGeneric args <*> return emptyPosn
   fromGeneric (G.OpExp l o r) = T.OpExp <$> fromGeneric l <*> fromGeneric o <*> fromGeneric r <*> return emptyPosn
   fromGeneric (G.RecordExp flds typ) = T.RecordExp <$> fromGeneric flds <*> fromGeneric typ <*> return emptyPosn
-  fromGeneric (G.AssignExp v e) = T.AssignExp <$> fromGeneric v <*> fromGeneric e <*> return emptyPosn
+  fromGeneric (G.AssignExp v e) = T.AssignExp <$> (fromGeneric $ lvalToExp v) <*> fromGeneric e <*> return emptyPosn
 
   fromGeneric (G.IfExp e s1 G.NilExp) = T.IfExp <$> fromGeneric e <*> fromGeneric s1 <*> (return $ Just (T.NilExp emptyPosn)) <*> return emptyPosn
   fromGeneric (G.IfExp e s1 s2) = T.IfExp <$> fromGeneric e <*> fromGeneric s1 <*> (Just <$> fromGeneric s2) <*> return emptyPosn

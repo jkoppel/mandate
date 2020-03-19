@@ -1,8 +1,7 @@
 {-# LANGUAGE FlexibleContexts, TupleSections #-}
 
 module TransitionSystem (
-    TransitionType(..)
-  , explorationGraph
+    genTransitionGraph
   , transitionGraph
   , transitionTreeDepth
   , transitionTree
@@ -18,7 +17,7 @@ import Data.HashSet ( HashSet )
 import qualified Data.HashSet as S
 
 import Debug
-import Graph ( Graph )
+import Graph ( Graph, EdgeType(..) )
 import qualified Graph as Graph
 import Rose
 
@@ -29,32 +28,25 @@ import Rose
 -- This is used to take our various formulations of semantics, which each define one step,
 -- and use them to execute a program fully.
 
-
-data TransitionType = Step | Explore
-
--- | Variant of `transitionGraph` where successor function can also generate nodes that should
--- be viewed as a new start point and not have incoming edges
---
--- Naming this was really hard. Best I came up with.
-explorationGraph :: (Eq a, Hashable a, Monad m) => (a -> m [(a, TransitionType)]) -> a -> m (Graph a)
-explorationGraph step start = fst <$> execStateT (go [start]) (Graph.insertNode start Graph.empty, S.empty)
+genTransitionGraph :: (Eq a, Hashable a, Monad m) => (a -> m [(a, EdgeType)]) -> a -> m (Graph a)
+genTransitionGraph step start = fst <$> execStateT (go [start]) (Graph.insertNode start Graph.empty, S.empty)
   where
     go []     = return ()
     go states = do nextStates <- concat <$> mapM expand states
                    go nextStates
 
-    expand st = do modify (\(g, seen) -> (g, S.insert st seen))
-                   debugM "Doing step"
-                   succs <- lift (step st)
-                   debugM "Evalling succs"
-                   forM_ succs $ \(succ, transType) ->
-                                  modify $ \(g, seen) ->
-                                    case transType of
-                                      Step    -> (Graph.insert st  succ g, seen)
-                                      Explore -> (Graph.insertNode succ g, seen)
-                   debugM "Inserted nexts succs"
-                   seen <- gets snd
-                   return $ filter (\s -> not (S.member s seen)) $ map fst succs
+    expand st = do alreadySeen <- gets (S.member st . snd)
+                   if alreadySeen then return []
+                    else do
+                      modify (\(g, seen) -> (g, S.insert st seen))
+                      debugM "Doing step"
+                      succs <- lift (step st)
+                      debugM "Evalling succs"
+                      forM_ succs $ \(succ, edgeType) ->
+                                     modify $ \(g, seen) -> (Graph.insert st edgeType succ g, seen)
+                      debugM "Inserted nexts succs"
+                      seen <- gets snd
+                      return $ filter (\s -> not (S.member s seen)) $ map fst succs
 
 -- | Similar to `transitionTree`, but merges repeated states. Especially important for cyclic transition systems.
 --
@@ -62,7 +54,7 @@ explorationGraph step start = fst <$> execStateT (go [start]) (Graph.insertNode 
 -- abstracted non-cyclic systems. I.e.: if the concrete executions of a program
 -- form a tree, its abstract executions will form a graph, namely a control-flow graph
 transitionGraph :: (Eq a, Hashable a, Monad m) => (a -> m [a]) -> a -> m (Graph a)
-transitionGraph step = explorationGraph (fmap (map (,Step)) . step)
+transitionGraph step = genTransitionGraph (fmap (map (,NormalEdge)) . step)
 
 
 transitionTreeDepth :: (Num n, Eq n, Monad m) => (a -> m [a]) -> n -> a -> m (Rose a)

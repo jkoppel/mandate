@@ -8,6 +8,7 @@ import GHC.Generics ( Generic )
 
 import Data.Hashable ( Hashable )
 
+import CfgGenRuntime
 import Configuration
 import Lang
 import Matching
@@ -163,9 +164,39 @@ runExternalComputation RunMin state [EVal (Const n1), EVal (Const n2)] = return 
 
 runExternalComputation func state [GStar _, _] = return $ initConf ValStar
 runExternalComputation func state [_, GStar _] = return $ initConf ValStar
+runExternalComputation func state [ValVar _, _] = return $ initConf ValStar
+runExternalComputation func state [_, ValVar _] = return $ initConf ValStar
 
 -----------
 
 term1 :: Term AddMulLang
 term1 = Sub (Plus (EVal $ Const 1) (EVal $ Const 2)) (Times (EVal $ Const 3) (EVal $ Const 4))
 
+-----------
+
+
+genCfg :: Term AddMulLang -> GraphGen AddMulLang (GraphNodes AddMulLang, GraphNodes AddMulLang)
+genCfg t@(Node "+" [t1, t2]) = do (a, b) <- makeInOut t
+                                  (in1, out1) <- genCfg t1
+                                  (in2, out2) <- genCfg t2
+                                  connect a in1
+                                  connect out1 in2
+                                  connect out2 b
+                                  return (a, b)
+genCfg t@(Node "*" [t1, t2]) = do (a, b) <- makeInOut t
+                                  (in1, out1) <- genCfg t1
+                                  (in2, out2) <- genCfg t2
+                                  connect a in1
+                                  connect out1 in2
+                                  connect out2 b
+                                  return (a, b)
+genCfg t@(Node "-" [t1, t2]) = do (a, b) <- makeInOut t
+                                  (in1, out1) <- genCfg t1
+                                  (in2, out2) <- genCfg t2
+                                  connect a in1
+                                  connect out1 in2
+                                  connect out2 b
+                                  return (a, b)
+genCfg t@(Val _ _) = do (a, b) <- makeInOut t
+                        connect a b
+                        return (a, b)

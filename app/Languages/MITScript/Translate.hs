@@ -22,6 +22,19 @@ import qualified Languages.MITScript.Syntax    as M
 
 ---------------------------------------------------------------------------------------------------------
 
+expToLval :: Term MITScript -> Term MITScript
+expToLval (G.Var         x)   = G.LVar x
+expToLval (G.Index       x y) = G.MkLIndex x y
+expToLval (G.FieldAccess x y) = G.MkLFieldAccess x y
+expToLval t                   = t
+
+lvalToExp :: Term MITScript -> Term MITScript
+lvalToExp (G.LVar           x)   = G.Var x
+lvalToExp (G.MkLIndex       x y) = G.Index x y
+lvalToExp (G.MkLFieldAccess x y) = G.FieldAccess x y
+lvalToExp t                      = t
+
+
 instance ToGeneric MITScript M.Name where
   toGeneric (M.Name s) = G.Name (fromString s)
 
@@ -31,11 +44,11 @@ instance ToGeneric MITScript [M.Name] where
 
 instance ToGeneric MITScript M.Stmt where
   toGeneric (M.Global n) = G.Global (toGeneric n)
-  toGeneric (M.Assign e1 e2) = G.Assign (toGeneric e1) (toGeneric e2)
+  toGeneric (M.Assign e1 e2) = G.Assign (expToLval $ toGeneric e1) (toGeneric e2)
   toGeneric (M.ExpStmt s) = G.ExpStmt (toGeneric s)
   toGeneric (M.If p t e) = G.If (toGeneric p) (toGeneric t) (toGeneric e)
   toGeneric (M.While e s) = G.While (toGeneric e) (toGeneric s)
-  toGeneric (M.Return e) = G.Return (toGeneric e)
+  toGeneric (M.Return e) = G.MkReturn (toGeneric e)
   toGeneric (M.Block ss) = G.Block (toGeneric ss)
 
 instance ToGeneric MITScript [M.Stmt] where
@@ -99,11 +112,11 @@ instance FromGeneric MITScript [M.Name] where
 
 instance FromGeneric MITScript M.Stmt where
   fromGeneric (G.Global n) = M.Global <$> fromGeneric n
-  fromGeneric (G.Assign e1 e2) = M.Assign <$> fromGeneric e1 <*> fromGeneric e2
+  fromGeneric (G.Assign e1 e2) = M.Assign <$> (fromGeneric $ lvalToExp e1) <*> fromGeneric e2
   fromGeneric (G.ExpStmt s) = M.ExpStmt <$> fromGeneric s
   fromGeneric (G.If p t e) = M.If <$> fromGeneric p <*> fromGeneric t <*> fromGeneric e
   fromGeneric (G.While e s) = M.While <$> fromGeneric e <*> fromGeneric s
-  fromGeneric (G.Return e) = M.Return <$> fromGeneric e
+  fromGeneric (G.MkReturn e) = M.Return <$> fromGeneric e
   fromGeneric (G.Block ss) = M.Block <$> fromGeneric ss
   fromGeneric _ = Nothing
 

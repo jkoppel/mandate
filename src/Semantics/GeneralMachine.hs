@@ -1,4 +1,4 @@
-{-# LANGUAGE DeriveGeneric, FlexibleContexts, FlexibleInstances, MultiParamTypeClasses, UndecidableInstances #-}
+{-# LANGUAGE CPP, DeriveGeneric, FlexibleContexts, FlexibleInstances, MultiParamTypeClasses, Rank2Types, UndecidableInstances #-}
 
 module Semantics.GeneralMachine (
     GenAMRhs(..)
@@ -10,6 +10,7 @@ module Semantics.GeneralMachine (
   , NamedGenAMRules
 
   , stepGenAm
+  , stepGenAmNarrowing
   ) where
 
 import Control.Monad ( mzero, mplus )
@@ -23,6 +24,8 @@ import Data.ByteString.Char8 ( ByteString )
 import qualified Data.ByteString.Char8 as BS
 import Data.Hashable ( Hashable )
 import Data.Typeable ( Typeable )
+
+import Control.Monad.HT ( liftJoin2 )
 
 import Configuration
 import Debug
@@ -57,8 +60,8 @@ instance (Lang l, Typeable payload, Matchable (payload l)) => Matchable (GenAMRh
       match (Pattern c1) (Matchee c2) >> match (Pattern f1) (Matchee f2) >> match (Pattern r1) (Matchee r2)
   match (Pattern (GenAMRhs p1)) (Matchee (GenAMRhs p2)) = match (Pattern p1) (Matchee p2)
 
-  refreshVars (GenAMLetComputation c f p) = GenAMLetComputation <$> refreshVars c <*> refreshVars f <*> refreshVars p
-  refreshVars (GenAMRhs p) = GenAMRhs <$> refreshVars p
+  mapVarsM f (GenAMLetComputation c fr p) = GenAMLetComputation <$> mapVarsM f c <*> mapVarsM f fr <*> mapVarsM f p
+  mapVarsM f (GenAMRhs p)                 = GenAMRhs <$> mapVarsM f p
 
   fillMatch (GenAMLetComputation c f p) = GenAMLetComputation <$> fillMatch c <*> fillMatch f <*> fillMatch p
   fillMatch (GenAMRhs p) = GenAMRhs <$> fillMatch p
@@ -92,15 +95,22 @@ instance (Lang l, Matchable t, Show (GenAMState t l)) => Matchable (GenAMState t
   match (Pattern (GenAMState c1 k1 e1)) (Matchee (GenAMState c2 k2 e2))
       = match (Pattern c1) (Matchee c2) >> match (Pattern k1) (Matchee k2) >> match (Pattern e1) (Matchee e2)
   match _ _ = mzero
-  refreshVars (GenAMState c k e) = GenAMState <$> refreshVars c <*> refreshVars k <*> refreshVars e
-  fillMatch   (GenAMState c k e) = GenAMState <$> fillMatch   c <*> fillMatch   k <*> fillMatch e
+  mapVarsM f (GenAMState c k e) = GenAMState <$> mapVarsM f c <*> mapVarsM f k <*> mapVarsM f e
+  fillMatch  (GenAMState c k e) = GenAMState <$> fillMatch  c <*> fillMatch  k <*> fillMatch e
 
 instance (Lang l, Show (GenAMState t l), Unifiable t) => Unifiable (GenAMState t l) where
-  unify (GenAMState c1 k1 e1) (GenAMState c2 k2 e2) = unify c1 c2 >> unify k1 k2 >> unify e1 e2
+  unify (GenAMState c1 k1 e1) (GenAMState c2 k2 e2) =  do unify c1 c2
+                                                          debugM "Unified conf"
+                                                          liftJoin2 unify (fillMatch k1) (fillMatch k2)
+                                                          debugM "Unified stack"
+                                                          liftJoin2 unify (fillMatch e1) (fillMatch e2)
 
 instance (Show (Configuration l), Show (Context l)) => Show (GenAMState () l) where
-  showsPrec d (GenAMState c k ()) = showString "<" . showsPrec d c . showString " | " .
-                                    showsPrec d k . showString ">"
+  showsPrec d (GenAMState c k ()) =
+    if shortNodeName then
+       showsPrec d (confTerm c)
+    else
+       showString "<" . showsPrec d c . showString " | " . showsPrec d k . showString ">"
 
 
 -------------------------------------------------------------------------
@@ -108,6 +118,7 @@ instance (Show (Configuration l), Show (Context l)) => Show (GenAMState () l) wh
 data GenAMRule t l = GenAMRule { genAmBefore :: GenAMState t l
                                , genAmAfter  :: GenAMRhs (GenAMState t) l
                                }
+  deriving (Eq )
 
 instance (Show (Configuration l), Lang l, Show (GenAMState t l)) => Show (GenAMRule t l) where
   showsPrec d (GenAMRule before after) = showsPrec d before . showString "  ---->  " . showsPrec d after
@@ -115,6 +126,7 @@ instance (Show (Configuration l), Lang l, Show (GenAMState t l)) => Show (GenAMR
 data NamedGenAMRule t l = NamedGenAMRule { genAmRuleName :: ByteString
                                          , getGenAmRule  :: GenAMRule t l
                                          }
+  deriving ( Eq )
 
 type NamedGenAMRules t l = [NamedGenAMRule t l]
 
@@ -138,40 +150,62 @@ instance AbstractCompFuncs (GenAMRule t l) l where
 instance (Irrelevance (Configuration l), Irrelevance (Context l), Irrelevance t) => Irrelevance (GenAMState t l) where
   irrelevance irr (GenAMState conf ctx t) = GenAMState (irrelevance irr conf) (irrelevance irr ctx) (irrelevance irr t)
 
--------------------------------------------------------------------------
+------------------------------------- Execution ------------------------------------
+
+type MatchFn = forall m t. (MonadUnify m, Unifiable t) => t -> t -> m ()
+
+match' :: MatchFn
+match' x y = match (Pattern x) (Matchee $ symbolizeVars y)
+
+unify' :: MatchFn
+unify' = unify
 
 
 
-runGenAmRhs :: (Lang l, Matchable (GenAMState t l)) => GenAMRhs (GenAMState t) l -> Match (GenAMState t l)
-runGenAmRhs (GenAMLetComputation c f r) = do res <- runExtComp f
-                                             match (Pattern c) (Matchee res)
-                                             runGenAmRhs r
-runGenAmRhs (GenAMRhs p) = fillMatch p
+runGenAmRhs :: (Lang l, Matchable (GenAMState t l)) => MatchFn -> GenAMRhs (GenAMState t) l -> Match (GenAMState t l)
+runGenAmRhs matchOrUnify (GenAMLetComputation c f r) = do res <- runExtComp f
+                                                          match (Pattern c) (Matchee $ symbolizeVars res) -- don't unify, even in narrowing
+                                                          runGenAmRhs matchOrUnify r
+runGenAmRhs matchOrUnify (GenAMRhs p) = fillMatch p
 
 
-reduceFrame :: (Lang l) => GenAMState t l -> Match ()
-reduceFrame (GenAMState c (KPush (KInp i _) _) phase) = do
+{-
+reduceFrame :: (Lang l) => MatchFn -> GenAMState t l -> Match ()
+reduceFrame matchOrUnify (GenAMState c (KPush (KInp i _) _) phase) = do
   c' <- fillMatch c
-  match (Pattern i) (Matchee c')
-reduceFrame _ = return ()
+  matchOrUnify i c'
+reduceFrame _ _ = return ()
+-}
 
-
-useGenAmRule :: (Lang l, Show (GenAMState t l), Matchable t) => NamedGenAMRule t l -> GenAMState t l -> Match (GenAMState t l)
-useGenAmRule (NamedGenAMRule nm (GenAMRule left right)) st = do
+useGenAmRule :: (Lang l, Show (GenAMState t l), Unifiable t) => MatchFn -> NamedGenAMRule t l -> GenAMState t l -> Match (GenAMState t l)
+useGenAmRule matchOrUnify (NamedGenAMRule nm (GenAMRule left right)) st = do
     -- NOTE: I don't really know how to do higher-order matching, but I think what I did is reasonable
     ---- The trick is the special match rule for Frame, which clears bound variables from the context.
 
     debugM $ "Trying rule " ++ BS.unpack nm ++ " for state " ++ show st
-    match (Pattern left) (Matchee st)
-    reduceFrame left
+    matchOrUnify left st
+
+    -- FIXME: Did this line have a good reason for ever existing?
+    --reduceFrame matchOrUnify left
     debugM $ "LHS matched: " ++ BS.unpack nm
-    ret <- runGenAmRhs right
+    ret <- runGenAmRhs matchOrUnify right
     debugM $ "Rule succeeeded:" ++ BS.unpack nm
+    debugM $ "Result is " ++ show ret
     return ret
 
 
-stepGenAm :: (Lang l, Show (GenAMState t l), Matchable t) => NamedGenAMRules t l -> GenAMState t l -> Match (GenAMState t l)
-stepGenAm allRs st = go allRs
+stepGenAm' :: (Lang l, Show (GenAMState t l), Unifiable t) => MatchFn -> NamedGenAMRules t l -> GenAMState t l -> Match (GenAMState t l)
+stepGenAm' matchOrUnify allRs st = go allRs
   where
     go []     = mzero
-    go (r:rs) = useGenAmRule r st `mplus` go rs
+    go (r:rs) = useGenAmRule matchOrUnify r st `mplus` go rs
+
+
+stepGenAm :: (Lang l, Show (GenAMState t l), Unifiable t) => NamedGenAMRules t l -> GenAMState t l -> Match (GenAMState t l)
+stepGenAm = stepGenAm' match'
+
+stepGenAmNarrowing :: (Lang l, Show (GenAMState t l), Unifiable t) => NamedGenAMRules t l -> GenAMState t l -> Match (GenAMState t l)
+stepGenAmNarrowing = stepGenAm' unify'
+
+
+

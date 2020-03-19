@@ -1,0 +1,25 @@
+digraph {
+    0 [label="<(11246v; (*v,*: *v)) | [\\('1; ('2,'3)) -> (Assign('1, 11244v); ('2,'3))].11242>"
+      ,shape=box];
+    1 [label="<(11240t; (*v,*: *v)) | [\\('1; ('2,'3)) -> (Assign('1, 11244v); ('2,'3))].11242>"
+      ,shape=box];
+    2 [label="<(Assign(11240t, 11241t); (*v,*: *v)) | 11242>"
+      ,shape=box];
+    3 [label="<(*v; (*v,*: *v)) | 11242>"
+      ,shape=box];
+    4 [label="<(GlobalAssign(*v, *v); (*v,*: *v)) | 11242>"
+      ,shape=box];
+    5 [label="<(11244v; (*v,*: *v)) | [\\('1; ('2,'3)) -> (Assign(11240t, '1); ('2,'3))].11242>"
+      ,shape=box];
+    6 [label="<(11241t; (*v,*: *v)) | [\\('1; ('2,'3)) -> (Assign(11240t, '1); ('2,'3))].11242>"
+      ,shape=box];
+    0 -> 3 [label="",shape=box];
+    0 -> 4 [label="",shape=box];
+    1 -> 0 [label=transitive
+           ,shape=box];
+    2 -> 6 [label="",shape=box];
+    4 -> 3 [label="",shape=box];
+    5 -> 1 [label="",shape=box];
+    6 -> 5 [label=transitive
+           ,shape=box];
+}

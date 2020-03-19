@@ -1,23 +1,30 @@
-{-# LANGUAGE FlexibleContexts, Rank2Types #-}
+{-# LANGUAGE FlexibleContexts, PatternSynonyms, Rank2Types #-}
 
 module Matching.Class (
     MonadMatchable(..)
-  , Matchee(..)
+  , Matchee
+  , pattern Matchee
   , Pattern(..)
   , Matchable(..)
 
+  , mapVars
+  , symbolizeVars
+
   , MonadUnify(..)
   , Unifiable(..)
+
   ) where
 
 
 import Control.Monad ( MonadPlus(..) )
+import Control.Monad.Identity ( runIdentity )
 import Control.Monad.IO.Class ( MonadIO )
 
 import Data.Foldable ( fold )
 import Data.Set ( Set )
 import Data.Typeable ( Typeable )
 
+import Debug
 import Lattice
 import Var
 
@@ -63,8 +70,39 @@ class (MonadPlus m, MonadVarAllocator m, MonadIO m) => MonadMatchable m where
 -- We do have the option of giving these a smart constructor which checks closed-ness for a more sophisticated definition
 -- of closedness which includes binders
 -- TODO: "Matchee?" There is a standard name for this, right?
-newtype Matchee f = Matchee f
-newtype Pattern f = Pattern f
+newtype Matchee f  = Matchee' f
+newtype Pattern f  = Pattern f
+
+-- Note: Implementation will constantly wrap things in this,
+-- producing quadratic overhead.
+--
+-- The way to eliminate it is to add a constructor with a precondition that a
+-- term has already been symbolized, and then make that version only available
+-- internally within the Matching engine.
+--
+-- On the other hand, now that I've better figured out the "term with/without variables"
+-- distinction, I could also add that back to the type level, as it was in the earliest
+-- revisions of Mandate.
+pattern Matchee :: (Matchable x) => x -> Matchee x
+pattern Matchee x <- Matchee' x where
+  Matchee x = Matchee' (assertIsSyms x)
+
+assertIsSyms :: (Matchable x) => x -> x
+assertIsSyms x = if isDebug then
+                   mapVars (changeVarType assertIsSymOrBound) x
+                 else
+                   x
+  where
+    assertIsSymOrBound NormalVar = error "NormalVar where only symbols/bound-vars expected"
+    assertIsSymOrBound BoundVar  = BoundVar
+    assertIsSymOrBound SymbolVar = SymbolVar
+
+
+mapVars :: (Matchable f) => (MetaVar -> MetaVar) -> f -> f
+mapVars f = runIdentity . mapVarsM (return . f)
+
+symbolizeVars :: (Matchable f) => f -> f
+symbolizeVars = mapVars varToSymbolLax
 
 -- NOTE: I think I need to write SYB/Uniplate infrastructure for vars-containing terms
 class (Show f, Typeable f, Meetable f) => Matchable f where
@@ -89,29 +127,8 @@ class (Show f, Typeable f, Meetable f) => Matchable f where
   -- the term f(x,y) will not match the pattern f(z,z).
   match :: (MonadMatchable m) => Pattern f -> Matchee f -> m ()
 
-  -- | Renames all meta-syntactic variables in the argument with newly allocated variables, binding the old
-  -- variables to the new ones
-  --
-  -- This is used when wrapping a term inside a binder, to prevent the bound variable from shadowing
-  -- existing variables. It is particularly used when converting an SOS rule to PAM rules. Consider the following SOS rule:
-  --
-  --    plus-cong-1:
-  --    step(+(0t, 1)) = let 2 = step(0t) in +(2, 1)
-  --
-  -- Naively, it would be converted into the following two PAM rules:
-  --
-  --   plus-cong-1-1:
-  --   <+(0t, 1) | 9> down  ---->  <0t | [\2 -> +(2, 1)].3> down
-  --
-  --   plus-cong-1-2:
-  --    <2 | [\2 -> +(2, 1)].3> up  ---->  <+(2, 1) | 3> up
-  --
-  -- This is problematic, because the bound variable "2" in the context on the LHS shadows the variable "2"
-  -- used to match the term. Instead, a new name is generated for the bound variable, yielding the following PAM rule:
-  --
-  --   plus-cong-1-2:
-  --    <2 | [\4 -> +(4, 1)].3> up  ---->  <+(2, 1) | 3> up
-  refreshVars :: (MonadMatchable m) => f -> m f
+  mapVarsM :: (Monad m) => (MetaVar -> m MetaVar) -> f -> m f
+
 
   -- | Replaces all metavariables in the argument with their matched values in the current match context
   --

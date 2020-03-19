@@ -20,7 +20,10 @@ import GHC.Generics ( Generic )
 
 import Data.Hashable ( Hashable )
 
+import Control.Monad.HT ( liftJoin2 )
+
 import Configuration
+import Debug
 import Lattice
 import Lang
 import Matching
@@ -90,12 +93,15 @@ instance (Show (Configuration l), Lang l) => Show (Context l) where
 
 ----------------------------------- Constructing contexts -------------------------------
 
+boundifyingVars :: (Matchable f, MonadMatchable m) => m f -> m f
+boundifyingVars = withVarAllocator mkBoundVarAllocator
+
 -- | Performs a CPS conversion of on SOS RHS into a context.
 -- Since our SOS rules are already essentially in A-normal form, this is easy.
-rhsToFrame :: (Lang l) => Rhs l -> PosFrame l
-rhsToFrame (Build c)                      = KBuild c
-rhsToFrame (LetStepTo out arg rhs')       = KStepTo arg (KInp out (rhsToFrame rhs'))
-rhsToFrame (LetComputation out comp rhs') = KComputation comp (KInp out (rhsToFrame rhs'))
+rhsToFrame :: (Lang l, MonadMatchable m) => Rhs l -> m (PosFrame l)
+rhsToFrame (Build c)                      = return $ KBuild c
+rhsToFrame (LetStepTo out arg rhs')       = boundifyingVars $ KStepTo      arg  <$> (KInp <$> refreshVars out <*> (fillVars =<< rhsToFrame rhs'))
+rhsToFrame (LetComputation out comp rhs') = boundifyingVars $ KComputation comp <$> (KInp <$> refreshVars out <*> (fillVars =<< rhsToFrame rhs'))
 
 
 --------------------------------- Machinery for higher-order terms ----------------------
@@ -104,7 +110,7 @@ class NormalizeBoundVars f where
   normalizeBoundVars' :: (MonadMatchable m) => f -> m f
 
 normalizeBoundVars :: (MonadMatchable m, NormalizeBoundVars f) => f -> m f
-normalizeBoundVars f = withFreshCtx $ withVarAllocator mkNegativeVarAllocator $ normalizeBoundVars' f
+normalizeBoundVars f = withFreshCtx $ withVarAllocator mkBoundVarAllocator $ normalizeBoundVars' f
 
 instance (Matchable (Configuration l), Matchable (ExtComp l)) => NormalizeBoundVars (PosFrame l) where
   normalizeBoundVars' (KBuild c) = KBuild <$> fillMatch c
@@ -168,9 +174,9 @@ instance (Lang l, Matchable (Configuration l)) => Matchable (PosFrame l) where
   match (Pattern (KComputation c1 f1)) (Matchee (KComputation c2 f2)) = match (Pattern c1) (Matchee c2) >> match (Pattern f1) (Matchee f2)
   match _ _ = mzero
 
-  refreshVars (KBuild       c  ) = KBuild       <$> refreshVars c
-  refreshVars (KStepTo      c f) = KStepTo      <$> refreshVars c <*> refreshVars f
-  refreshVars (KComputation c f) = KComputation <$> refreshVars c <*> refreshVars f
+  mapVarsM f (KBuild       c   ) = KBuild       <$> mapVarsM f c
+  mapVarsM f (KStepTo      c fr) = KStepTo      <$> mapVarsM f c <*> mapVarsM f fr
+  mapVarsM f (KComputation c fr) = KComputation <$> mapVarsM f c <*> mapVarsM f fr
 
   fillMatch (KBuild       c  ) = KBuild       <$> fillMatch c
   fillMatch (KStepTo      c f) = KStepTo      <$> fillMatch c <*> fillMatch f
@@ -185,7 +191,7 @@ instance (Lang l, Matchable (Configuration l)) => Matchable (Frame l) where
     match (Pattern pf1) (Matchee pf2)
     forM_ (Set.toList $ getVars c1) $ \v -> clearVar v
 
-  refreshVars (KInp c pf) = KInp <$> refreshVars c <*> refreshVars pf
+  mapVarsM f (KInp c pf) = KInp <$> mapVarsM f c <*> mapVarsM f pf
 
   fillMatch   (KInp c pf) = withSubCtx $ do
     forM_ (Set.toList $ getVars c) $ \v -> clearVar v
@@ -201,9 +207,9 @@ instance (Lang l, Matchable (Configuration l)) => Matchable (Context l) where
   match (Pattern (KVar v))      (Matchee x)             = putVar v x
   match _ _ = mzero
 
-  refreshVars KHalt       = return KHalt
-  refreshVars (KPush f c) = KPush <$> refreshVars f <*> refreshVars c
-  refreshVars (KVar v)    = KVar  <$> refreshVar (\v -> KVar @l v) v
+  mapVarsM f KHalt        = return KHalt
+  mapVarsM f (KPush fr c) = KPush <$> mapVarsM f fr <*> mapVarsM f c
+  mapVarsM f (KVar v)     = KVar  <$> f v
 
   fillMatch KHalt       = return KHalt
   fillMatch (KPush f c) = KPush <$> fillMatch f <*> fillMatch c
@@ -212,18 +218,23 @@ instance (Lang l, Matchable (Configuration l)) => Matchable (Context l) where
 -------------------------------------- Unification ----------------------------------------
 
 instance (Lang l, Unifiable (Configuration l)) => Unifiable (PosFrame l) where
-  unify (KBuild c1) (KBuild c2) = unify c1 c2
-  unify _ _ = error "Not implementing: Unifying two PosFrame's other than KBuild"
+  unify (KBuild c1)        (KBuild c2)        = unify c1 c2
+  unify (KStepTo c1 f1)    (KStepTo c2 f2)    = unify c1 c2 >> unify f1 f2
+  unify (KComputation _ _) (KComputation _ _) = error "Not implemented: Unifying two KLetComputation's"
+  unify _                  _                  = mzero
 
 instance (Lang l, Unifiable (Configuration l)) => Unifiable (Frame l) where
   unify (KInp c1 pf1) (KInp c2 pf2) = do
+    debugM "Unifying frame arg"
     unify c1 c2
-    unify pf1 pf2
+    debugM "Unifying posframe"
+    liftJoin2 unify (fillMatch pf1) (fillMatch pf2)
+    debugM "Unified posframe"
     forM_ (Set.toList $ getVars c1) $ \v -> clearVar v
 
 instance (Lang l, Unifiable (Configuration l)) => Unifiable (Context l) where
   unify KHalt         KHalt         = return ()
   unify (KVar v)      x             = elimVar v x
   unify x             (KVar v)      = elimVar v x
-  unify (KPush f1 c1) (KPush f2 c2) = unify f1 f2 >> unify c1 c2
+  unify (KPush f1 c1) (KPush f2 c2) = unify f1 f2 >> liftJoin2 unify (fillMatch c1) (fillMatch c2)
   unify _             _             = mzero

@@ -1,3 +1,5 @@
+
+console = {log: print;};
 Point = fun(x y){
 this = {
 	x:x;

@@ -63,7 +63,7 @@ instance Lang ImpLang where
   initConf t = Conf t EmptySimpEnv
 
 instance HasTopState ImpLang where
-  topRedState = JustSimpMap $ SingletonSimpMap ValStar ValStar
+  topRedState = JustSimpMap $ SingletonSimpMap Star ValStar
 
 instance Hashable (CompFunc ImpLang)
 
@@ -84,7 +84,7 @@ instance HasSOS ImpLang where
   rules = impLangRules
 
 impLangSig :: Signature ImpLang
-impLangSig = Signature [ NodeSig ":=" ["Var", "Exp"] "Exp"
+impLangSig = Signature [ NodeSig ":=" ["Var", "Exp"] "Stmt"
                        , ValSig "Skip" [] "Exp"
                        , NodeSig "Seq" ["Stmt", "Stmt"] "Stmt"
                        , NodeSig "If" ["Exp", "Stmt", "Stmt"] "Stmt"
@@ -95,7 +95,7 @@ impLangSig = Signature [ NodeSig ":=" ["Var", "Exp"] "Exp"
                        , NodeSig "Write" ["Exp"] "Stmt"
 
                        , NodeSig "Var" ["VarName"] "Var"
-                       , StrSig "VarName" "VarName"
+                       , StrSig  "VarName" "VarName"
                        , NodeSig "VarExp" ["Var"] "Exp"
 
                        , ValSig "true" [] "Exp"
@@ -249,10 +249,10 @@ impLangRules = sequence [
 
                  , name "read-int" $
                    mkRule2 $ \val mu ->
-                             let (mval) = (mv val) in
+                             let (vval) = (vv val) in
                              StepTo (conf ReadInt mu)
-                               (LetComputation (initConf mval) (extComp DoReadInt (WholeSimpEnv mu) [Skip])
-                               (Build $ conf mval mu))
+                               (LetComputation (initConf vval) (extComp DoReadInt (WholeSimpEnv mu) [Skip])
+                               (Build $ conf vval mu))
 
                  , name "write-int-cong" $
                    mkRule4 $ \arg arg' mu mu' ->
@@ -265,7 +265,7 @@ impLangRules = sequence [
                    mkRule3 $ \arg val mu ->
                              let (varg) = (vv arg) in
                              StepTo (conf (WriteInt varg) mu)
-                               (LetComputation (initConf $ MetaVar val) (extComp DoWriteInt (WholeSimpEnv mu) [varg])
+                               (LetComputation (initConf $ ValVar val) (extComp DoWriteInt (WholeSimpEnv mu) [varg])
                                (Build $ conf Skip mu))
 
 
@@ -280,7 +280,7 @@ impLangRules = sequence [
                    mkRule3 $ \arg val mu ->
                              let (varg) = (vv arg) in
                              StepTo (conf (Write varg) mu)
-                               (LetComputation (initConf $ MetaVar val) (extComp DoWrite (WholeSimpEnv mu) [varg])
+                               (LetComputation (initConf $ ValVar val) (extComp DoWrite (WholeSimpEnv mu) [varg])
                                (Build $ conf Skip mu))
 
                  ------------------------ Vars  ---------------------------------------------
@@ -349,8 +349,12 @@ runExternalComputation DoWrite state [EVal (StrConst s)] = matchEffectOutput (un
 
 runExternalComputation AbsRunAdd state [GStar _, _] = return $ initConf ValStar
 runExternalComputation AbsRunAdd state [_, GStar _] = return $ initConf ValStar
+runExternalComputation AbsRunAdd state [ValVar _, _] = return $ initConf ValStar
+runExternalComputation AbsRunAdd state [_, ValVar _] = return $ initConf ValStar
 runExternalComputation AbsRunLT  state [GStar _, _] = (return $ initConf True) `mplus` (return $ initConf False)
 runExternalComputation AbsRunLT  state [_, GStar _] = (return $ initConf True) `mplus` (return $ initConf False)
+runExternalComputation AbsRunLT  state [ValVar _, _] = (return $ initConf True) `mplus` (return $ initConf False)
+runExternalComputation AbsRunLT  state [_, ValVar _] = (return $ initConf True) `mplus` (return $ initConf False)
 
 runExternalComputation AbsDoReadInt   state [_] = return $ initConf ValStar
 runExternalComputation AbsDoWriteInt  state [_] = return $ initConf Skip

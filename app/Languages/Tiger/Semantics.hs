@@ -23,8 +23,10 @@ import Configuration
 import Lang
 import Matching
 import Semantics.Abstraction
+import Semantics.AbstractMachine
 import Semantics.Conversion
 import Semantics.General
+import Semantics.GraphPattern
 import Semantics.PAM
 import Semantics.SOS
 import Term hiding ( Symbol )
@@ -33,6 +35,21 @@ import Var
 import Languages.Tiger.Parse
 import Languages.Tiger.Signature
 import Languages.Tiger.Translate
+
+
+-- | Only valid to use this in a graph-pattern context,
+--  when state has already been maximally abstracted
+--
+-- Checks whether a use of Scope is function-associated
+absSkippingFunScope :: Abstraction (Term Tiger) -> Abstraction (Term Tiger)
+absSkippingFunScope f (Scope (LetExp (AssnFnArgs _ _) _)) = ValStar
+absSkippingFunScope f x                                   = f x
+
+
+irrSkippingFunScope :: IrrelevanceType -> Abstraction (AMState Tiger)
+irrSkippingFunScope irr (AMState (Conf t s) ctx) = AMState (Conf ((absSkippingFunScope $ irrelevance irr) t)
+                                                              (irrelevance irr s))
+                                                        (irrelevance irr ctx)
 
 instance Lang Tiger where
 
@@ -104,6 +121,12 @@ instance Irrelevance (CompFunc Tiger) where
     irrelevance _ AbsValIsTrue    = AbsValIsTrue
 
     irrelevance _ OpIsntShortCircuit = OpIsntShortCircuit
+
+instance HasTopState Tiger where
+  topRedState = (ValStar, JustSimpMap $ SingletonSimpMap Star ValStar)
+
+  normalizeTopState (stack, AssocOneVal h Star ValStar) = (stack, JustSimpMap $ SingletonSimpMap Star ValStar)
+  normalizeTopState x                                     = x
 
 realStartingEnv :: SimpEnv (Term Tiger) (Term Tiger)
 realStartingEnv = JustSimpMap $ SimpEnvMap $ Map.fromList
@@ -236,31 +259,23 @@ tigerRules = sequence [
       mkPairRule2 $ \env env' ->
       mkRule3 $ \s1 s2 s1' ->
           let (ts1, ms2, ms1') = (tv s1, mv s2, mv s1') in
-              StepTo (conf (SeqExp (ConsExpList ts1 ms2)) env)
+              StepTo (conf (Seq ts1 ms2) env)
                 (LetStepTo (conf ms1' env')(conf ts1 env)
-                  (Build (conf (SeqExp (ConsExpList ms1' ms2)) env')))
+                  (Build (conf (Seq ms1' ms2) env')))
 
     , name "seq-next" $
       mkPairRule1 $ \env ->
-      mkRule3 $ \val s ss ->
-        let (vval, ms, mss) = (vv val, mv s, mv ss) in
-            StepTo (conf (SeqExp (ConsExpList vval (ConsExpList ms mss))) env)
-                (Build (conf (SeqExp (ConsExpList ms mss)) env))
-
-
-    , name "seq-done" $
-      mkPairRule1 $ \env ->
-      mkRule1 $ \val ->
-        let vval = vv val in
-            StepTo (conf (SeqExp (ConsExpList vval NilExpList)) env)
-                (Build (conf vval env))
+      mkRule2 $ \val ss ->
+        let (vval, mss) = (vv val, mv ss) in
+            StepTo (conf (Seq vval mss) env)
+                (Build (conf mss env))
 
 
     , name "seq-break" $
       mkPairRule1 $ \env ->
       mkRule1 $ \s ->
         let ms = mv s in
-            StepTo (conf (SeqExp (ConsExpList BreakExp ms)) env)
+            StepTo (conf (Seq BreakExp ms) env)
                 (Build (conf BreakExp env))
 
 
@@ -268,16 +283,8 @@ tigerRules = sequence [
       mkPairRule1 $ \env ->
       mkRule2 $ \s val ->
         let (ms, mval) = (mv s, mv val) in
-            StepTo (conf (SeqExp (ConsExpList (DoExit mval) ms)) env)
+            StepTo (conf (Seq (DoExit mval) ms) env)
                 (Build (conf (DoExit mval) env))
-
-
-     -- I don't know why the parser produces terms like this
-     , name "seq-empty" $
-       mkPairRule1 $ \env ->
-       mkRule0 $
-         StepTo (conf (SeqExp NilExpList) env)
-           (Build (conf NilExp env))
 
       --- VarExp
 
@@ -429,7 +436,7 @@ tigerRules = sequence [
       mkRule4 $ \h mu val ref ->
         let (vval, mref, mmu) = (vv val, mv ref, mv mu) in
           StepTo (Conf (HeapAlloc vval) (mmu, WholeSimpEnv h))
-            (LetComputation (emptyConf mref) (extComp AllocAddress (matchRedState (mu, h)) [NilExp])
+            (LetComputation (emptyConf (ReferenceVal mref)) (extComp AllocAddress (matchRedState (mu, h)) [NilExp])
               (Build $ Conf (ReferenceVal mref) (mmu, AssocOneVal h mref vval)))
 
       ---- Record Exp
@@ -521,6 +528,54 @@ tigerRules = sequence [
               (Build (conf (HeapAlloc vval) env)))
 
 
+      ---- LVal's
+
+
+    , name "lsimplervar-eval" $
+      mkRule5 $ \var mu h frame rest->
+        let (mvar, mframe, mrest) = (mv var, mv frame, mv rest) in
+          StepTo (Conf (LSimpleVar mvar) (ConsFrame mframe mrest, WholeSimpEnv h))
+            (Build $ Conf (LFieldVar (ReferenceVal mframe) mvar) (ConsFrame mframe mrest, WholeSimpEnv h))
+
+    , name "lfieldvar-cong" $
+      mkPairRule2 $ \env env' ->
+      mkRule3 $ \var var' field ->
+        let (tvar, mvar', mfield) = (tv var, mv var', mv field) in
+          StepTo (conf (MkLFieldVar tvar mfield) env)
+            (LetStepTo (conf mvar' env') (conf tvar env)
+              (Build (conf (MkLFieldVar mvar' mfield) env')))
+
+    , name "lfieldvar-done" $
+      mkPairRule1 $ \env ->
+      mkRule2 $ \val field ->
+        let (vval, mfield) = (vv val, mv field) in
+          StepTo (conf (MkLFieldVar vval mfield) env)
+            (Build (conf (LFieldVar vval mfield) env))
+
+
+    , name "lsubscript-cong-1" $
+      mkPairRule2 $ \env env' ->
+      mkRule3 $ \x x' s ->
+        let (tx, mx', ms) = (tv x, mv x', mv s) in
+          StepTo (conf (MkLSubscriptVar tx ms) env)
+            (LetStepTo (conf mx' env') (conf tx env)
+              (Build (conf (MkLSubscriptVar mx' ms) env')))
+
+    , name "lsubscript-cong-2" $
+      mkPairRule2 $ \env env' ->
+      mkRule3 $ \arr e e' ->
+        let (varr, te, me') = (vv arr, tv e, mv e') in
+          StepTo (conf (MkLSubscriptVar varr te) env)
+            (LetStepTo (conf me' env') (conf te env)
+              (Build (conf (MkLSubscriptVar varr me') env')))
+
+    , name "lsubscript-done" $
+      mkPairRule1 $ \env ->
+      mkRule2 $ \arr idx ->
+        let (varr, vidx) = (vv arr, vv idx) in
+          StepTo (conf (MkLSubscriptVar varr vidx) env)
+            (Build (conf (LSubscriptVar varr vidx) env))
+
       ---- AssignExp
 
     , name "assn-rhs-cong" $
@@ -531,48 +586,25 @@ tigerRules = sequence [
             (LetStepTo (conf me' env') (conf te env)
               (Build (conf (AssignExp ml me') env')))
 
-    , name "assn-simplevar-cong" $
-      mkRule6 $ \var val mu h frame rest->
-        let (mvar, vval, mframe, mrest) = (mv var, vv val, mv frame, mv rest) in
-          StepTo (Conf (AssignExp (SimpleVar mvar) vval) (ConsFrame mframe mrest, WholeSimpEnv h))
-            (Build $ Conf (AssignExp (FieldVar (ReferenceVal mframe) mvar) vval) (ConsFrame mframe mrest, WholeSimpEnv h))
-
-    , name "assn-field-cong" $
+    , name "assn-lhs-cong" $
       mkPairRule2 $ \env env' ->
-      mkRule4 $ \l l' sym r ->
-        let (tl, ml', msym, vr) = (tv l, mv l', mv sym, vv r) in
-          StepTo (conf (AssignExp (FieldVar tl msym) vr) env)
+      mkRule3 $ \l l' e ->
+        let (tl, ml', ve) = (tv l, mv l', vv e) in
+          StepTo (conf (AssignExp tl ve) env)
             (LetStepTo (conf ml' env') (conf tl env)
-              (Build (conf (AssignExp (FieldVar ml' msym) vr) env')))
-
-
-    , name "subscript-cong-1" $
-      mkPairRule2 $ \env env' ->
-      mkRule4 $ \l l' e r ->
-        let (tl, ml', me, vr) = (tv l, mv l', mv e, vv r) in
-          StepTo (conf (AssignExp (SubscriptVar tl me) vr) env)
-            (LetStepTo (conf ml' env') (conf tl env)
-              (Build (conf (AssignExp (SubscriptVar ml' me) vr) env')))
-
-    , name "subscript-cong-2" $
-      mkPairRule2 $ \env env' ->
-      mkRule4 $ \l e e' r ->
-        let (vl, te, me', vr) = (vv l, tv e, mv e', vv r) in
-          StepTo (conf (AssignExp (SubscriptVar vl te) vr) env)
-            (LetStepTo (conf me' env') (conf te env)
-              (Build (conf (AssignExp (SubscriptVar vl me') vr) env')))
+              (Build (conf (AssignExp ml' ve) env')))
 
     , name "field-assn-eval-field" $
       mkRule7 $ \val ref field re' addr mu h->
         let (vval, mref, mfield, vre', maddr, mmu) = (vv val, mv ref, mv field, vv re', mv addr, mv mu) in
-          StepTo (Conf (AssignExp (FieldVar (ReferenceVal mref) mfield) vval) (mmu, WholeSimpEnv h))
+          StepTo (Conf (AssignExp (LFieldVar (ReferenceVal mref) mfield) vval) (mmu, WholeSimpEnv h))
             (LetComputation (emptyConf (ReducedRecordPair maddr vre')) (extComp WriteField (mmu, WholeSimpEnv h) [mref, mfield, vval])
               (Build $ Conf NilExp (mmu, AssocOneVal h maddr vre')))
 
     , name "index-assn-eval" $
       mkRule7 $ \val ref index re' addr mu h ->
         let (vval, mref, vindex, vre', maddr, mmu) = (vv val, mv ref, vv index, vv re', mv addr, mv mu) in
-          StepTo (Conf (AssignExp (SubscriptVar (ReferenceVal mref) vindex) vval) (mmu, WholeSimpEnv h))
+          StepTo (Conf (AssignExp (LSubscriptVar (ReferenceVal mref) vindex) vval) (mmu, WholeSimpEnv h))
             (LetComputation (emptyConf (ReducedRecordPair maddr vre')) (extComp WriteIndex (mmu, WholeSimpEnv h) [mref, vindex, vval])
               (Build $ Conf NilExp (mmu, AssocOneVal h maddr vre')))
 
@@ -640,10 +672,9 @@ tigerRules = sequence [
             (Build $ conf (LetExp (ConsDecList (VarDecDec (VarDec mi) NoneSym mlow)
                                      (ConsDecList (VarDecDec (VarDec loopHiSym) NoneSym mhi)
                                         NilDecList))
-                                  (WhileExp (OpExp (VarExp (SimpleVar mi)) LtOp (VarExp (SimpleVar loopHiSym)))
-                                       (SeqExp (ConsExpList me
-                                                  (ConsExpList (AssignExp (SimpleVar mi) (OpExp (VarExp $ SimpleVar mi) PlusOp (IntExp (ConstInt 1))))
-                                                    NilExpList)))))
+                                  (WhileExp (OpExp (VarExp (SimpleVar mi)) LeOp (VarExp (SimpleVar loopHiSym)))
+                                       (Seq me
+                                         (AssignExp (LSimpleVar mi) (OpExp (VarExp $ SimpleVar mi) PlusOp (IntExp (ConstInt 1)))))))
                           env)
 
       ---- LetExp
@@ -653,7 +684,7 @@ tigerRules = sequence [
       mkRule6 $ \ds e top stack addr h ->
         let (mds, me, mtop, mstack, maddr) = (mv ds, mv e, mv top, mv stack, mv addr) in
           StepTo (Conf (LetExp mds me) (ConsFrame mtop mstack, WholeSimpEnv h))
-            (LetComputation (emptyConf maddr) (extComp AllocAddress (ConsFrame mtop mstack, WholeSimpEnv h) [NilExp])
+            (LetComputation (emptyConf (ReferenceVal maddr)) (extComp AllocAddress (ConsFrame mtop mstack, WholeSimpEnv h) [NilExp])
               (Build (Conf (Scope (DoLet mds me))
                            (ConsFrame maddr (ConsFrame mtop mstack), AssocOneVal h maddr (ReducedRecord $ Parent mtop)))))
 
@@ -951,9 +982,11 @@ runExternalComputation Compute state [DivideOp,   IntExp (ConstInt n1), IntExp (
 
 runExternalComputation Compute state [EqOp, IntExp    (ConstInt n1), IntExp    (ConstInt n2)] = returnBool $ n1 == n2
 runExternalComputation Compute state [EqOp, StringExp (ConstStr n1), StringExp (ConstStr n2)] = returnBool $ n1 == n2
+runExternalComputation Compute state [EqOp, NilExp,                  NilExp                 ] = returnBool $ True
 
 runExternalComputation Compute state [NeqOp, IntExp    (ConstInt n1), IntExp    (ConstInt n2)] = returnBool $ n1 /= n2
 runExternalComputation Compute state [NeqOp, StringExp (ConstStr n1), StringExp (ConstStr n2)] = returnBool $ n1 /= n2
+runExternalComputation Compute state [NeqOp, NilExp,                  NilExp                 ] = returnBool $ False
 
 runExternalComputation Compute state [LtOp, IntExp    (ConstInt n1), IntExp    (ConstInt n2)] = returnBool $ n1 < n2
 runExternalComputation Compute state [LtOp, StringExp (ConstStr n1), StringExp (ConstStr n2)] = returnBool $ n1 < n2
@@ -967,7 +1000,7 @@ runExternalComputation Compute state [GtOp, StringExp (ConstStr n1), StringExp (
 runExternalComputation Compute state [GeOp, IntExp    (ConstInt n1), IntExp    (ConstInt n2)] = returnBool $ n1 >= n2
 runExternalComputation Compute state [GeOp, StringExp (ConstStr n1), StringExp (ConstStr n2)] = returnBool $ n1 >= n2
 
-runExternalComputation AllocAddress (stack, heap) _ = return $ emptyConf (HeapAddr $ size heap)
+runExternalComputation AllocAddress (stack, heap) _ = return $ emptyConf (ReferenceVal $ HeapAddr $ size heap)
 
 runExternalComputation ReadIndex  (stack, heap) [ReducedRecord r, IntExp (ConstInt i)] = return $ emptyConf $ readField  heap r (show i)
 runExternalComputation WriteIndex (stack, heap) [addr, IntExp (ConstInt i), val]       = return $ emptyConf $ writeField heap addr (show i) val
@@ -991,14 +1024,21 @@ runExternalComputation RunBuiltin (stack, heap) [Concat, DoubExp (StringExp (Con
 runExternalComputation RunBuiltin (stack, heap) [Not, SingExp (IntExp (ConstInt n))] = if n == 0 then returnInt 1 else returnInt 0
 runExternalComputation RunBuiltin (stack, heap) [Exit, SingExp (IntExp (ConstInt n))] = return $ emptyConf $ DoExit (ConstInt n)
 
-runExternalComputation func state [GStar _] = return $ emptyConf ValStar
-runExternalComputation func state [_]       = return $ emptyConf ValStar
+runExternalComputation AbsAllocAddress _ _ = return $ emptyConf ValStar
 
-runExternalComputation func state [GStar _, _] = return $ emptyConf ValStar
-runExternalComputation func state [_, GStar _] = return $ emptyConf ValStar
+runExternalComputation func state [GStar  _] = return $ emptyConf ValStar
+runExternalComputation func state [ValVar _] = return $ emptyConf ValStar
 
-runExternalComputation func state [GStar _, _, _] = return $ emptyConf ValStar
-runExternalComputation func state [_, GStar _, _] = return $ emptyConf ValStar
-runExternalComputation func state [_, _, GStar _] = return $ emptyConf ValStar
+runExternalComputation func state [GStar _, _]  = return $ emptyConf ValStar
+runExternalComputation func state [_, GStar _]  = return $ emptyConf ValStar
+runExternalComputation func state [ValVar _, _] = return $ emptyConf ValStar
+runExternalComputation func state [_, ValVar _] = return $ emptyConf ValStar
+
+runExternalComputation func state [GStar _, _, _]  = return $ emptyConf ValStar
+runExternalComputation func state [_, GStar _, _]  = return $ emptyConf ValStar
+runExternalComputation func state [_, _, GStar _]  = return $ emptyConf ValStar
+runExternalComputation func state [ValVar _, _, _] = return $ emptyConf ValStar
+runExternalComputation func state [_, ValVar _, _] = return $ emptyConf ValStar
+runExternalComputation func state [_, _, ValVar _] = return $ emptyConf ValStar
 
 runExternalComputation fn _ args = error ("Unhandled case in runExternalComputation: " ++ show fn ++ " " ++ show args)

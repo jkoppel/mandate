@@ -12,7 +12,7 @@ data MITScript
 
 mitScriptSorts :: [Sort]
 mitScriptSorts = [ "Name",  "NameList", "Stmt", "StmtList"
-                , "BinOp", "UnOp" , "Builtin", "Exp", "ExpList" , "ReducedExpList"
+                , "BinOp", "UnOp" , "Builtin", "LVal", "Exp", "ExpList" , "ReducedExpList"
                 , "RecordPair", "RecordPairList"
                 , "ReducedRecordPair", "ReducedRecordPairList"
                 , "Bool", "ConstInt", "ConstStr", "HeapAddr"
@@ -45,15 +45,16 @@ mitScriptSig = Signature [ StrSig "Name" "Name"
                          , ValSig "ReducedRecordNil"  []                                             "ReducedRecordPairList"
                          , ValSig "ReducedRecordCons" ["ReducedRecordPair", "ReducedRecordPairList"] "ReducedRecordPairList"
 
-                         , NodeSig "Global"  ["Name"]                "Stmt"
-                         , NodeSig "Assign"  ["Exp", "Exp"]          "Stmt"
-                         , NodeSig "ExpStmt" ["Exp"]                 "Stmt"
-                         , NodeSig "If"      ["Exp", "Stmt", "Stmt"] "Stmt"
-                         , NodeSig "While"   ["Exp", "Stmt"]         "Stmt"
-                         , NodeSig "Block"   ["StmtList"]            "Stmt"
-                         , NodeSig "Return"  ["Exp"]                 "Stmt"
+                         , NodeSig "Global"   ["Name"]                "Stmt"
+                         , NodeSig "Assign"   ["LVal", "Exp"]         "Stmt"
+                         , NodeSig "ExpStmt"  ["Exp"]                 "Stmt"
+                         , NodeSig "If"       ["Exp", "Stmt", "Stmt"] "Stmt"
+                         , NodeSig "While"    ["Exp", "Stmt"]         "Stmt"
+                         , NodeSig "Block"    ["StmtList"]            "Stmt"
+                         , NodeSig "MkReturn" ["Exp"]                 "Stmt"
+                         , ValSig  "Return"   ["Exp"]                 "Stmt"
 
-                         , NodeSig "PLUS"  [] "BinOp"
+                         , NodeSig "PLUS"  [] "qfBinOp"
                          , NodeSig "MINUS" [] "BinOp"
                          , NodeSig "TIMES" [] "BinOp"
                          , NodeSig "DIV"   [] "BinOp"
@@ -72,25 +73,33 @@ mitScriptSig = Signature [ StrSig "Name" "Name"
 
                         -- The Expression Irrelevance abstraction level treats everyhting with type "Exp" as a star.
                         -- Sometimes, we dont want that. So we change the type to "Exp*"
-                         , NodeSig "BinExp"        ["Exp", "BinOp", "Exp"]              "Exp"
-                         , NodeSig "UnExp"         ["UnOp", "Exp"]                      "Exp"
-                         , ValSig  "NumConst"      ["ConstInt"]                         "Exp"
-                         , ValSig  "ReferenceVal"  ["HeapAddr"]                         "Exp*"
-                         , ValSig  "BConst"        ["Bool"]                             "Exp"
-                         , ValSig  "None"          []                                   "Exp"
-                         , ValSig  "GlobalVar"     []                                   "Exp*"
-                         , ValSig  "Str"           ["ConstStr"]                         "Exp"
-                         , NodeSig "Var"           ["Name"]                             "Exp*"
-                         , NodeSig "FunCall"       ["Exp", "ExpList"]                   "Exp"
-                         , NodeSig "FunDecl"       ["NameList", "Stmt"]                 "Exp"
-                         , NodeSig "Scope"         ["StmtList", "NameList", "ExpList"]  "Exp*"
-                         , ValSig  "Closure"       ["NameList", "Stmt", "HeapAddr"]     "Exp*"
-                         , NodeSig "Index"         ["Exp", "Exp"]                       "Exp*"
-                         , NodeSig "FieldAccess"   ["Exp", "Name"]                      "Exp*"
-                         , NodeSig "HeapAlloc"     ["Exp"]                              "Exp*"
-                         , NodeSig "Record"        ["RecordPairList"]                   "Exp*"
-                         , ValSig  "ReducedRecord" ["ReducedRecordPairList"]            "Exp"
-                         , NodeSig "Builtin"       ["Builtin", "Exp"]                   "Exp*"
+                         , NodeSig "BinExp"         ["Exp", "BinOp", "Exp"]              "Exp"
+                         , NodeSig "UnExp"          ["UnOp", "Exp"]                      "Exp"
+                         , ValSig  "NumConst"       ["ConstInt"]                         "Exp"
+                         , ValSig  "ReferenceVal"   ["HeapAddr"]                         "Exp*"
+                         , ValSig  "BConst"         ["Bool"]                             "Exp"
+                         , ValSig  "None"           []                                   "Exp"
+                         , ValSig  "GlobalVar"      []                                   "Exp*"
+                         , ValSig  "Str"            ["ConstStr"]                         "Exp"
+                         , NodeSig "Var"            ["Name"]                             "Exp*"
+                         , NodeSig "LVar"           ["Name"]                             "LVal"
+                         , NodeSig "FunCall"        ["Exp", "ExpList"]                   "Exp"
+                         , NodeSig "FunDecl"        ["NameList", "Stmt"]                 "Exp"
+                         , NodeSig "Scope"          ["StmtList", "NameList", "ExpList"]  "Exp*"
+                         , ValSig  "Closure"        ["NameList", "Stmt", "HeapAddr"]     "Exp*"
+                         , NodeSig "Index"          ["Exp", "Exp"]                       "Exp*"
+                         , ValSig  "LIndex"         ["Exp", "Exp"]                       "LVal"
+                         , NodeSig "MkLIndex"       ["Exp", "Exp"]                       "LVal"
+                         , NodeSig "FieldAccess"    ["Exp", "Name"]                      "Exp*"
+                         , NodeSig "MkLFieldAccess" ["Exp", "Name"]                      "LVal"
+                         , ValSig  "LFieldAccess"   ["Exp", "Name"]                      "LVal"
+                         , NodeSig "HeapAlloc"      ["Exp"]                              "Exp*"
+                         , NodeSig "Record"         ["RecordPairList"]                   "Exp*"
+                         , ValSig  "ReducedRecord"  ["ReducedRecordPairList"]            "Exp"
+                         , NodeSig "Builtin"        ["Builtin", "Exp"]                   "Exp*"
+
+                         , ValSig  "ShouldGlobalAssign" ["LVal", "Exp"] "Stmt*"
+                         , NodeSig "GlobalAssign"       ["LVal", "Exp"] "Stmt*"
 
                          , NodeSig "RecordPair"        ["Name", "Exp"] "RecordPair"
                          , ValSig  "ReducedRecordPair" ["Name", "Exp"] "ReducedRecordPair"
@@ -130,6 +139,9 @@ pattern If a b c = Node "If" [a, b, c]
 
 pattern While :: Term MITScript -> Term MITScript -> Term MITScript
 pattern While a b = Node "While" [a, b]
+
+pattern MkReturn :: Term MITScript -> Term MITScript
+pattern MkReturn a = Node "MkReturn" [a]
 
 pattern Return :: Term MITScript -> Term MITScript
 pattern Return a = Val "Return" [a]
@@ -197,6 +209,9 @@ pattern Str a = Val "Str" [a]
 pattern Var :: Term MITScript -> Term MITScript
 pattern Var a = Node "Var" [a]
 
+pattern LVar :: Term MITScript -> Term MITScript
+pattern LVar a = Node "LVar" [a]
+
 pattern FunCall :: Term MITScript -> Term MITScript -> Term MITScript
 pattern FunCall a b = Node "FunCall" [a, b]
 
@@ -206,8 +221,20 @@ pattern FunDecl a b = Node "FunDecl" [a, b]
 pattern Index :: Term MITScript -> Term MITScript -> Term MITScript
 pattern Index a b = Node "Index" [a, b]
 
+pattern LIndex :: Term MITScript -> Term MITScript -> Term MITScript
+pattern LIndex a b = Val "LIndex" [a, b]
+
+pattern MkLIndex :: Term MITScript -> Term MITScript -> Term MITScript
+pattern MkLIndex a b = Node "MkLIndex" [a, b]
+
 pattern FieldAccess :: Term MITScript -> Term MITScript -> Term MITScript
 pattern FieldAccess a b = Node "FieldAccess" [a, b]
+
+pattern LFieldAccess :: Term MITScript -> Term MITScript -> Term MITScript
+pattern LFieldAccess a b = Val "LFieldAccess" [a, b]
+
+pattern MkLFieldAccess :: Term MITScript -> Term MITScript -> Term MITScript
+pattern MkLFieldAccess a b = Node "MkLFieldAccess" [a, b]
 
 pattern Record :: Term MITScript -> Term MITScript
 pattern Record a = Node "Record" [a]
@@ -295,6 +322,12 @@ pattern Read = Node "Read" []
 
 pattern Builtin :: Term MITScript -> Term MITScript -> Term MITScript
 pattern Builtin name arg = Node "Builtin" [name, arg]
+
+pattern ShouldGlobalAssign :: Term MITScript -> Term MITScript -> Term MITScript
+pattern ShouldGlobalAssign a b = Val "ShouldGlobalAssign" [a, b]
+
+pattern GlobalAssign :: Term MITScript -> Term MITScript -> Term MITScript
+pattern GlobalAssign a b = Node "GlobalAssign" [a, b]
 
 pattern GlobalVar :: Term MITScript
 pattern GlobalVar = Val "GlobalVar" []
