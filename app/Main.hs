@@ -51,6 +51,7 @@ import Languages.Imp.CfgGen  as Imp
 import Languages.Imp.Imp     as Imp
 
 
+import Languages.Tiger.Analyze   as Tiger
 import Languages.Tiger.CfgGen    as Tiger
 import Languages.Tiger.Parse     as Tiger
 import Languages.Tiger.Semantics as Tiger
@@ -59,17 +60,23 @@ import Languages.Tiger.Translate as Tiger
 
 ---------------------------------------------------------------------------------------------------------
 
+analyzeConstPropImp :: Term ImpLang -> Map (GraphNode ImpLang) ConstPropState
+analyzeConstPropImp t = chaoticIteration fram g
+  where
+    fram = Imp.constPropFramework (getImpVars t)
+    g    = Imp.makeExpCfg t
+
 analyzeConstPropMIT :: Term MITScript -> Map (GraphNode MITScript) ConstPropState
 analyzeConstPropMIT t = chaoticIteration fram g
   where
     fram = MIT.constPropFramework (getMITScriptVars t)
     g    = MIT.makeExpCfg t
 
-analyzeConstPropImp :: Term ImpLang -> Map (GraphNode ImpLang) ConstPropState
-analyzeConstPropImp t = chaoticIteration fram g
+analyzeConstPropTiger :: Term Tiger -> Map (GraphNode Tiger) ConstPropState
+analyzeConstPropTiger t = chaoticIteration fram g
   where
-    fram = Imp.constPropFramework (getImpVars t)
-    g    = Imp.makeExpCfg t
+    fram = Tiger.constPropFramework (getTigerVars t)
+    g    = Tiger.makeExpCfg t
 
 ---------------------------------------------------------------------------------------------------------
 

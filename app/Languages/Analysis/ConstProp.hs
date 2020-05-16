@@ -20,7 +20,7 @@ import Term
 
 -------------------------------------------------------------------------
 
--- Look ma! So inefficientp
+-- Look ma! So inefficient
 nodeForTerm :: [GraphNode l] -> Term l -> NodeType -> GraphNode l
 nodeForTerm nodes t nt = head $ filter matchesTerm nodes
   where
@@ -50,6 +50,7 @@ joinConstMap = Map.unionWith joinConstVal
 joinConstPropState :: ConstPropState -> ConstPropState -> ConstPropState
 joinConstPropState (ConstPropState val1 vars1)
                    (ConstPropState val2 vars2) = ConstPropState (joinConstVal val1 val2) (joinConstMap vars1 vars2)
+
 
 abstractOutput :: Map (GraphNode l) ConstPropState -> Term l -> ConstVal
 abstractOutput st t = constProp_val $ st ! (nodeForTerm (Map.keys st) t ExitNode)
