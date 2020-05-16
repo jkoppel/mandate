@@ -64,6 +64,7 @@ executables:
     - derive-cfg
     - hashable
     - intern
+    - mtl
     - process
     - syb
     - tiger-haskell

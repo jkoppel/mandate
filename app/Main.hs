@@ -7,11 +7,15 @@ import System.Exit
 
 import Control.DeepSeq
 import Configuration
+import Data.Map ( Map )
 import Data.Text.Lazy as Lazy
+
 import Data.GraphViz as GraphViz
 import Data.Graph.Inductive.Example
 import Data.Graph.Inductive.PatriciaTree
 import Data.GraphViz.Printing
+
+
 import CfgGenRuntime
 import Graph
 import Rose
@@ -30,6 +34,8 @@ import Languages.Translation
 
 import Languages.AddMul
 
+import Languages.Analysis.ConstProp
+import Languages.Analysis.Monotone
 import Languages.LockStep
 import Languages.MITScript.Parse as MITParse
 import Languages.MITScript.Semantics
@@ -37,12 +43,25 @@ import Languages.MITScript.Signature
 import Languages.MITScript.Syntax
 import Languages.MITScript.Translate
 
-import Languages.Imp.Imp as Imp
+import Languages.Imp.Analyze as Imp
+import Languages.Imp.CfgGen  as Imp
+import Languages.Imp.Imp     as Imp
 
 import Languages.Tiger.Parse as TigerParse
 import Languages.Tiger.Semantics
 import Languages.Tiger.Signature
 import Languages.Tiger.Translate
+
+---------------------------------------------------------------------------------------------------------
+
+
+analyzeConstProp :: Term ImpLang -> Map (GraphNode ImpLang) ConstPropState
+analyzeConstProp t = chaoticIteration fram g
+  where
+    fram = Imp.constPropFramework (getImpVars t)
+    g    = Imp.makeExpCfg t
+
+---------------------------------------------------------------------------------------------------------
 
 main :: IO ()
 main = do
