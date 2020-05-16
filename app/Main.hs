@@ -37,20 +37,24 @@ import Languages.AddMul
 import Languages.Analysis.ConstProp
 import Languages.Analysis.Monotone
 import Languages.LockStep
-import Languages.MITScript.Parse as MITParse
-import Languages.MITScript.Semantics
-import Languages.MITScript.Signature
-import Languages.MITScript.Syntax
-import Languages.MITScript.Translate
+
+import Languages.MITScript.CfgGen    as MIT
+import Languages.MITScript.Parse     as MIT
+import Languages.MITScript.Semantics as MIT
+import Languages.MITScript.Signature as MIT
+import Languages.MITScript.Syntax    as MIT
+import Languages.MITScript.Translate as MIT
 
 import Languages.Imp.Analyze as Imp
 import Languages.Imp.CfgGen  as Imp
 import Languages.Imp.Imp     as Imp
 
-import Languages.Tiger.Parse as TigerParse
-import Languages.Tiger.Semantics
-import Languages.Tiger.Signature
-import Languages.Tiger.Translate
+
+import Languages.Tiger.CfgGen    as Tiger
+import Languages.Tiger.Parse     as Tiger
+import Languages.Tiger.Semantics as Tiger
+import Languages.Tiger.Signature as Tiger
+import Languages.Tiger.Translate as Tiger
 
 ---------------------------------------------------------------------------------------------------------
 
@@ -82,7 +86,7 @@ makeGraph lang fs = case lang of
   _           -> return "Unsupported language"
 
 convertTiger fs = do
-  x <- TigerParse.parseFile fs
+  x <- Tiger.parseFile fs
   tigerRules <- (rules :: IO (NamedRules Tiger))
   pamRules <- sosToPam tigerRules
   amRules <- pamToAM pamRules
@@ -90,7 +94,7 @@ convertTiger fs = do
   return absCfg
 
 convertMITScript fs = do
-  x <- MITParse.parseFile fs
+  x <- MIT.parseFile fs
   mitScriptRules <- (rules :: IO (NamedRules MITScript))
   pamRules <- sosToPam mitScriptRules
   amRules <- pamToAM pamRules

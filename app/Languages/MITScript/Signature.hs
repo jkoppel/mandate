@@ -56,7 +56,7 @@ mitScriptSig = Signature [ StrSig "Name" "Name"
                          , NodeSig "MkReturn" ["Exp"]                 "Stmt"
                          , ValSig  "Return"   ["Exp"]                 "Stmt"
 
-                         , NodeSig "PLUS"  [] "qfBinOp"
+                         , NodeSig "PLUS"  [] "BinOp"
                          , NodeSig "MINUS" [] "BinOp"
                          , NodeSig "TIMES" [] "BinOp"
                          , NodeSig "DIV"   [] "BinOp"
