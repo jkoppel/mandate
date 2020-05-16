@@ -1,14 +1,32 @@
-{-# LANGUAGE DeriveGeneric, EmptyDataDecls, FlexibleInstances, OverloadedStrings, PatternSynonyms, TypeFamilies #-}
+{-# LANGUAGE DeriveGeneric, EmptyDataDecls, FlexibleContexts, FlexibleInstances, OverloadedStrings, PatternSynonyms, TypeFamilies #-}
 
 
-module Languages.Imp (
+module Languages.Imp.Imp (
     ImpLang
   , amStateReduce
+
+  -- No real reason to only export these;
+  -- just doing this because that's all
+  -- currently needed for analysis
+  , pattern (:=)
+  , pattern Assign
+  , pattern Const
+  , pattern EVal
+  , pattern Plus
+  , pattern Var
+  , pattern VarExp
+  , pattern VarName
+  , intConst
+  , varExp
+
+  , getImpVars
 
   , term1
   , term3
   , term4
   , termBalanceParens
+  , term5
+  , term6
   ) where
 
 import Prelude hiding ( True, False, LT )
@@ -16,11 +34,14 @@ import Prelude hiding ( True, False, LT )
 import GHC.Generics ( Generic )
 
 import Control.Monad
+import Control.Monad.Writer ( execWriter, tell )
 import Data.ByteString.Char8 ( ByteString )
 import qualified Data.ByteString.Char8 as BS
 import Data.Interned ( unintern )
 import Data.Interned.ByteString ( InternedByteString(..) )
 import Data.Hashable ( Hashable )
+import           Data.Set ( Set )
+import qualified Data.Set as Set
 
 import Configuration
 import Lang
@@ -188,6 +209,18 @@ tv = NonvalVar
 
 mv :: MetaVar -> Term ImpLang
 mv = MetaVar
+
+
+-------------------------------
+
+
+getImpVars :: Term ImpLang -> Set InternedByteString
+getImpVars t = execWriter $ traverseTerm getVar t
+  where
+    getVar t@(VarName v) = (tell $ Set.singleton v) >> return t
+    getVar t             = return t
+
+-------------------------------
 
 impLangRules :: IO (NamedRules ImpLang)
 impLangRules = sequence [
@@ -423,3 +456,17 @@ termBalanceParens =
     $ (If (varExp "b")
           (Write (strConst ")"))
           Skip)
+
+
+term5 :: Term ImpLang
+term5 = Seq (If True
+               (Seq ("a" := intConst 1)
+                    ("b" := intConst 1))
+               (Seq ("a" := intConst 1)
+                    ("b" := intConst 2)))
+            Skip
+
+term6 :: Term ImpLang
+term6 = Seq ("i" := intConst 0)
+          $ While True
+              ("i" := Plus (varExp "i") (intConst 1))

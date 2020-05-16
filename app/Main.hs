@@ -37,7 +37,7 @@ import Languages.MITScript.Signature
 import Languages.MITScript.Syntax
 import Languages.MITScript.Translate
 
-import Languages.Imp as Imp
+import Languages.Imp.Imp as Imp
 
 import Languages.Tiger.Parse as TigerParse
 import Languages.Tiger.Semantics

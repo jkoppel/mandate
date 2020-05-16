@@ -15,6 +15,8 @@ module Graph (
   , insertNode
   , insert
 
+  , withoutIsolatedNodes
+
   , member
   , succs
   , preds
@@ -186,6 +188,11 @@ insert x et y (Graph m) = Graph $ addEdge x et y
     addIfNotExists a b mp = M.insertWith (\_ x -> x) a b mp
     addEdge a t b mp = M.adjust (\n -> n { edges = S.insert (t, b) (edges n)}) a mp
 
+------------------------------- Graph transformation ------------------------
+
+
+withoutIsolatedNodes :: (Eq a, Hashable a) => Graph a -> Graph a
+withoutIsolatedNodes (Graph m) = Graph $ M.filter (\n -> inDeg n > 0 || outDeg n > 0) m
 
 ------------------------------- Graph querying ------------------------
 

@@ -4,7 +4,8 @@ module CfgGenRuntime (
     MonadGraphGen
   , GraphGen
   , runGraphGen
-  , GraphNode
+  , NodeType(..)
+  , GraphNode(..)
   , GraphNodes
   , makeInOut
   , connect
