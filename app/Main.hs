@@ -38,6 +38,7 @@ import Languages.Analysis.ConstProp
 import Languages.Analysis.Monotone
 import Languages.LockStep
 
+import Languages.MITScript.Analyze   as MIT
 import Languages.MITScript.CfgGen    as MIT
 import Languages.MITScript.Parse     as MIT
 import Languages.MITScript.Semantics as MIT
@@ -58,9 +59,14 @@ import Languages.Tiger.Translate as Tiger
 
 ---------------------------------------------------------------------------------------------------------
 
+analyzeConstPropMIT :: Term MITScript -> Map (GraphNode MITScript) ConstPropState
+analyzeConstPropMIT t = chaoticIteration fram g
+  where
+    fram = MIT.constPropFramework (getMITScriptVars t)
+    g    = MIT.makeExpCfg t
 
-analyzeConstProp :: Term ImpLang -> Map (GraphNode ImpLang) ConstPropState
-analyzeConstProp t = chaoticIteration fram g
+analyzeConstPropImp :: Term ImpLang -> Map (GraphNode ImpLang) ConstPropState
+analyzeConstPropImp t = chaoticIteration fram g
   where
     fram = Imp.constPropFramework (getImpVars t)
     g    = Imp.makeExpCfg t

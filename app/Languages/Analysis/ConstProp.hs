@@ -1,9 +1,12 @@
 module Languages.Analysis.ConstProp (
     ConstVal(..)
   , ConstPropState(..)
+
   , joinConstPropState
   , abstractOutput
+
   , constValBinop
+  , constValUnop
   ) where
 
 
@@ -58,3 +61,9 @@ constValBinop _  Bottom    _         = Bottom
 constValBinop _  _         Bottom    = Bottom
 constValBinop _  Top       _         = Top
 constValBinop _  _         Top       = Top
+
+
+constValUnop :: (Integer -> Integer) -> ConstVal -> ConstVal
+constValUnop op Bottom    = Bottom
+constValUnop op Top       = Top
+constValUnop op (Known n) = Known $ op n
