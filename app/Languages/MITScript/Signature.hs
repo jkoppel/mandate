@@ -2,7 +2,6 @@
 
 module Languages.MITScript.Signature where
 
-import Control.Exception
 import Control.Monad.Writer ( execWriter, tell)
 import           Data.Set ( Set )
 import qualified Data.Set as Set
