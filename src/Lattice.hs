@@ -62,7 +62,6 @@ meetDefault a b = if a == b then Just a else Nothing
 upperBoundDefault :: (Eq m, UpperBound m) => m -> m -> m
 upperBoundDefault a b = if a == b then a else top
 
-
 -------------------------------------- Utility --------------------------------
 
 -- Naive n^2

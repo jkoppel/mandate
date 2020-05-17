@@ -52,6 +52,8 @@ instance (Lang l) => Irrelevance (Term l) where
       valToStar x@(GMetaVar v _) | getVarType v == BoundVar = x
       valToStar t@(Val "true" _) = t
       valToStar t@(Val "false" _) = t
+      valToStar t@(Val "EVal" [StrNode "StrConst" _]) = t -- another hack; no effect on graph shape,
+                                                          -- but keeping this info is helpful
       valToStar (Val _ _) = ValStar
       valToStar t         = t
 

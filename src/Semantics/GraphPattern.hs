@@ -294,7 +294,12 @@ graphPatternToCode sym graphPat = dec <+> body
 
 
 
+-- The StrNode/IntNode cases exist because the recursion pattern of the generated generators
+-- is a completely trivial syntactic traversal. Semantics only affect the "connect" statements.
+-- Thus, the generator will still recurse into StrNode and IntNode's, but discard their results
 valCase :: Doc
 valCase = text ("genCfg t@(Val _ _) = do (a, b) <- %s t" `printf` nameBase 'makeInOut)
        $$ text ("                        %s a b"         `printf` nameBase 'connect)
        $$ text ("                        return (a, b)")
+       $$ text ("genCfg t@(StrNode _ _) = %s t" `printf` nameBase 'makeInOut)
+       $$ text ("genCfg t@(IntNode _ _) = %s t" `printf` nameBase 'makeInOut)

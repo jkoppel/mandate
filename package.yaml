@@ -62,14 +62,16 @@ executables:
     - containers
     - deepseq
     - derive-cfg
+    - fgl
+    - graphviz
     - hashable
     - intern
+    - mtl
     - process
     - syb
     - tiger-haskell
-    - fgl
-    - graphviz
     - text
+    - unordered-containers
 
 
 

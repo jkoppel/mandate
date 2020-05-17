@@ -1,8 +1,10 @@
-{-# LANGUAGE EmptyDataDecls, OverloadedStrings, PatternSynonyms #-}
+{-# LANGUAGE EmptyDataDecls, FlexibleContexts, OverloadedStrings, PatternSynonyms #-}
 
 module Languages.MITScript.Signature where
 
-import Control.Exception
+import Control.Monad.Writer ( execWriter, tell)
+import           Data.Set ( Set )
+import qualified Data.Set as Set
 
 import Data.Interned.ByteString ( InternedByteString )
 
@@ -54,7 +56,7 @@ mitScriptSig = Signature [ StrSig "Name" "Name"
                          , NodeSig "MkReturn" ["Exp"]                 "Stmt"
                          , ValSig  "Return"   ["Exp"]                 "Stmt"
 
-                         , NodeSig "PLUS"  [] "qfBinOp"
+                         , NodeSig "PLUS"  [] "BinOp"
                          , NodeSig "MINUS" [] "BinOp"
                          , NodeSig "TIMES" [] "BinOp"
                          , NodeSig "DIV"   [] "BinOp"
@@ -112,6 +114,15 @@ mitScriptSig = Signature [ StrSig "Name" "Name"
              ]
 
 --------------------------------------------------------------------------------------------------------------------
+
+-- Also ropes in some other names, but w/e
+getMITScriptVars :: Term MITScript -> Set InternedByteString
+getMITScriptVars t = execWriter $ traverseTerm getVar t
+  where
+    getVar t@(Name v) = (tell $ Set.singleton v) >> return t
+    getVar t          = return t
+
+----------------------------------------------
 
 -- Generated using "patSymForSigNode" in Term.hs; fixed by hand
 

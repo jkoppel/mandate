@@ -1,12 +1,14 @@
-{-# LANGUAGE EmptyDataDecls, OverloadedStrings, PatternSynonyms #-}
+{-# LANGUAGE EmptyDataDecls, FlexibleContexts, OverloadedStrings, PatternSynonyms #-}
 
 module Languages.Tiger.Signature where
 
-import Control.Exception
+import Control.Monad.Writer ( execWriter, tell)
+import           Data.Set ( Set )
+import qualified Data.Set as Set
 
 import Data.Interned.ByteString ( InternedByteString )
 
-import Term
+import Term hiding ( Symbol )
 
 data Tiger
 
@@ -174,6 +176,15 @@ tigerSig = Signature [ NodeSig "PExp"  ["Exp"]     "Program"
 
 --------------------------------------------------------------------------------------------------------------------
 
+
+-- Also ropes in some other symbols, but w/e
+getTigerVars :: Term Tiger -> Set InternedByteString
+getTigerVars t = execWriter $ traverseTerm getVar t
+  where
+    getVar t@(Symbol v) = (tell $ Set.singleton v) >> return t
+    getVar t            = return t
+
+----------------------------------------------
 
 -- Hand-made
 

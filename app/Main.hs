@@ -7,11 +7,16 @@ import System.Exit
 
 import Control.DeepSeq
 import Configuration
+import Data.Map ( Map )
 import Data.Text.Lazy as Lazy
+
 import Data.GraphViz as GraphViz
 import Data.Graph.Inductive.Example
 import Data.Graph.Inductive.PatriciaTree
 import Data.GraphViz.Printing
+
+import Data.Interned.ByteString ( InternedByteString(..) )
+
 import CfgGenRuntime
 import Graph
 import Rose
@@ -30,19 +35,55 @@ import Languages.Translation
 
 import Languages.AddMul
 
+import Languages.Analysis.ConstProp
+import Languages.Analysis.Monotone
 import Languages.LockStep
-import Languages.MITScript.Parse as MITParse
-import Languages.MITScript.Semantics
-import Languages.MITScript.Signature
-import Languages.MITScript.Syntax
-import Languages.MITScript.Translate
 
-import Languages.Imp as Imp
+import Languages.MITScript.Analyze   as MIT
+import Languages.MITScript.CfgGen    as MIT
+import Languages.MITScript.Parse     as MIT
+import Languages.MITScript.Semantics as MIT
+import Languages.MITScript.Signature as MIT
+import Languages.MITScript.Syntax    as MIT
+import Languages.MITScript.Translate as MIT
 
-import Languages.Tiger.Parse as TigerParse
-import Languages.Tiger.Semantics
-import Languages.Tiger.Signature
-import Languages.Tiger.Translate
+import Languages.Imp.Analyze as Imp
+import Languages.Imp.CfgGen  as Imp
+import Languages.Imp.Imp     as Imp
+
+
+import Languages.Tiger.Analyze   as Tiger
+import Languages.Tiger.CfgGen    as Tiger
+import Languages.Tiger.Parse     as Tiger
+import Languages.Tiger.Semantics as Tiger
+import Languages.Tiger.Signature as Tiger
+import Languages.Tiger.Translate as Tiger
+
+---------------------------------------------------------------------------------------------------------
+
+analyzeConstPropImp :: Term ImpLang -> Map (GraphNode ImpLang) ConstPropState
+analyzeConstPropImp t = chaoticIteration fram g sourceNode
+  where
+    fram = Imp.constPropFramework (getImpVars t)
+    g    = Imp.makeExpCfg t
+    sourceNode = nodeForTerm (nodeList g) t EnterNode
+
+analyzeConstPropMIT :: Term MITScript -> Map (GraphNode MITScript) ConstPropState
+analyzeConstPropMIT t = chaoticIteration fram g sourceNode
+  where
+    fram = MIT.constPropFramework (getMITScriptVars t)
+    g    = MIT.makeExpCfg t
+    sourceNode = nodeForTerm (nodeList g) t EnterNode
+
+analyzeConstPropTiger :: Term Tiger -> Map (GraphNode Tiger) ConstPropState
+analyzeConstPropTiger t = chaoticIteration fram g sourceNode
+  where
+    fram = Tiger.constPropFramework (getTigerVars t)
+    g    = Tiger.makeExpCfg t
+    sourceNode = nodeForTerm (nodeList g) t EnterNode
+
+
+---------------------------------------------------------------------------------------------------------
 
 main :: IO ()
 main = do
@@ -63,7 +104,7 @@ makeGraph lang fs = case lang of
   _           -> return "Unsupported language"
 
 convertTiger fs = do
-  x <- TigerParse.parseFile fs
+  x <- Tiger.parseFile fs
   tigerRules <- (rules :: IO (NamedRules Tiger))
   pamRules <- sosToPam tigerRules
   amRules <- pamToAM pamRules
@@ -71,7 +112,7 @@ convertTiger fs = do
   return absCfg
 
 convertMITScript fs = do
-  x <- MITParse.parseFile fs
+  x <- MIT.parseFile fs
   mitScriptRules <- (rules :: IO (NamedRules MITScript))
   pamRules <- sosToPam mitScriptRules
   amRules <- pamToAM pamRules
