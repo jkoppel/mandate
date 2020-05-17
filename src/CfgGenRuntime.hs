@@ -12,6 +12,8 @@ module CfgGenRuntime (
 
   , inNodes
   , outNodes
+
+  , nodeForTerm
   ) where
 
 import Control.Monad.State ( MonadState(..), State, gets, modify, execState)
@@ -64,6 +66,11 @@ nextId = do counter <- gets ggs_counter
 
 type GraphNodes l = [GraphNode l]
 
+
+------------------------------------------------------
+-------------------- Main API ------------------------
+------------------------------------------------------
+
 makeInOut :: (MonadGraphGen l m) => Term l -> m (GraphNodes l, GraphNodes l)
 makeInOut t = do id1 <- nextId
                  id2 <- nextId
@@ -91,3 +98,14 @@ inNodes = concat
 
 outNodes :: [GraphNodes l] -> GraphNodes l
 outNodes = concat
+
+------------------------------------------------------
+------------------ For consumers ---------------------
+------------------------------------------------------
+
+
+-- Look ma! So inefficient
+nodeForTerm :: [GraphNode l] -> Term l -> NodeType -> GraphNode l
+nodeForTerm nodes t nt = head $ filter matchesTerm nodes
+  where
+    matchesTerm n = graphNode_type n == nt && graphNode_term n == t

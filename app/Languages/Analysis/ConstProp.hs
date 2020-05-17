@@ -2,6 +2,7 @@ module Languages.Analysis.ConstProp (
     ConstVal(..)
   , ConstPropState(..)
 
+  , constPropBottom
   , joinConstPropState
   , abstractOutput
 
@@ -12,19 +13,12 @@ module Languages.Analysis.ConstProp (
 
 import           Data.Map ( Map, (!) )
 import qualified Data.Map.Strict as Map
+import Data.Set ( Set )
 
 import Data.Interned.ByteString ( InternedByteString )
 
 import CfgGenRuntime
 import Term
-
--------------------------------------------------------------------------
-
--- Look ma! So inefficient
-nodeForTerm :: [GraphNode l] -> Term l -> NodeType -> GraphNode l
-nodeForTerm nodes t nt = head $ filter matchesTerm nodes
-  where
-    matchesTerm n = graphNode_type n == nt && graphNode_term n == t
 
 -------------------------------------------------------------------------
 
@@ -36,6 +30,9 @@ data ConstPropState = ConstPropState {
     , constProp_vars :: Map InternedByteString ConstVal
     }
   deriving (Eq, Ord, Show)
+
+constPropBottom :: Set InternedByteString -> ConstPropState
+constPropBottom vars = ConstPropState Bottom $ Map.fromSet (const Bottom) vars
 
 joinConstVal :: ConstVal -> ConstVal -> ConstVal
 joinConstVal Top       b         = Top

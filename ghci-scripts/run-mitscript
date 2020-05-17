@@ -1,4 +1,4 @@
-:set -XOverloadedStrings
+t:set -XOverloadedStrings
 :set -XTypeApplications
 :l Languages.MITScript.Semantics
 import Control.DeepSeq

@@ -5,17 +5,25 @@ module Languages.Imp.Imp (
     ImpLang
   , amStateReduce
 
-  -- No real reason to only export these;
-  -- just doing this because that's all
-  -- currently needed for analysis
   , pattern (:=)
   , pattern Assign
   , pattern Const
   , pattern EVal
+  , pattern If
+  , pattern False
+  , pattern LT
   , pattern Plus
+  , pattern ReadInt
+  , pattern Seq
+  , pattern Skip
+  , pattern StrConst
+  , pattern True
   , pattern Var
   , pattern VarExp
   , pattern VarName
+  , pattern While
+  , pattern Write
+  , pattern WriteInt
   , intConst
   , varExp
 

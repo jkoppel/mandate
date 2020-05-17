@@ -65,7 +65,8 @@ transferMITScriptConst m _                                     s = ConstPropStat
 
 
 constPropFramework :: Set InternedByteString -> MonotoneFramework ConstPropState Tiger
-constPropFramework vars = MonotoneFramework { bottom = ConstPropState Bottom $ Map.fromSet (const Bottom) vars
-                                            , join = joinConstPropState
+constPropFramework vars = MonotoneFramework { bottom   = constPropBottom vars
+                                            , sourceSt = constPropBottom vars
+                                            , join     = joinConstPropState
                                             , transfer = transferMITScriptConst
                                             }

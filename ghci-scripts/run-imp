@@ -1,7 +1,6 @@
 :set -XOverloadedStrings
 :set -XTypeApplications
 :l Languages.Imp.Imp
-:l Languages.Imp.CfgGen
 import Control.DeepSeq
 import Configuration
 import Data.Text.Lazy

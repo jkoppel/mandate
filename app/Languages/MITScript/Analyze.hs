@@ -56,7 +56,8 @@ transferMITScriptConst m _                          s = ConstPropState Bottom (c
 
 
 constPropFramework :: Set InternedByteString -> MonotoneFramework ConstPropState MITScript
-constPropFramework vars = MonotoneFramework { bottom = ConstPropState Bottom $ Map.fromSet (const Bottom) vars
-                                            , join = joinConstPropState
+constPropFramework vars = MonotoneFramework { bottom   = constPropBottom vars
+                                            , sourceSt = constPropBottom vars
+                                            , join     = joinConstPropState
                                             , transfer = transferMITScriptConst
                                             }

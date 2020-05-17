@@ -22,6 +22,7 @@ forMap = flip Map.mapWithKey
 
 data MonotoneFramework s l = MonotoneFramework {
     bottom :: s
+  , sourceSt :: s
   , join :: s -> s -> s
   , transfer :: Map (GraphNode l) s -> Term l -> s -> s
   }
@@ -31,10 +32,11 @@ iterateToFixpoint :: (Eq a) => (a -> a) -> a -> a
 iterateToFixpoint f x = let next = f x in
                         if next == x then x else iterateToFixpoint f next
 
-chaoticIteration :: forall s l. (Eq s) => MonotoneFramework s l -> Graph (GraphNode l) -> Map (GraphNode l) s
-chaoticIteration fram g = iterateToFixpoint update startState
+chaoticIteration :: forall s l. (Eq s) => MonotoneFramework s l -> Graph (GraphNode l) -> GraphNode l -> Map (GraphNode l) s
+chaoticIteration fram g source = iterateToFixpoint update startState
   where
-    startState = foldr (\n s -> Map.insert n (bottom fram) s) Map.empty (nodeList g)
+    startState = Map.insert source (sourceSt fram) $
+                   foldr (\n s -> Map.insert n (bottom fram) s) Map.empty (nodeList g)
 
     doTransfer :: GraphNode l -> Map (GraphNode l) s -> GraphNode l -> s
     doTransfer cur st n = case graphNode_type cur of

@@ -15,6 +15,7 @@ import Data.Graph.Inductive.Example
 import Data.Graph.Inductive.PatriciaTree
 import Data.GraphViz.Printing
 
+import Data.Interned.ByteString ( InternedByteString(..) )
 
 import CfgGenRuntime
 import Graph
@@ -61,22 +62,26 @@ import Languages.Tiger.Translate as Tiger
 ---------------------------------------------------------------------------------------------------------
 
 analyzeConstPropImp :: Term ImpLang -> Map (GraphNode ImpLang) ConstPropState
-analyzeConstPropImp t = chaoticIteration fram g
+analyzeConstPropImp t = chaoticIteration fram g sourceNode
   where
     fram = Imp.constPropFramework (getImpVars t)
     g    = Imp.makeExpCfg t
+    sourceNode = nodeForTerm (nodeList g) t EnterNode
 
 analyzeConstPropMIT :: Term MITScript -> Map (GraphNode MITScript) ConstPropState
-analyzeConstPropMIT t = chaoticIteration fram g
+analyzeConstPropMIT t = chaoticIteration fram g sourceNode
   where
     fram = MIT.constPropFramework (getMITScriptVars t)
     g    = MIT.makeExpCfg t
+    sourceNode = nodeForTerm (nodeList g) t EnterNode
 
 analyzeConstPropTiger :: Term Tiger -> Map (GraphNode Tiger) ConstPropState
-analyzeConstPropTiger t = chaoticIteration fram g
+analyzeConstPropTiger t = chaoticIteration fram g sourceNode
   where
     fram = Tiger.constPropFramework (getTigerVars t)
     g    = Tiger.makeExpCfg t
+    sourceNode = nodeForTerm (nodeList g) t EnterNode
+
 
 ---------------------------------------------------------------------------------------------------------
 
