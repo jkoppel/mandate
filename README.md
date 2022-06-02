@@ -71,19 +71,28 @@ Example usage:
 
 ## Running and using
 
-Mandate has a very minimal command-line driver, only capable of generating interpreted-mode CFGs from an input file. All other functionality is accessed by entering commands in GHCI.
+Mandate has a very limited command-line driver, capable of a few tasks. Most functionality is accessed by entering commands in GHCI.
 
 ### Driver instructions
 
-    stack exec derive-cfg <name-of-language> <path-to-source-file>
+Things the driver can do:
+
+* Generate a CFG from a source file in interpreted-mode. (Choice of abstraction is hardcoded.)
+* Generate a CFG from a source file using a pre-generated compiled-mode CFG generator
+* Run the constant-propagation analysis on a source file
+
+Usage:
+
+    stack exec derive-cfg <command> <name-of-language> <path-to-source-file>
     
-Valid options for <name-of-language>: mitscript, tiger, imp
+Run `stack exec derive-cfg` for details about the available options. Note that `<path-to-source-file>` is special-cased for Imp, as there is no concrete syntax for Imp.
   
 Example usage:
 
-    stack exec derive-cfg tiger Tiger/testcases/test1.tig
+    stack exec derive-cfg interpreted-cfg tiger Tiger/testcases/test1.tig
 
 Example Tiger files are in `Tiger/testcases`. Example MITScript files are in `MITScript/tests`. For Imp, there are no files. Instead, the names term1, term3, term4, and termBalanceParens are hardcoded to refer to programs defined in `app/Languages/Imp/Imp.hs`.
+
 
 ### REPL instructions
 
@@ -217,38 +226,19 @@ The execution of `AbsReadFile` and friends is then defined in the `runExternalCo
 
     runExternalComputation func state [GStar  _] = return $ emptyConf ValStar
 
-### Using the generated CFG generators
-
-Pre-generated code for the expression-level CFG-generators is already included, in `app/Languages/Imp/CfgGen.hs`, `app/Languages/MITScript/CfgGen.hs`, and `app/Languages/Tiger/CfgGen.hs`. Each file defines a `makeExpCfg` function, and is commented with the command that generated the code.
-
-Example session:
-
-    > :script ghci-scripts/run-tiger
-    > import Languages.Tiger.CfgGen
-    > t <- parse "Tiger/testcases/queens.tig"
-    > showGraph (makeExpCfg t)
-
-### Running a static analysis
-
-For the constant propagation analysis (instructions shown for Tiger; trivial tweak for other languages):
-
-    > :script ghci-scripts/run-tiger
-    > import Main
-    > t <- parse "Tiger/testcases/queens.tig"
-    > analyzeConstPropTiger t
-
-To run the paren-balancing analysis on the example from the paper in the intro:
-
-
-    > :script ghci-scripts/run-imp
-    > import Languages.Imp.Analysis
-    > analyzeParenBalance "b" termBalanceParens
 
 ### Advanced usages
 
 Here we give cursory instructions for some other things a user may wish to do, discussed less in the paper:
 
 Executing a term using the PAM or AM rules: Use the functions `pamEvaluationSequence`, `amEvaluationSequence`, and their variants, defined in `Semantics.AbstractMachine` and `Semantics.Pam`.
+
+To run the paren-balancing analysis on the example from the paper in the intro:
+
+    > :l Languages.Imp.Analyze
+    > :set -XOverloadedStrings
+    > import Languages.Imp.Imp
+    > analyzeParenBalance "b" termBalanceParens
 
 # Viewing generated graphs
 
