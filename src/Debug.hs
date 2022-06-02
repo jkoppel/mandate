@@ -8,18 +8,12 @@ module Debug (
 
 import Debug.Trace ( traceM )
 
--- | Debug module
---
--- This module exports `debugM`, which emits debug output when debug mode is on.
---
--- Ideally, debug mode would be specified by a compile-flag, but I had trouble getting this working,
--- so we're making do for now by manually toggling the DEBUG_STEP #define below
-
 ---------------------------------------------------------
 
+---- FOR DESCRIPTIONS OF FLAGS
+----
+---- See README.md
 
--- TODO: Why doesn't giving the flag in Stack work?
--- #define DEBUG_STEP
 
 isDebug :: Bool
 #ifdef DEBUG_STEP

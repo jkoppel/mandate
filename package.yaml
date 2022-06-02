@@ -26,9 +26,14 @@ flags:
   debug-step:
     manual: true
     default: false
+  short-node-name:
+    manual: true
+    default: false
 when:
-    condition: flag(debug-step)
+  - condition: flag(debug-step)
     cpp-options: -D DEBUG_STEP
+  - condition: flag(short-node-name)
+    cpp-options: -D SHORT_NODE_NAME
 library:
   source-dirs: src
   dependencies:
