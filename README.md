@@ -102,7 +102,46 @@ After running the GHCI script for the language of interest, the generated Phased
 Or simply:
 
     > amRules
+    
+Example output:
 
+```
+Begin Rules:
+
+pexp-cong-2-pexp-done-1:
+<(10624v; (441,442)) | [\('1; ('2,'3)) -> (PExp('1); ('2,'3))].436>  ---->  <(10624v; (441,442)) | 436>
+
+pdecs-cong-2-pdecs-done-1:
+<(10753v; (450,451)) | [\('1; ('2,'3)) -> (PDecs('1); ('2,'3))].445>  ---->  <(10753v; (450,451)) | 445>
+...
+# Over 100 more rules for Tiger
+```
+
+Some notes on this output: The AM-rule names are generated from the SOS rule names in `Semantics.hs`. A rule called `pexp-cong` may generate rules `pexp-cong-1` and `pexp-cong-2`; if `pexp-cong-2` is fused with the rule `pexp-done-1`, the final rule will be called `pexp-cong-2-pexp-done-1`.
+
+The integers in the output are all named variables (where the names are integers). They may be postfixed for a match type: a "v" postfix (as in the "10624v" variable in the example) means it matches only values; a "t" postfix (for "term") matches only nonvalues. Variables without a postfix match anything; though not discussed in the paper, this is required for terms that do not take part in execution, such as the reduction state. A variable precided by a single quote, e.g.: `'1` is locally bound in a continuation stack frame.
+
+The PAM can be printed similarly:
+
+    > pamRules
+   
+   
+Example output:
+
+```
+Begin Rules:
+
+pexp-cong-1:
+<(PExp(4t); (0,1)) | 436> down  ---->  <(4t; (0,1)) | [\('1; ('2,'3)) -> (PExp('1); ('2,'3))].436> down
+
+pexp-cong-2:
+<(440; (441,442)) | [\('1; ('2,'3)) -> (PExp('1); ('2,'3))].436> up  ---->  <(PExp(440); (441,442)) | 436> up
+
+....
+# Many, many, many more
+```
+
+We can see that PAM states differ from AM states in that they additionally contain the up or down phase.
 
 ### Generating an interpreted-mode CFG
 
