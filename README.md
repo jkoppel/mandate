@@ -126,9 +126,14 @@ After running the GHCI script for the language of interest, use the following co
     >  gs <- makeGraphPatterns <function abstraction> <term abstraction> amRules signature
     >  graphPatternsToCode gs
     
-For example, to generate an expression-level CFG-generator for either MITScript or Tiger:
+For example, to generate an expression-level CFG-generator for Tiger:
 
     >  gs <- makeGraphPatterns (irrelevance ValueIrr) (irrSkippingFunScope ValueIrr) amRules signature
+    >  graphPatternsToCode gs
+
+For MITScript:
+
+    >  gs <- makeGraphPatterns (irrelevance ValueIrr) (irrSkippingScope ValueIrr) amRules signature
     >  graphPatternsToCode gs
 
 Note that the variable `amRules` is defined by the GHCI script, while `signature :: Lang l => Signature l` is a member of the `Lang` typeclass. Be warned that `graphPatternsToCode` can take several minutes to run for some cases seen in Tiger, due to inefficient graph algorithms.
@@ -143,7 +148,7 @@ Currently, the only abstractions are various instances of the `Irrelevance` type
 `irrelevance (SortIrr <sort>)`: Abstracts all terms of the given sort to ValStar. For example, for MITScript, `irrelevance (SortIrr "Exp")` abstracts all expresisons to ValStar, generating statement-level CFGs.
 `irrelevance (VarNotIrr <variable name>)`: Abstracts all terms to ValStar except the value of the given variable in the environment. 
 
-Tiger and MITScript also define the `irrSkippingFunScope` combinator (example usage: `irrSkippingFunScope ValueIrr`) which produces a modified abstraction which also abstracts the inner evaluation of functions to ValStar.
+Tiger and MITScript also define the `irrSkippingFunScope` and `irrSkippingScope` combinators respectively (example usage: `irrSkippingFunScope ValueIrr`) which produces a modified abstraction which also abstracts the inner evaluation of functions to ValStar.
 
 Abstractions of the built-in semantic functions are defined per-language in the `Semantics.hs` file for that language. For example, for Tiger, the code begins:
 
