@@ -155,6 +155,7 @@ See the section on abstractions for an explanation of the available abstractions
 
 For example, to generate a statement-level CFG for the file `MITScript/tests/what-works.mit`:
 
+    > :script ghci-scripts/run-mitscript
     > t <- parse "MITScript/tests/what-works.mit"
     > abstractAmCfg (irrelevance (SortIrr \"Exp\")) (irrelevance (SortIrr \"Exp\")) amRules t
 
@@ -167,11 +168,13 @@ After running the GHCI script for the language of interest, use the following co
     
 For example, to generate an expression-level CFG-generator for Tiger:
 
+    > :script ghci-scripts/run-tiger
     >  gs <- makeGraphPatterns (irrelevance ValueIrr) (irrSkippingFunScope ValueIrr) amRules signature
     >  graphPatternsToCode gs
 
 For MITScript:
 
+    > :script ghci-scripts/run-mitscript
     >  gs <- makeGraphPatterns (irrelevance ValueIrr) (irrSkippingScope ValueIrr) amRules signature
     >  graphPatternsToCode gs
 
