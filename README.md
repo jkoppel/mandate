@@ -70,7 +70,7 @@ Valid options for <name-of-language>: mitscript, tiger, imp
   
 Example usage:
 
-    stack exec derive-cfg tiger 
+    stack exec derive-cfg tiger Tiger/testcases/test1.tig
 
 Example Tiger files are in `Tiger/testcases`. Example MITScript files are in `MITScript/tests`. For Imp, there are no files. Instead, the names term1, term3, term4, and termBalanceParens are hardcoded to refer to programs defined in `app/Languages/Imp/Imp.hs`.
 
