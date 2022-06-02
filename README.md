@@ -23,7 +23,7 @@ Alternatively, on Ubuntu/Debian:
     sudo apt-get install haskell-stack
 
 
-### MITScript
+### MITScript parser
 
 If you wish to parse MITScript files, you will also need the dependencies for the included MITScript implementation:
 
@@ -45,7 +45,7 @@ With stack:
 
     stack build
 
-### MITScript
+### MITScript parser
 
     cd ./MITScript
     make
@@ -57,6 +57,17 @@ To test the MITScript build: From the MITScript directory, run:
 Expected output:
 
     (Block [(Assign (Var (Name "x")) (NumConst 5)), (Assign (Var (Name "y")) (NumConst 7)), (Assign (Var (Name "z")) (FunDecl [(Name "x")] (Block [(Return (Var (Name "x")))])))])
+    
+### Flags
+
+Mandate supports two flags:
+
+* `debug-step`: Causes Mandate to verbose print its work during matching, unification, and (attempted) rule application
+* `short-node-name`: Causes the names of CFG nodes in interpreted-mode CFG generation to be printed in short form. See the gallery for examples of short vs. long form.
+
+Example usage:
+
+    > stack build --flag derive-cfg:debug-step 
 
 ## Running and using
 
@@ -157,7 +168,8 @@ For example, to generate a statement-level CFG for the file `MITScript/tests/wha
 
     > :script ghci-scripts/run-mitscript
     > t <- parse "MITScript/tests/what-works.mit"
-    > abstractAmCfg (irrelevance (SortIrr \"Exp\")) (irrelevance (SortIrr \"Exp\")) amRules t
+    > g <- abstractAmCfg (irrelevance (SortIrr "Exp")) (irrelevance (SortIrr "Exp")) amRules t
+    > showGraph g
 
 ### Generating the compiled-mode CFG-generators
 
@@ -169,8 +181,8 @@ After running the GHCI script for the language of interest, use the following co
 For example, to generate an expression-level CFG-generator for Tiger:
 
     > :script ghci-scripts/run-tiger
-    >  gs <- makeGraphPatterns (irrelevance ValueIrr) (irrSkippingFunScope ValueIrr) amRules signature
-    >  graphPatternsToCode gs
+    > gs <- makeGraphPatterns (irrelevance ValueIrr) (irrSkippingFunScope ValueIrr) amRules signature
+    > graphPatternsToCode gs
 
 For MITScript:
 
