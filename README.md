@@ -183,9 +183,9 @@ Different kinds of CFG generators are enabled by the different abstractions pass
 
 Currently, the only abstractions are various instances of the `Irrelevance` typeclass, defined in `src/Semantics/Abstraction.hs`. They are:
 
-`irrelevance ValueIrr`: Abstracts all values to ValStar. Generates expression-level CFGs.
-`irrelevance (SortIrr <sort>)`: Abstracts all terms of the given sort to ValStar. For example, for MITScript, `irrelevance (SortIrr "Exp")` abstracts all expresisons to ValStar, generating statement-level CFGs.
-`irrelevance (VarNotIrr <variable name>)`: Abstracts all terms to ValStar except the value of the given variable in the environment. 
+* `irrelevance ValueIrr`: Abstracts all values to ValStar. Generates expression-level CFGs.
+* `irrelevance (SortIrr <sort>)`: Abstracts all terms of the given sort to ValStar. For example, for MITScript, `irrelevance (SortIrr "Exp")` abstracts all expresisons to ValStar, generating statement-level CFGs.
+* `irrelevance (VarNotIrr <variable name>)`: Abstracts all terms to ValStar except the value of the given variable in the environment. 
 
 Tiger and MITScript also define the `irrSkippingFunScope` and `irrSkippingScope` combinators respectively (example usage: `irrSkippingFunScope ValueIrr`) which produces a modified abstraction which also abstracts the inner evaluation of functions to ValStar.
 
