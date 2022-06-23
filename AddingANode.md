@@ -1,4 +1,4 @@
-In this exercise, we will add a new node for exponentiation to `AddMul.hs`, the simplest example language.
+In this exercise, we will add a new node for exponentiation to `app/languages/AddMul.hs`, the simplest example language.
 
 This will give you experience with the entire pipeline of creating a language, from the initial node construction to abstraction.
 
@@ -46,7 +46,7 @@ data SigNode = NodeSig !Symbol [Sort] Sort
 
 ```
     > :s ghci-scripts/run-muladd
-    > myTerm = Exp (Plus (Eval $ Const 1) (EVal $ Const 1)) (Plus (EVal $ Const 1) (EVal $ Const 1))
+    > myTerm = Exp (Plus (EVal $ Const 1) (EVal $ Const 1)) (Plus (EVal $ Const 1) (EVal $ Const 1))
     > evaluationSequenceL (initConf myTerm) >>= mapM_ (putStrLn.show)
 ```
 
@@ -78,8 +78,8 @@ but the external semantic function we added in the previous section needs to be 
 
 ```
     > :s ghci-scripts/run-muladd
-    > myTerm = Exp (Plus (Eval $ Const 1) (EVal $ Const 1)) (Plus (EVal $ Const 1) (EVal $ Const 1))
+    > myTerm = Exp (Plus (EVal $ Const 1) (EVal $ Const 1)) (Plus (EVal $ Const 1) (EVal $ Const 1))
     > abstractAmCfg (irrelevance ValueIrr) (irrelevance ValueIrr) amRules myTerm
-    > gs <- makeGraphPatterns (irrelevance ValueIrr) (irrSkippingFunScope ValueIrr) amRules addMulLangSig
+    > gs <- makeGraphPatterns (irrelevance ValueIrr) (irrelevance ValueIrr) amRules addMulLangSig
     > graphPatternsToCode gs
 ```
