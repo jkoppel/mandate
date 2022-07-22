@@ -1,3 +1,7 @@
+# Docker image
+
+For a Docker image with this repository already running, see https://zenodo.org/record/6689803
+
 # Contents of this repository
 
 * src: The core source code for Mandate
