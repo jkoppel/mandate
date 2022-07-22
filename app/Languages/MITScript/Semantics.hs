@@ -3,6 +3,7 @@
 
 module Languages.MITScript.Semantics (
     MITScript
+  , irrSkippingScope
   ) where
 
 import Prelude hiding ( True, False, LT, GT, EQ )

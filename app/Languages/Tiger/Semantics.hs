@@ -3,6 +3,7 @@
 
 module Languages.Tiger.Semantics (
     Tiger
+  , irrSkippingFunScope
   ) where
 
 

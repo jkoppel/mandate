@@ -88,27 +88,48 @@ analyzeConstPropTiger t = chaoticIteration fram g sourceNode
 main :: IO ()
 main = do
   args <- getArgs
-  validate args (Prelude.length args) >>= putStrLn
+  case args of
+    ["interpreted-cfg", language, file] -> putStrLn =<< makeGraphInterpreted language file
+    ["compiled-cfg",    language, file] -> putStrLn =<< makeGraphCompiled    language file
+    ["const-prop",      language, file] -> putStrLn =<< doConstProp          language file
+    _                                   -> putStrLn usage
 
-usage = "Usage: derive-cfg [language name] [path to source]"
+usage =    "Usage: derive-cfg <command> <language name> <path to source> \n"
+        ++ "Valid commands: interpreted-cfg, compiled-cfg, const-prop \n"
+	++ "Valid languages: tiger, mitscript, imp \n"
+	++ "\n"
+	++ "The abstraction to be used in each CFG is hardcoded. Check source for details."
+	++ "\n"
+	++ "For imp: Instead of file path, write either: term1, term3, term4, termBalanceParens"
 
-validate :: [String] -> Int -> IO String
-validate args 2 = makeGraph (Prelude.head args) (Prelude.last args)
-validate _ _ = return usage
-
-makeGraph :: String -> String -> IO String
-makeGraph lang fs = case lang of
-  "mitscript" -> graphToString <$> convertMITScript fs 
+makeGraphInterpreted :: String -> String -> IO String
+makeGraphInterpreted lang fs = case lang of
+  "mitscript" -> graphToString <$> convertMITScript fs
   "tiger"     -> graphToString <$> convertTiger fs
   "imp"       -> graphToString <$> convertImp fs
   _           -> return "Unsupported language"
+
+makeGraphCompiled :: String -> String -> IO String
+makeGraphCompiled lang fs = case lang of
+  "mitscript" -> graphToString <$> MIT.makeExpCfg   <$> toGeneric <$> MIT.parseFile   fs
+  "tiger"     -> graphToString <$> Tiger.makeExpCfg <$> toGeneric <$> Tiger.parseFile fs
+  "imp"       -> return $ graphToString $ Imp.makeExpCfg $ impGetTermByName fs
+  _           -> return "Unsupported language"
+
+doConstProp :: String -> String -> IO String
+doConstProp lang fs = case lang of
+  "mitscript" -> show <$> analyzeConstPropMIT   <$> toGeneric <$> MIT.parseFile   fs
+  "tiger"     -> show <$> analyzeConstPropTiger <$> toGeneric <$> Tiger.parseFile fs
+  "imp"       -> show <$> analyzeConstPropImp   <$> return (impGetTermByName fs)
+  _           -> return "Unsupported language"
+
 
 convertTiger fs = do
   x <- Tiger.parseFile fs
   tigerRules <- (rules :: IO (NamedRules Tiger))
   pamRules <- sosToPam tigerRules
   amRules <- pamToAM pamRules
-  absCfg <- abstractAmCfg (irrelevance ValueIrr) (irrelevance ValueIrr) amRules (toGeneric x :: Term Tiger)
+  absCfg <- abstractAmCfg (irrelevance ValueIrr) (Tiger.irrSkippingFunScope ValueIrr) amRules (toGeneric x :: Term Tiger)
   return absCfg
 
 convertMITScript fs = do
@@ -116,15 +137,18 @@ convertMITScript fs = do
   mitScriptRules <- (rules :: IO (NamedRules MITScript))
   pamRules <- sosToPam mitScriptRules
   amRules <- pamToAM pamRules
-  absCfg <- abstractAmCfg (irrelevance (SortIrr "Exp")) (irrelevance (SortIrr "Exp")) amRules (toGeneric x :: Term MITScript)
+  absCfg <- abstractAmCfg (irrelevance (SortIrr "Exp")) (MIT.irrSkippingScope (SortIrr "Exp")) amRules (toGeneric x :: Term MITScript)
   return absCfg
 
+impGetTermByName :: String -> Term ImpLang
+impGetTermByName "term1"             = Imp.term1
+impGetTermByName "term3"             = Imp.term3
+impGetTermByName "term4"             = Imp.term4
+impGetTermByName "termBalanceParens" = Imp.termBalanceParens
+impGetTermByName x                   = error ("Unrecognized Imp term: " ++ x)
+
 convertImp fs = do
-  let x = case fs of
-            "term1"             -> Imp.term1
-            "term3"             -> Imp.term3
-            "term4"             -> Imp.term4
-            "termBalanceParens" -> Imp.termBalanceParens
+  let x = impGetTermByName fs
 
   impRules <- (rules :: IO (NamedRules ImpLang))
   pamRules <- sosToPam impRules
